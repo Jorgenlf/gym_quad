@@ -1,4 +1,4 @@
-name: SimenAUVtest
+name: quad-env
 channels:
   - pytorch-lts
   - conda-forge
@@ -122,4 +122,4 @@ dependencies:
     - tensorboard-plugin-wit==1.8.0
     - werkzeug==2.0.1
     - zipp==3.5.0
-prefix: C:\Users\Thomas\anaconda3\envs\SimenAUVtest
+prefix: C:\Users\orjanic\Anaconda3\envs\quad-env
