@@ -115,9 +115,9 @@ def M_RB():
     return M_RB_CG
 
 
-def M_A():
-    M_A = -np.diag([X_udot, Y_vdot, Z_wdot, K_pdot, M_qdot, N_rdot])
-    return M_A
+# def M_A():
+#     M_A = -np.diag([X_udot, Y_vdot, Z_wdot, K_pdot, M_qdot, N_rdot])
+#     return M_A
 
 
 def M_inv():
@@ -125,46 +125,46 @@ def M_inv():
     return inv(M)
 
 
-def C_RB(nu):
-    nu_2 = nu[3:6]
+# def C_RB(nu):
+#     nu_2 = nu[3:6]
 
-    Ib = Ig - m*geom.S_skew(r_G).dot(geom.S_skew(r_G))
+#     Ib = Ig - m*geom.S_skew(r_G).dot(geom.S_skew(r_G))
 
-    C_RB_CO = np.vstack([
-        np.hstack([m*geom.S_skew(nu_2), -m*geom.S_skew(nu_2).dot(geom.S_skew(r_G))]),
-        np.hstack([m*geom.S_skew(r_G).dot(geom.S_skew(nu_2)), -geom.S_skew(Ib.dot(nu_2))])
-    ])
-    return C_RB_CO
+#     C_RB_CO = np.vstack([
+#         np.hstack([m*geom.S_skew(nu_2), -m*geom.S_skew(nu_2).dot(geom.S_skew(r_G))]),
+#         np.hstack([m*geom.S_skew(r_G).dot(geom.S_skew(nu_2)), -geom.S_skew(Ib.dot(nu_2))])
+#     ])
+#     return C_RB_CO
 
 
-def C_A(nu):
-    u = nu[0]
-    v = nu[1]
-    w = nu[2]
-    p = nu[3]
-    q = nu[4]
-    r = nu[5]
+# def C_A(nu):
+#     u = nu[0]
+#     v = nu[1]
+#     w = nu[2]
+#     p = nu[3]
+#     q = nu[4]
+#     r = nu[5]
 
-    C_11 = np.zeros((3,3))
-    C_12 = np.array([[0, -Z_wdot*w, Y_vdot*v],
-                     [Z_wdot*w, 0, -X_udot*u],
-                     [-Y_vdot*v, X_udot*u, 0]])
+#     C_11 = np.zeros((3,3))
+#     C_12 = np.array([[0, -Z_wdot*w, Y_vdot*v],
+#                      [Z_wdot*w, 0, -X_udot*u],
+#                      [-Y_vdot*v, X_udot*u, 0]])
 
-    C_21 = np.array([[0, -Z_wdot*w, Y_vdot*v],
-                     [Z_wdot*w, 0, -X_udot*u],
-                     [-Y_vdot*v, X_udot*u, 0]])
+#     C_21 = np.array([[0, -Z_wdot*w, Y_vdot*v],
+#                      [Z_wdot*w, 0, -X_udot*u],
+#                      [-Y_vdot*v, X_udot*u, 0]])
 
-    C_22 = np.array([[0, -N_rdot*r, M_qdot*q],
-                     [N_rdot*r, 0, -K_pdot*p],
-                     [-M_qdot*q, K_pdot*p, 0]])
+#     C_22 = np.array([[0, -N_rdot*r, M_qdot*q],
+#                      [N_rdot*r, 0, -K_pdot*p],
+#                      [-M_qdot*q, K_pdot*p, 0]])
     
-    C_A = np.vstack([np.hstack([C_11, C_12]), np.hstack([C_21, C_22])])
-    return C_A
+#     C_A = np.vstack([np.hstack([C_11, C_12]), np.hstack([C_21, C_22])])
+#     return C_A
 
 
-def C(nu):
-    C = C_RB(nu) + C_A(nu)
-    return C
+# def C(nu):
+#     C = C_RB(nu) + C_A(nu)
+#     return C
 def Cv(nu):
     p=nu[3]
     q=nu[4]
@@ -177,33 +177,33 @@ def Cv(nu):
                  0])
     return Cv
 
-def D(nu):
-    u = abs(nu[0])
-    v = abs(nu[1])
-    w = abs(nu[2])
-    p = abs(nu[3])
-    q = abs(nu[4])
-    r = abs(nu[5])
+# def D(nu):
+#     u = abs(nu[0])
+#     v = abs(nu[1])
+#     w = abs(nu[2])
+#     p = abs(nu[3])
+#     q = abs(nu[4])
+#     r = abs(nu[5])
 
-    D = -np.array([[X_u, 0, 0, 0, 0, 0],
-                   [0, Y_v, 0, 0, 0, Y_r],
-                   [0, 0, Z_w, 0, Z_q, 0],
-                   [0, 0, 0, K_p, 0, 0],
-                   [0, 0, M_w, 0, M_q, 0],
-                   [0, N_v, 0, 0, 0, N_r]])
-    D_n = -np.array([[X_uu*u, 0, 0, 0, 0, 0],
-                     [0, Y_vv*v, 0, 0, 0, Y_rr*r],
-                     [0, 0, Z_ww*w, 0, Z_qq*q, 0],
-                     [0, 0, 0, K_pp*p, 0, 0],
-                     [0, 0, M_ww*w, 0, M_qq*q, 0],
-                     [0, N_vv*v, 0, 0, 0, N_rr*r]])
-    L = -np.array([[0, 0, 0, 0, 0, 0],
-                   [0, Y_uvb+Y_uvf, 0, 0, 0, Y_urf],
-                   [0, 0, Z_uwb+Z_uwf, 0, Z_uqf, 0],
-                   [0, 0, 0, 0, 0, 0],
-                   [0, 0, M_uwb+M_uwf, 0, M_uqf, 0],
-                   [0, N_uvb+N_uvf, 0, 0, 0, N_urf]])
-    return D + D_n + L*u
+#     D = -np.array([[X_u, 0, 0, 0, 0, 0],
+#                    [0, Y_v, 0, 0, 0, Y_r],
+#                    [0, 0, Z_w, 0, Z_q, 0],
+#                    [0, 0, 0, K_p, 0, 0],
+#                    [0, 0, M_w, 0, M_q, 0],
+#                    [0, N_v, 0, 0, 0, N_r]])
+#     D_n = -np.array([[X_uu*u, 0, 0, 0, 0, 0],
+#                      [0, Y_vv*v, 0, 0, 0, Y_rr*r],
+#                      [0, 0, Z_ww*w, 0, Z_qq*q, 0],
+#                      [0, 0, 0, K_pp*p, 0, 0],
+#                      [0, 0, M_ww*w, 0, M_qq*q, 0],
+#                      [0, N_vv*v, 0, 0, 0, N_rr*r]])
+#     L = -np.array([[0, 0, 0, 0, 0, 0],
+#                    [0, Y_uvb+Y_uvf, 0, 0, 0, Y_urf],
+#                    [0, 0, Z_uwb+Z_uwf, 0, Z_uqf, 0],
+#                    [0, 0, 0, 0, 0, 0],
+#                    [0, 0, M_uwb+M_uwf, 0, M_uqf, 0],
+#                    [0, N_uvb+N_uvf, 0, 0, 0, N_urf]])
+#     return D + D_n + L*u
 
 
 def B(nu):
@@ -243,3 +243,34 @@ def G(eta):
                   0,
                   0])
     return G
+
+##############################################################
+# Drag coefficient. Definition: [1], Value: [2].
+c_d = 3e-7
+
+#  / Aerodynamic friction Coefficients. Value: [2].
+# k_1 = 0.3729
+# k_2 = 0.3729
+# k_3 = 0.3729
+
+# Linear drag coefficient / Translational drag Coefficients. Definition: [1], Value: [2].
+k_u = 5.56e-4
+k_v = 5.56e-4
+k_w = 5.56e-4
+
+def d(nu):
+    u = nu[0]
+    v = nu[1]
+    w = nu[2]
+
+    return np.array([
+        - k_u * u,
+        - k_v * v,
+        - k_w * w,
+        0,
+        0,
+        0
+    ])
+
+# [1] A Benchmark Comparison of Learned Control Policies for Agile Quadrotor Flight
+# [2] Trajectory Control of Quadcopter by Designing Second Order SMC Controller

@@ -5,7 +5,7 @@ import gym_auv
 import stable_baselines3.common.results_plotter as results_plotter
 import numpy as np
 import torch
-import onnx
+# import onnx
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
@@ -19,7 +19,7 @@ from utils import parse_experiment_info
 
 from typing import Callable
 
-scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate", "proficient", "advanced", "expert"]
+scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]#, "proficient", "advanced", "expert"]
 #scenarios=['3d_new']
 """
 hyperparams = {
@@ -158,7 +158,7 @@ if __name__ == '__main__':
             if scen!="intermediate":
                 continue
 
-        num_envs = 1#6
+        num_envs = 4
         print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...", end="")
         if num_envs > 1:
             env = SubprocVecEnv(
@@ -180,9 +180,9 @@ if __name__ == '__main__':
             #dummy_input={'perception':torch.randn(1,1,15,15).cuda(), 'navigation': torch.randn(1,1,16).cuda()} 
             #torch.onnx.export(agent.policy, dummy_input, "my_ppo_model.onnx", opset_version=9)
             #torch.onnx.export(agent.policy, dummy_input, "my_ppo_model.onnx", opset_version=9)
-        elif scen=="intermediate":
-            continual_model = os.path.join(experiment_dir, scenarios[i], "agents", "last_model.pkl")
-            agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
+        # elif scen=="intermediate":
+        #     continual_model = os.path.join(experiment_dir, scenarios[i], "agents", "last_model.pkl")
+        #     agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
         else:
             continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.pkl")
             agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
@@ -193,7 +193,7 @@ if __name__ == '__main__':
         #    best_mean_reward, n_steps, timesteps = -np.inf, 0, int(30e6)# + i*150e3)
         #else:
         #    
-        best_mean_reward, n_steps, timesteps = -np.inf, 0, int(100e6)# + i*150e3)
+        best_mean_reward, n_steps, timesteps = -np.inf, 0, int(30e6)# + i*150e3)
         print("TRAINING FOR", timesteps, "TIMESTEPS")
         agent.learn(total_timesteps=timesteps, tb_log_name="PPO2",callback=StatsCallback())
         print("FINISHED TRAINING AGENT IN", scen.upper())
