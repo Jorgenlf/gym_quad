@@ -1,0 +1,29 @@
+#!/bin/sh
+#SBATCH --partition=GPUQ
+#SBATCH --account=ie-idi
+#SBATCH --time=150:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=48
+#SBATCH --gres=gpu:1
+#SBATCH --constraint=A100
+#SBATCH --job-name="gpu-training-quad"
+#SBATCH --output=job_gpu.out
+#SBATCH --mail-user=orjanic@stud.ntnu.no
+#SBATCH --mail-type=ALL
+
+WORKDIR=${SLURM_SUBMIT_DIR}
+
+cd ${WORKDIR}
+echo "Running from directory: $SLURM_SUBMIT_DIR"
+echo "Name of the job: $SLURM_JOB_NAME"
+echo "Job ID: $SLURM_JOB_ID"
+echo "Job was ran on nodes: $SLURM_JOB_NODELIST"
+echo "Number of nodes: $SLURM_JOB_NUM_NODES"
+echo "We are using $SLURM_CPUS_ON_NODE cores"
+
+module purge
+module load intel/2022a
+module list
+python train3d.py --exp_id 221
+
+uname -a
