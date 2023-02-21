@@ -7,6 +7,8 @@ import numpy as np
 import torch
 import multiprocessing
 from typing import Callable
+import glob
+import re
 
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import set_random_seed
@@ -40,17 +42,9 @@ policy_kwargs = dict(
                         net_arch=[dict(pi=[128, 64, 32], vf=[128, 64, 32])]
                     )
 
-def callback2(_locals, _globals):
-    global n_steps, best_mean_reward
-    if (n_steps + 1) % 50000 == 0:
-        _self = _locals["self"]
-        _self.save(os.path.join(agents_dir, "model_" + str(n_steps+1) + ".pkl"))
-    n_steps += 1
-    return True
-
 class StatsCallback(BaseCallback):
     def __init__(self):
-        self.n_steps=0
+        self.n_steps = 0
         self.n_calls=0
         self.prev_stats=None
         self.ob_names=["u","v","w","roll","pitch","yaw","p","q","r","nu_c0","nu_c1","nu_c2","chi_err","upsilon_err","chi_err_1","upsilon_err_1","chi_err_5","upsilon_err_5"]
@@ -66,8 +60,9 @@ class StatsCallback(BaseCallback):
             if done_array[i]:
                 if  self.prev_stats is not None:
                     for stat in self.prev_stats[i].keys():
-                        self.logger.record('stats/'+stat,self.prev_stats[i][stat])
+                        self.logger.record('stats/' + stat, self.prev_stats[i][stat])
         self.prev_stats=stats
+
         if (n_steps + 1) % 50000 == 0:
             _self = self.locals.get("self")
             _self.save(os.path.join(agents_dir, "model_" + str(n_steps+1) + ".pkl"))
@@ -114,8 +109,8 @@ if __name__ == '__main__':
             if scen!="intermediate":
                 continue
 
-        # num_envs = 16
-        num_envs = multiprocessing.cpu_count() - 1
+        num_envs = 1
+        # num_envs = multiprocessing.cpu_count() - 1
         print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...", end="")
         if num_envs > 1:
             env = SubprocVecEnv(
@@ -128,14 +123,24 @@ if __name__ == '__main__':
             )
         print("DONE")
         print("INITIALIZING AGENT...", end="")
-        if scen == "line":
-            agent = PPO('MultiInputPolicy', env, **hyperparams,policy_kwargs=policy_kwargs,seed=seed)
+
+        agents = glob.glob(os.path.join(experiment_dir, scen, "agents", "model_*.pkl"))
+        if agents == []:
+            continual_step = 0
         else:
+            continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
+
+        if scen == "line" and continual_step == 0:
+            agent = PPO('MultiInputPolicy', env, **hyperparams,policy_kwargs=policy_kwargs,seed=seed)
+        elif continual_step == 0:
             continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.pkl")
+            agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
+        else:
+            continual_model = os.path.join(experiment_dir, scen, "agents", f"model_{continual_step}.pkl")
             agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
         print("DONE")
 
-        best_mean_reward, n_steps, timesteps = -np.inf, 0, int(100e3)# + i*150e3)
+        best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - num_envs*continual_step# + i*150e3)
         print("TRAINING FOR", timesteps, "TIMESTEPS")
         agent.learn(total_timesteps=timesteps, tb_log_name="PPO2",callback=StatsCallback())
         print("FINISHED TRAINING AGENT IN", scen.upper())
