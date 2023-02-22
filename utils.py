@@ -59,7 +59,7 @@ def simulate_environment(env, agent):
         _, _, done, _ = env.step(action)
     errors = np.array(env.past_errors)
     time = np.array(env.time).reshape((env.total_t_steps,1))
-    sim_data = np.hstack([time, env.past_states, env.past_actions, errors, env.current_history])
+    sim_data = np.hstack([time, env.past_states, env.past_actions, errors])
     df = DataFrame(sim_data, columns=labels)
     error_labels = [r"e", r"h"]
     return df
