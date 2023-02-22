@@ -5,7 +5,7 @@ import gym_auv.utils.geomutils as geom
 import matplotlib.pyplot as plt
 import skimage.measure
 
-from gym_auv.objects.auv3d import AUV3D
+from gym_auv.objects.quad import Quad
 from gym_auv.objects.current3d import Current
 from gym_auv.objects.QPMI import QPMI, generate_random_waypoints#,helix_param
 from gym_auv.objects.path3d import Path3D
@@ -23,7 +23,8 @@ class PathColav3d(gym.Env):
     """
     Creates an environment with a vessel, a path and obstacles.
     """
-    def __init__(self, env_config, scenario="line"):
+    def __init__(self, env_config, scenario="line", seed=None):
+        # self.seed=seed
         for key in env_config:
             setattr(self, key, env_config[key])
         self.n_observations = self.n_obs_states + self.n_obs_errors + self.n_obs_inputs + self.sensor_input_size[0]*self.sensor_input_size[1]
@@ -129,7 +130,6 @@ class PathColav3d(gym.Env):
         self.past_errors = []
         self.past_obs = []
         self.past_prog=[]
-        self.current_history = []
         self.time = []
         self.total_t_steps = 0
         self.reward = 0
@@ -140,7 +140,7 @@ class PathColav3d(gym.Env):
         #print("\tENVIRONMENT GENERATED")
         self.update_control_errors()
         #print("\tCONTROL ERRORS UPDATED")
-        self.observation = self.observe(np.zeros(6, dtype=float))
+        self.observation = self.observe()
         #print("COMPLETE")
         return self.observation
 
@@ -155,7 +155,7 @@ class PathColav3d(gym.Env):
         init_state = scenario()
         # Generate AUV
         #print("\tGENERATING AUV")
-        self.vessel = AUV3D(self.step_size, init_state)
+        self.vessel = Quad(self.step_size, init_state)
         #print("\tGENERATING PI-CONTROLLER")
         #self.thrust_controller = PI()
     
@@ -180,25 +180,19 @@ class PathColav3d(gym.Env):
         plt.show()
 
 
-
     def step(self, action):
         """
         Simulates the environment one time-step. 
         """
-        # Simulate Current
-        self.current.sim()
-        nu_c = self.current(self.vessel.state)
-        self.current_history.append(nu_c[0:3])
-
         # Simulate AUV dynamics one time-step and save action and state
         self.update_control_errors()
         #thrust = self.thrust_controller.u(self.u_error)
         #action = np.hstack((thrust, action))
-        action = np.clip(action, np.array([-1, -1, -1,-1]), np.array([1, 1, 1,1]))
+        action = np.clip(action, np.array([-1, -1, -1, -1]), np.array([1, 1, 1, 1]))
         if len(self.past_actions) > 0:
             self.action_derivative = (action[1:]-self.past_actions[-1][1:])/(self.step_size)
 
-        self.vessel.step(action, nu_c)
+        self.vessel.step(action)
         self.past_states.append(np.copy(self.vessel.state))
         
 
@@ -221,7 +215,7 @@ class PathColav3d(gym.Env):
         info = {}
 
         # Make next observation
-        self.observation = self.observe(nu_c)
+        self.observation = self.observe()
         self.past_obs.append(self.observation['navigation'])
         self.past_prog.append([self.prog/self.path.length])
         # Save sim time info
@@ -230,7 +224,7 @@ class PathColav3d(gym.Env):
         return self.observation, step_reward, done, info
 
 
-    def observe(self, nu_c):
+    def observe(self):
         """
         Returns observations of the environment. 
         """
@@ -518,7 +512,7 @@ class PathColav3d(gym.Env):
 
     def scenario_line(self):
         initial_state = np.zeros(6)
-        self.current = Current(mu=0, Vmin=0, Vmax=0, Vc_init=0, alpha_init=0, beta_init=0, t_step=0) #Current object with zero velocity
+        
         waypoints = generate_random_waypoints(self.n_waypoints,'line')
         self.path = QPMI(waypoints)
         init_pos = [np.random.uniform(0,2)*(-5),0, 0]#np.random.normal(0,1)*5]
@@ -528,7 +522,7 @@ class PathColav3d(gym.Env):
         return initial_state
     def scenario_line_new(self):
         initial_state = np.zeros(6)
-        self.current = Current(mu=0, Vmin=0, Vmax=0, Vc_init=0, alpha_init=0, beta_init=0, t_step=0) #Current object with zero velocity
+        
         waypoints = generate_random_waypoints(self.n_waypoints,'line_new')
         self.path = QPMI(waypoints)
         init_pos = [np.random.uniform(0,2)*(-5),0, 0]#np.random.normal(0,1)*5]
@@ -538,7 +532,7 @@ class PathColav3d(gym.Env):
         return initial_state
     def scenario_horizontal(self):
         initial_state = np.zeros(6)
-        self.current = Current(mu=0, Vmin=0, Vmax=0, Vc_init=0, alpha_init=0, beta_init=0, t_step=0) #Current object with zero velocity
+        
         waypoints = generate_random_waypoints(self.n_waypoints,'horizontal')
         self.path = QPMI(waypoints)
         init_pos = [np.random.uniform(0,2)*(-5), np.random.normal(0,1)*5, 0]#np.random.normal(0,1)*5]
@@ -548,7 +542,7 @@ class PathColav3d(gym.Env):
         return initial_state
     def scenario_horizontal_new(self):
         initial_state = np.zeros(6)
-        self.current = Current(mu=0, Vmin=0, Vmax=0, Vc_init=0, alpha_init=0, beta_init=0, t_step=0) #Current object with zero velocity
+        
         waypoints = generate_random_waypoints(self.n_waypoints,'horizontal_new')
         self.path = QPMI(waypoints)
         init_pos = [np.random.uniform(0,2)*(-5), np.random.normal(0,1)*5, 0]#np.random.normal(0,1)*5]
@@ -559,7 +553,7 @@ class PathColav3d(gym.Env):
 
     def scenario_3d(self):
         initial_state = np.zeros(6)
-        self.current = Current(mu=0, Vmin=0, Vmax=0, Vc_init=0, alpha_init=0, beta_init=0, t_step=0) #Current object with zero velocity
+        
         waypoints = generate_random_waypoints(self.n_waypoints,'3d')
         self.path = QPMI(waypoints)
         init_pos = [np.random.uniform(0,2)*(-5), np.random.normal(0,1)*5, np.random.normal(0,1)*5]
@@ -569,7 +563,7 @@ class PathColav3d(gym.Env):
         return initial_state
     def scenario_3d_new(self):
         initial_state = np.zeros(6)
-        self.current = Current(mu=0, Vmin=0, Vmax=0, Vc_init=0, alpha_init=0, beta_init=0, t_step=0) #Current object with zero velocity
+        
         waypoints = generate_random_waypoints(self.n_waypoints,'3d_new')
         self.path = QPMI(waypoints)
         init_pos=[0,0,0]
