@@ -26,7 +26,7 @@ def odesolver45(f, y, h):
 
 class Quad():
     """
-    Implementation of AUV dynamics. 
+    Implementation of quadcopter dynamics. 
     """
     def __init__(self, step_size, init_eta, safety_radius=1):
         self.state = np.hstack([init_eta, np.zeros((6,))])
@@ -64,8 +64,8 @@ class Quad():
         """
         The right hand side of the 12 ODEs governing the Quad dyanmics.
         """
-        eta = self.state[:6]
-        nu = self.state[6:]
+        eta = state[:6]
+        nu = state[6:]
 
         eta_dot = geom.J(eta).dot(nu)
         nu_dot = ss.M_inv().dot(
