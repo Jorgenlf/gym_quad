@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pandas import DataFrame
 from cycler import cycler
-#from gym_auv.utils.controllers import PI, PID
+#from gym_quad.utils.controllers import PI, PID
 
 #PI = PI()
 #PID_cross = PID(Kp=1.8, Ki=0.01, Kd=0.035)

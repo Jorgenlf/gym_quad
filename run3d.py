@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import gym
-import gym_auv
+import gym_quad
 import os
 
-from gym_auv.utils.controllers import PI, PID
+from gym_quad.utils.controllers import PI, PID
 from mpl_toolkits.mplot3d import Axes3D
 from stable_baselines3 import PPO
 from utils import *

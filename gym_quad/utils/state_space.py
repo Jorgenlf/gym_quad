@@ -1,5 +1,5 @@
 import numpy as np
-import gym_auv.utils.geomutils as geom
+import gym_quad.utils.geomutils as geom
 from numpy.linalg import inv
 from math import cos, sin
 

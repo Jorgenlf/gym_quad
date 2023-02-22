@@ -1,16 +1,16 @@
 from turtle import up
 import numpy as np
 import gym
-import gym_auv.utils.geomutils as geom
+import gym_quad.utils.geomutils as geom
 import matplotlib.pyplot as plt
 import skimage.measure
 
-from gym_auv.objects.quad import Quad
-from gym_auv.objects.current3d import Current
-from gym_auv.objects.QPMI import QPMI, generate_random_waypoints#,helix_param
-from gym_auv.objects.path3d import Path3D
-from gym_auv.objects.obstacle3d import Obstacle
-from gym_auv.utils.controllers import PI, PID
+from gym_quad.objects.quad import Quad
+from gym_quad.objects.current3d import Current
+from gym_quad.objects.QPMI import QPMI, generate_random_waypoints#,helix_param
+from gym_quad.objects.path3d import Path3D
+from gym_quad.objects.obstacle3d import Obstacle
+from gym_quad.utils.controllers import PI, PID
 
 
 test_waypoints = np.array([np.array([0,0,0]), np.array([20,10,15]), np.array([50,20,20]), np.array([80,20,40]), np.array([90,50,50]),

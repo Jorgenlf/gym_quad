@@ -180,7 +180,7 @@ if __name__ == '__main__':
 
     ## Load existing convnet
     def load_net():
-        from . import gym_auv
+        from . import gym_quad
         algo = PPO
         #path = "radarCNN_example_Network.pkl"
         path = "../../radarCNN_example_Network150000.pkl"

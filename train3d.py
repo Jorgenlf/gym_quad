@@ -1,7 +1,7 @@
 
 import os
 import gym
-import gym_auv
+import gym_quad
 import stable_baselines3.common.results_plotter as results_plotter
 import numpy as np
 import torch

@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.linalg as linalg
 import matplotlib.pyplot as plt
-import gym_auv.utils.geomutils as geom
+import gym_quad.utils.geomutils as geom
 
 from scipy.optimize import fminbound
 from mpl_toolkits.mplot3d import Axes3D

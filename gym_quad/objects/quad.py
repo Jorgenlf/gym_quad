@@ -1,6 +1,6 @@
 import numpy as np
-import gym_auv.utils.state_space as ss
-import gym_auv.utils.geomutils as geom
+import gym_quad.utils.state_space as ss
+import gym_quad.utils.geomutils as geom
 
 def odesolver45(f, y, h):
     """Calculate the next step of an IVP of a time-invariant ODE with a RHS
@@ -19,12 +19,6 @@ def odesolver45(f, y, h):
     s4 = f(y + 1932.0*h*s1/2197.0 - 7200.0*h*s2/2197.0 + 7296.0*h*s3/2197.0)
     s5 = f(y + 439.0*h*s1/216.0 - 8.0*h*s2 + 3680.0*h*s3/513.0 - 845.0*h*s4/4104.0)
     s6 = f(y - 8.0*h*s1/27.0 + 2*h*s2 - 3544.0*h*s3/2565 + 1859.0*h*s4/4104.0 - 11.0*h*s5/40.0)
-    print("s1:", s1)
-    print("s2:", s2)
-    print("s3:", s3)
-    print("s4:", s4)
-    print("s5:", s5)
-    print("s6:", s6)
     w = y + h*(25.0*s1/216.0 + 1408.0*s3/2565.0 + 2197.0*s4/4104.0 - s5/5.0)
     q = y + h*(16.0*s1/135.0 + 6656.0*s3/12825.0 + 28561.0*s4/56430.0 - 9.0*s5/50.0 + 2.0*s6/55.0)
     return w, q

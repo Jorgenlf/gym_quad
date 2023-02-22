@@ -38,6 +38,6 @@ pid_pathcolav_config = {
 
 register(
     id='PathColav3d-v0',
-    entry_point='gym_auv.envs:PathColav3d',
+    entry_point='gym_quad.envs:PathColav3d',
     kwargs={'env_config': pid_pathcolav_config}
 )
