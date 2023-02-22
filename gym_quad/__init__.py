@@ -17,8 +17,6 @@ pid_pathcolav_config = {
     "reward_crosstrack_error": -0.0001,
     "reward_pitch_error": -1,
     "reward_verticaltrack_error": -0.0001,
-    "reward_use_rudder": -0.1,
-    "reward_use_elevator": -0.1,
     "reward_collision": 0,
     "sensor_span": (360,180),#(140,140), # the horizontal and vertical span of the sensors
     "sensor_suite": (15, 15), # the number of sensors covering the horizontal and vertical span

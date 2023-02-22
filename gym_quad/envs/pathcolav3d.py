@@ -274,7 +274,6 @@ class PathColav3d(gym.Env):
         step_reward = 0 
 
         #reward_roll = self.vessel.roll**2*self.reward_roll + self.vessel.angular_velocity[0]**2*self.reward_rollrate
-        #reward_control = action[1]**2*self.reward_use_rudder + action[2]**2*self.reward_use_elevator
         reward_steady=0
         for i in range(3):
             if np.abs(self.vessel.angular_velocity[i])>4*np.pi:

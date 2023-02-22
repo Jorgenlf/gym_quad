@@ -29,14 +29,11 @@ class Quad():
     Implementation of quadcopter dynamics. 
     """
     def __init__(self, step_size, init_eta, safety_radius=1):
-        self.state = np.hstack([init_eta, np.zeros((6,))])
         self.step_size = step_size
-        #self.alpha = self.step_size/(self.step_size + 1)
-        self.alpha = self.step_size/(self.step_size + 0.2)
+        self.state = np.hstack([init_eta, np.zeros((6,))])
+        self.safety_radius = safety_radius
         self.input = np.zeros(4)
         self.position_dot = np.zeros(3)
-        self.safety_radius = safety_radius
-        self.safety_radius = 1#1
 
 
     def step(self, action):
