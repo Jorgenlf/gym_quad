@@ -54,7 +54,7 @@ def C(nu):
     return Cv
 
 
-def B(nu):
+def B():
     B = np.array([[0,0,0,0],
                 [0,0,0,0],
                 [1,1,1,1],

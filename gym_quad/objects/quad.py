@@ -66,7 +66,7 @@ class Quad():
 
         eta_dot = geom.J(eta).dot(nu)
         nu_dot = ss.M_inv().dot(
-            ss.B(nu).dot(self.input)
+            ss.B().dot(self.input)
             - ss.G(eta)
             - ss.C(nu)
             - ss.d(nu)
