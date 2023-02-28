@@ -109,7 +109,7 @@ if __name__ == '__main__':
             if scen!="intermediate":
                 continue
 
-        num_envs = 1
+        num_envs = 8
         # num_envs = multiprocessing.cpu_count() - 1
         print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...", end="")
         if num_envs > 1:
@@ -140,7 +140,7 @@ if __name__ == '__main__':
             agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
         print("DONE")
 
-        best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - num_envs*continual_step# + i*150e3)
+        best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - num_envs*continual_step
         print("TRAINING FOR", timesteps, "TIMESTEPS")
         agent.learn(total_timesteps=timesteps, tb_log_name="PPO2",callback=StatsCallback())
         print("FINISHED TRAINING AGENT IN", scen.upper())
