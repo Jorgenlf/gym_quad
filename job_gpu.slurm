@@ -1,11 +1,10 @@
 #!/bin/sh
 #SBATCH --partition=GPUQ
 #SBATCH --account=ie-idi
-#SBATCH --time=150:00:00
+#SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=48
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=A100
 #SBATCH --job-name="gpu-training-quad"
 #SBATCH --output=job_gpu.out
 #SBATCH --mail-user=orjanic@stud.ntnu.no
@@ -22,8 +21,8 @@ echo "Number of nodes: $SLURM_JOB_NUM_NODES"
 echo "We are using $SLURM_CPUS_ON_NODE cores"
 
 module purge
-module load intel/2022a
+module load intel/2022a Python/3.8.2-GCCcore-9.3.0 CUDA/11.0.2-GCC-9.3.0
 module list
-python train3d.py --exp_id 221
+python train3d.py --exp_id 223
 
 uname -a
