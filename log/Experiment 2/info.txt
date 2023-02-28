@@ -1,0 +1,8 @@
+AFTER FIX IN state_dot()
+WITH DRAG FORCE
+
+CPU COUNT = 16
+num_envs = 8
+'device':'cpu'
+scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
+timesteps = 15e6
