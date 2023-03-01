@@ -16,7 +16,7 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
 
-from radarCNN import *
+from lidarCNN import *
 from utils import parse_experiment_info
 
 print('CPU COUNT:', multiprocessing.cpu_count())

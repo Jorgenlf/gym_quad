@@ -21,7 +21,7 @@ test_waypoints = np.array([np.array([0,0,0]), np.array([50,15,5]), np.array([80,
 
 class PathColav3d(gym.Env):
     """
-    Creates an environment with a vessel, a path and obstacles.
+    Creates an environment with a quadcopter, a path and obstacles.
     """
     def __init__(self, env_config, scenario="line", seed=None):
         # self.seed=seed
@@ -105,7 +105,7 @@ class PathColav3d(gym.Env):
         Resets environment to initial state. 
         """
         #print("ENVIRONMENT RESET INITIATED")
-        self.vessel = None
+        self.quadcopter = None
         self.path = None
         self.u_error = None
         self.e = None
@@ -147,7 +147,7 @@ class PathColav3d(gym.Env):
 
     def generate_environment(self):
         """
-        Generates environment with a vessel, potentially ocean current and a 3D path.
+        Generates environment with a quadcopter, potentially ocean current and a 3D path.
         """     
         # Generate training/test scenario
         scenario = self.scenario_switch.get(self.scenario, lambda: print("Invalid scenario"))
@@ -155,7 +155,7 @@ class PathColav3d(gym.Env):
         init_state = scenario()
         # Generate AUV
         #print("\tGENERATING AUV")
-        self.vessel = Quad(self.step_size, init_state)
+        self.quadcopter = Quad(self.step_size, init_state)
         #print("\tGENERATING PI-CONTROLLER")
         #self.thrust_controller = PI()
     
@@ -173,7 +173,7 @@ class PathColav3d(gym.Env):
         ax.set_yticks([-50, 0, 50])
         ax.set_zticks([-50, 0, 50])
         ax.view_init(elev=-165, azim=-35)
-        ax.scatter3D(*self.vessel.position, label="Initial Position", color="y")
+        ax.scatter3D(*self.quadcopter.position, label="Initial Position", color="y")
 
         self.axis_equal3d(ax)
         ax.legend(fontsize=14)
@@ -192,16 +192,16 @@ class PathColav3d(gym.Env):
         if len(self.past_actions) > 0:
             self.action_derivative = (action[1:]-self.past_actions[-1][1:])/(self.step_size)
 
-        self.vessel.step(action)
-        self.past_states.append(np.copy(self.vessel.state))
+        self.quadcopter.step(action)
+        self.past_states.append(np.copy(self.quadcopter.state))
         
 
         self.past_errors.append(np.array([self.e,self.h]))#[self.u_error, self.chi_error, self.e, self.upsilon_error, self.h]))
         
-        self.past_actions.append(self.vessel.input)
+        self.past_actions.append(self.quadcopter.input)
 
         if self.path:
-            self.prog = self.path.get_closest_u(self.vessel.position, self.waypoint_index)
+            self.prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
             self.path_prog.append(self.prog)
             
             # Check if a waypoint is passed
@@ -233,15 +233,15 @@ class PathColav3d(gym.Env):
         chi_error_5,upsilon_error_5=self.get_chi_upsilon(5)
         #print(chi_error_1,upsilon_error_1,chi_error_5,upsilon_error_5)
         obs = np.zeros(self.n_obs_states + self.n_obs_errors + self.n_obs_inputs)
-        obs[0] = self.vessel.relative_velocity[0]#np.clip(self.vessel.relative_velocity[0] / 2, -1, 1)
-        obs[1] = self.vessel.relative_velocity[1]#np.clip(self.vessel.relative_velocity[1] / 0.3, -1, 1)
-        obs[2] = self.vessel.relative_velocity[2]#np.clip(self.vessel.relative_velocity[2] / 0.3, -1, 1)
-        obs[3] =self.vessel.roll #np.clip(self.vessel.roll / np.pi, -1, 1)
-        obs[4] =self.vessel.pitch#np.clip(self.vessel.pitch / np.pi, -1, 1)
-        obs[5] =self.vessel.heading  #np.clip(self.vessel.heading / np.pi, -1, 1)
-        obs[6] = self.vessel.angular_velocity[0]#np.clip(self.vessel.angular_velocity[0] / 1.2, -1, 1)
-        obs[7] =self.vessel.angular_velocity[1] #np.clip(self.vessel.angular_velocity[1] / 0.4, -1, 1)
-        obs[8] = self.vessel.angular_velocity[2]#np.clip(self.vessel.angular_velocity[2] / 0.4, -1, 1)
+        obs[0] = self.quadcopter.relative_velocity[0]#np.clip(self.quadcopter.relative_velocity[0] / 2, -1, 1)
+        obs[1] = self.quadcopter.relative_velocity[1]#np.clip(self.quadcopter.relative_velocity[1] / 0.3, -1, 1)
+        obs[2] = self.quadcopter.relative_velocity[2]#np.clip(self.quadcopter.relative_velocity[2] / 0.3, -1, 1)
+        obs[3] =self.quadcopter.roll #np.clip(self.quadcopter.roll / np.pi, -1, 1)
+        obs[4] =self.quadcopter.pitch#np.clip(self.quadcopter.pitch / np.pi, -1, 1)
+        obs[5] =self.quadcopter.heading  #np.clip(self.quadcopter.heading / np.pi, -1, 1)
+        obs[6] = self.quadcopter.angular_velocity[0]#np.clip(self.quadcopter.angular_velocity[0] / 1.2, -1, 1)
+        obs[7] =self.quadcopter.angular_velocity[1] #np.clip(self.quadcopter.angular_velocity[1] / 0.4, -1, 1)
+        obs[8] = self.quadcopter.angular_velocity[2]#np.clip(self.quadcopter.angular_velocity[2] / 0.4, -1, 1)
         #obs[9] = np.clip(nu_c[0] / 1, -1, 1)
         #obs[10] = np.clip(nu_c[1] / 1, -1, 1)
         #obs[11] = np.clip(nu_c[2] / 1, -1, 1)
@@ -273,13 +273,13 @@ class PathColav3d(gym.Env):
         done = False
         step_reward = 0 
 
-        #reward_roll = self.vessel.roll**2*self.reward_roll + self.vessel.angular_velocity[0]**2*self.reward_rollrate
+        #reward_roll = self.quadcopter.roll**2*self.reward_roll + self.quadcopter.angular_velocity[0]**2*self.reward_rollrate
         reward_steady=0
         for i in range(3):
-            if np.abs(self.vessel.angular_velocity[i])>4*np.pi:
-                reward_steady+=self.reward_rollrate*self.vessel.angular_velocity[i]**2
+            if np.abs(self.quadcopter.angular_velocity[i])>4*np.pi:
+                reward_steady+=self.reward_rollrate*self.quadcopter.angular_velocity[i]**2
 
-        #reward_steady=self.reward_rollrate*(self.vessel.angular_velocity[0]**2+self.vessel.angular_velocity[1]**2+self.vessel.angular_velocity[2]**2)#*0.33
+        #reward_steady=self.reward_rollrate*(self.quadcopter.angular_velocity[0]**2+self.quadcopter.angular_velocity[1]**2+self.quadcopter.angular_velocity[2]**2)#*0.33
         reward_path_following = 3*(self.chi_error**2*self.reward_heading_error + self.upsilon_error**2*self.reward_pitch_error)*2
         reward_collision_avoidance = self.penalize_obstacle_closeness()
         #print(reward_steady)
@@ -295,12 +295,12 @@ class PathColav3d(gym.Env):
     
         # Check collision
         for obstacle in self.nearby_obstacles:
-            if np.linalg.norm(obstacle.position - self.vessel.position) <= obstacle.radius + self.vessel.safety_radius:
+            if np.linalg.norm(obstacle.position - self.quadcopter.position) <= obstacle.radius + self.quadcopter.safety_radius:
                 self.collided = True
         
         end_cond_1 = self.reward < self.min_reward
         end_cond_2 = self.total_t_steps >= self.max_t_steps
-        end_cond_3 = np.linalg.norm(self.path.get_endpoint()-self.vessel.position) < self.accept_rad and self.waypoint_index == self.n_waypoints-2
+        end_cond_3 = np.linalg.norm(self.path.get_endpoint()-self.quadcopter.position) < self.accept_rad and self.waypoint_index == self.n_waypoints-2
         end_cond_4 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
         if end_cond_1 or end_cond_2 or end_cond_3 or end_cond_4:
             if end_cond_3:
@@ -319,12 +319,13 @@ class PathColav3d(gym.Env):
         upsilon_r = np.arctan2(self.h, np.sqrt(self.e**2 + la_dist**2))
         chi_d = self.chi_p + chi_r
         upsilon_d =self.upsilon_p + upsilon_r
-        chi_error = np.clip(geom.ssa(self.vessel.chi - chi_d)/np.pi, -1, 1)
-        upsilon_error = np.clip(geom.ssa(self.vessel.upsilon - upsilon_d)/np.pi, -1, 1)
+        chi_error = np.clip(geom.ssa(self.quadcopter.chi - chi_d)/np.pi, -1, 1)
+        upsilon_error = np.clip(geom.ssa(self.quadcopter.upsilon - upsilon_d)/np.pi, -1, 1)
         return chi_error,upsilon_error
+
     def update_control_errors(self):
         # Update cruise speed error
-        self.u_error = np.clip((self.cruise_speed - self.vessel.relative_velocity[0])/2, -1, 1)
+        self.u_error = np.clip((self.cruise_speed - self.quadcopter.relative_velocity[0])/2, -1, 1)
         self.chi_error = 0.0
         self.e = 0.0
         self.upsilon_error = 0.0
@@ -338,7 +339,7 @@ class PathColav3d(gym.Env):
         # Calculate tracking errors
         SF_rotation = geom.Rzyx(0,self.upsilon_p,self.chi_p)
 
-        epsilon = np.transpose(SF_rotation).dot(self.vessel.position-self.path(self.prog))
+        epsilon = np.transpose(SF_rotation).dot(self.quadcopter.position-self.path(self.prog))
         e = epsilon[1]
         h = epsilon[2]
         # Calculate course and elevation errors from tracking errors
@@ -354,16 +355,16 @@ class PathColav3d(gym.Env):
         """
         self.nearby_obstacles = []
         for obstacle in self.obstacles:
-            distance_vec_NED = obstacle.position - self.vessel.position
+            distance_vec_NED = obstacle.position - self.quadcopter.position
             distance = np.linalg.norm(distance_vec_NED)
-            distance_vec_BODY = np.transpose(geom.Rzyx(*self.vessel.attitude)).dot(distance_vec_NED)
+            distance_vec_BODY = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(distance_vec_NED)
             heading_angle_BODY = np.arctan2(distance_vec_BODY[1], distance_vec_BODY[0])
             pitch_angle_BODY = np.arctan2(distance_vec_BODY[2], np.sqrt(distance_vec_BODY[0]**2 + distance_vec_BODY[1]**2))
             # check if the obstacle is inside the sonar window
-            if distance - self.vessel.safety_radius - obstacle.radius <= self.sonar_range and abs(heading_angle_BODY) <= self.sensor_span[0]*np.pi/180 \
+            if distance - self.quadcopter.safety_radius - obstacle.radius <= self.sonar_range and abs(heading_angle_BODY) <= self.sensor_span[0]*np.pi/180 \
             and abs(pitch_angle_BODY) <= self.sensor_span[1]*np.pi/180:
                 self.nearby_obstacles.append(obstacle)
-            elif distance <= obstacle.radius + self.vessel.safety_radius:
+            elif distance <= obstacle.radius + self.quadcopter.safety_radius:
                 self.nearby_obstacles.append(obstacle)
 
 
@@ -374,9 +375,9 @@ class PathColav3d(gym.Env):
         self.sensor_readings = np.zeros(shape=self.sensor_suite, dtype=float)
         for obstacle in self.nearby_obstacles:
             for i in range(self.sensor_suite[0]):
-                alpha = self.vessel.heading + self.sectors_horizontal[i]
+                alpha = self.quadcopter.heading + self.sectors_horizontal[i]
                 for j in range(self.sensor_suite[1]):
-                    beta = self.vessel.pitch + self.sectors_vertical[j]
+                    beta = self.quadcopter.pitch + self.sectors_vertical[j]
                     _, closeness = self.calculate_object_distance(alpha, beta, obstacle)
                     self.sensor_readings[j,i] = max(closeness, self.sensor_readings[j,i]) 
 
@@ -391,17 +392,17 @@ class PathColav3d(gym.Env):
         ax2 = self.plot3D()
         #for obstacle in self.nearby_obstacles:
         for i in range(self.sensor_suite[0]):
-            alpha = self.vessel.heading + self.sectors_horizontal[i]
+            alpha = self.quadcopter.heading + self.sectors_horizontal[i]
             for j in range(self.sensor_suite[1]):
-                beta = self.vessel.pitch + self.sectors_vertical[j]
+                beta = self.quadcopter.pitch + self.sectors_vertical[j]
                 #s, closeness = self.calculate_object_distance(alpha, beta, obstacle)
                 s=25
                 #self.sensor_readings[j,i] = max(closeness, self.sensor_readings[j,i])              
                 color = "#05f07a"# if s >= self.sonar_range else "#a61717"
                 s = np.linspace(0, s, 100)
-                x = self.vessel.position[0] + s*np.cos(alpha)*np.cos(beta)
-                y = self.vessel.position[1] + s*np.sin(alpha)*np.cos(beta)
-                z = self.vessel.position[2] - s*np.sin(beta)
+                x = self.quadcopter.position[0] + s*np.cos(alpha)*np.cos(beta)
+                y = self.quadcopter.position[1] + s*np.sin(alpha)*np.cos(beta)
+                z = self.quadcopter.position[2] - s*np.sin(beta)
                 ax.plot3D(x, y, z, color=color)
                 #if color == "#a61717": 
                 ax2.plot3D(x, y, z, color=color)
@@ -412,7 +413,7 @@ class PathColav3d(gym.Env):
         ax.xaxis.set_tick_params(labelsize=12)
         ax.yaxis.set_tick_params(labelsize=12)
         ax.zaxis.set_tick_params(labelsize=12)
-        ax.scatter3D(*self.vessel.position, color="y", s=40, label="AUV")
+        ax.scatter3D(*self.quadcopter.position, color="y", s=40, label="AUV")
         print(np.round(self.sensor_readings,3))
         self.axis_equal3d(ax)
         ax.legend(fontsize=14)
@@ -422,7 +423,7 @@ class PathColav3d(gym.Env):
         ax2.xaxis.set_tick_params(labelsize=12)
         ax2.yaxis.set_tick_params(labelsize=12)
         ax2.zaxis.set_tick_params(labelsize=12)
-        ax2.scatter3D(*self.vessel.position, color="y", s=40, label="AUV")
+        ax2.scatter3D(*self.quadcopter.position, color="y", s=40, label="AUV")
         self.axis_equal3d(ax2)
         ax2.legend(fontsize=14)
         plt.show()
@@ -434,9 +435,9 @@ class PathColav3d(gym.Env):
         """
         s = 0
         while s < self.sonar_range:
-            x = self.vessel.position[0] + s*np.cos(alpha)*np.cos(beta)
-            y = self.vessel.position[1] + s*np.sin(alpha)*np.cos(beta)
-            z = self.vessel.position[2] - s*np.sin(beta)
+            x = self.quadcopter.position[0] + s*np.cos(alpha)*np.cos(beta)
+            y = self.quadcopter.position[1] + s*np.sin(alpha)*np.cos(beta)
+            z = self.quadcopter.position[2] - s*np.sin(beta)
             if np.linalg.norm(obstacle.position - [x,y,z]) <= obstacle.radius:
                 break
             else:

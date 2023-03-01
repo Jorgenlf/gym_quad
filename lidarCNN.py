@@ -7,23 +7,21 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import matplotlib.pyplot as plt
 import numpy as np
 
-class RadarCNN(BaseFeaturesExtractor):
+class LidarCNN(BaseFeaturesExtractor):
     """
     :param observation_space: (gym.Space) of dimension (N_sensors x 1)
     :param features_dim: (int) Number of features extracted.
         This corresponds to the number of unit for the last layer.
     """
 
-    def __init__(self, observation_space: gym.spaces.Box, sensor_dim_x : int = 15, sensor_dim_y: int = 15,features_dim: int = 32, kernel_overlap : float = 0.05):
-        super(RadarCNN, self).__init__(observation_space, features_dim=features_dim)
+    def __init__(self, observation_space: gym.spaces.Box, sensor_dim_x : int = 15, sensor_dim_y: int = 15, features_dim: int = 32, kernel_overlap : float = 0.05):
+        super(LidarCNN, self).__init__(observation_space, features_dim=features_dim)
         # We assume CxHxW images (channels first)
         # Re-ordering will be done by pre-preprocessing or wrapper
 
         # Adjust kernel size for sensor density. (Default 180 sensors with 0.05 overlap --> kernel covers 9 sensors.\\225 sensors
-        sensor_dim=sensor_dim_x*sensor_dim_y
         self.in_channels = observation_space.shape[0]
-        self.kernel_size = 5#round(sensor_dim * kernel_overlap)
-        self.kernel_size = self.kernel_size + 1 if self.kernel_size % 2 == 0 else self.kernel_size  # Make it odd sized
+        self.kernel_size = 5
         self.padding = (self.kernel_size - 1) // 2
         self.stride = self.padding
         padding_mode='circular'
@@ -53,7 +51,7 @@ class RadarCNN(BaseFeaturesExtractor):
         sample = sample.reshape(1,1, sample.shape[1], sample.shape[2])
         print(self.cnn)
         with th.no_grad():
-            print("RadarCNN initializing, CNN input is", sample.shape, "and", end=" ")
+            print("LidarCNN initializing, CNN input is", sample.shape, "and", end=" ")
             flatten = self.cnn(sample)
             self.n_flatten = flatten.shape[1]
             print("output is", flatten.shape)
@@ -132,7 +130,7 @@ class PerceptionNavigationExtractor(BaseFeaturesExtractor):
         for key, subspace in observation_space.spaces.items():
             if key == "perception":
                 # Pass sensor readings through CNN
-                extractors[key] = RadarCNN(subspace, sensor_dim_x=sensor_dim_x, sensor_dim_y=sensor_dim_y, features_dim=features_dim, kernel_overlap=kernel_overlap)
+                extractors[key] = LidarCNN(subspace, sensor_dim_x=sensor_dim_x, sensor_dim_y=sensor_dim_y, features_dim=features_dim, kernel_overlap=kernel_overlap)
                 total_concat_size += features_dim  # extractors[key].n_flatten
             elif key == "navigation":
                 # Pass navigation features straight through to the MlpPolicy.
@@ -161,7 +159,7 @@ if __name__ == '__main__':
     from stable_baselines3.ppo.policies import MlpPolicy
     from stable_baselines3 import PPO
 
-    #### Test RadarCNN network circular 1D convolution:sel
+    #### Test LidarCNN network circular 1D convolution:sel
     # Hyperparams
     n_sensors = 180
     kernel = 4
@@ -272,7 +270,7 @@ if __name__ == '__main__':
         _feat = np.array(_feat)
         return theta, _feat  # Return angle positions & list of features.
 
-    # sensor angles : -pi -> pi, such that the first sensor is directly behind the vessel, and sensors go counter-clockwise around to the back again.
+    # sensor angles : -pi -> pi, such that the first sensor is directly behind the quadcopter, and sensors go counter-clockwise around to the back again.
     _d_sensor_angle = 2 * np.pi / n_sensors
     sensor_angles = np.array([(i + 1)*_d_sensor_angle for i in range(n_sensors)])
     sensor_distances = obs[0,0,:]
@@ -291,7 +289,7 @@ if __name__ == '__main__':
     #ax.set_rscale('symlog')
     ax.grid(True)
 
-    ax.set_title("RadarCNN: intermediate layers visualization", va='bottom')
+    ax.set_title("LidarCNN: intermediate layers visualization", va='bottom')
 
     to_plot = [obs, out1, out2, out3, out4, feat]
     names = ["obs", "out1", "out2", "out3", "out4", "feat"]
