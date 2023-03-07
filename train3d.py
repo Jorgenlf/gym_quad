@@ -70,27 +70,27 @@ class StatsCallback(BaseCallback):
         return True
 
 
-def make_env(env_id: str, scenario: str, rank: int, seed: int = 0) -> Callable:
-    """
-    Utility function for multiprocessed env.
-    :param env_id: (str) the environment ID
-    :param num_env: (int) the number of environment you wish to have in subprocesses
-    :param seed: (int) the inital seed for RNG
-    :param rank: (int) index of the subprocess
-    :return: (Callable)
-    """
-    print("makeenv")
-    def _init() -> gym.Env:
-        #env = gym.make(env_id, scenario=scenario)
-        env = gym.make("PathColav3d-v0", scenario=scen)
-        env.seed(seed + rank)
-        return env
+# def make_env(env_id: str, scenario: str, rank: int, seed: int = 0) -> Callable:
+#     """
+#     Utility function for multiprocessed env.
+#     :param env_id: (str) the environment ID
+#     :param num_env: (int) the number of environment you wish to have in subprocesses
+#     :param seed: (int) the inital seed for RNG
+#     :param rank: (int) index of the subprocess
+#     :return: (Callable)
+#     """
+#     print("makeenv")
+#     def _init() -> gym.Env:
+#         #env = gym.make(env_id, scenario=scenario)
+#         env = gym.make("PathColav3d-v0", scenario=scen)
+#         env.seed(seed + rank)
+#         return env
 
-    set_random_seed(seed)
-    return _init
+#     set_random_seed(seed)
+#     return _init
 
 if __name__ == '__main__':
-    experiment_dir, _, _ = parse_experiment_info()
+    experiment_dir, _, args = parse_experiment_info()
     
     seed=np.random.randint(0,10000)
     with open('seed.txt', 'w') as file:
@@ -114,12 +114,12 @@ if __name__ == '__main__':
         print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...", end="")
         if num_envs > 1:
             env = SubprocVecEnv(
-                [lambda: Monitor(gym.make("PathColav3d-v0", scenario=scen), agents_dir, allow_early_resets=True)
+                [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir, allow_early_resets=True)
                 for i in range(num_envs)]
             )
         else:
             env = DummyVecEnv(
-                [lambda: Monitor(gym.make("PathColav3d-v0", scenario=scen), agents_dir,allow_early_resets=True)]
+                [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir,allow_early_resets=True)]
             )
         print("DONE")
         print("INITIALIZING AGENT...", end="")

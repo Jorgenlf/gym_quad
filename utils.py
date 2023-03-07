@@ -14,13 +14,14 @@ from cycler import cycler
 def parse_experiment_info():
     """Parser for the flags that can be passed with the run/train/test scripts."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exp_id",type=int, help="Which experiment number to run/train/test")
+    parser.add_argument("--env", dafault="WaypointPlanner-v0", type=str, help="Which environment to run/train/test")
+    parser.add_argument("--exp_id", type=int, help="Which experiment number to run/train/test")
     parser.add_argument("--scenario", default="line", type=str, help="Which scenario to run")
     parser.add_argument("--controller_scenario", default=None, type=str, help="Which scenario the agent was trained in")
     parser.add_argument("--controller", default=None, type=int, help="Which model to load as main controller. Requires only integer")
     args = parser.parse_args()
     
-    experiment_dir = os.path.join(r"./log", r"Experiment {}".format(args.exp_id))
+    experiment_dir = os.path.join(r"./log", r"{}".format(args.env), r"Experiment {}".format(args.exp_id))
 
     if args.controller_scenario is not None:
         agent_path = os.path.join(experiment_dir, args.controller_scenario, "agents")
@@ -31,7 +32,7 @@ def parse_experiment_info():
     else:
         agent_path = os.path.join(agent_path,"model_12650000.pkl")#"last_model.pkl")
     print(agent_path)
-    return experiment_dir, agent_path, args.scenario
+    return experiment_dir, agent_path, args
 
 
 def calculate_IAE(sim_df):
