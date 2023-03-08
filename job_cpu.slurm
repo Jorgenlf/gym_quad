@@ -23,6 +23,6 @@ echo "We are using $SLURM_CPUS_ON_NODE cores"
 module purge
 module load intel/2022a #Python/3.8.2-GCCcore-9.3.0 CUDA/11.0.2-GCC-9.3.0
 module list
-python train3d.py --env WaypointPlanner-v0 --exp_id 2
+python train3d.py --env WaypointPlanner-v0 --exp_id 4
 
 uname -a
