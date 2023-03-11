@@ -7,3 +7,16 @@ num_envs = 8
 scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
 timesteps = 15e6
 
+RADAR_CNN CONFIG
+        IN_CHANNELS = 1
+        KERNEL_SIZE = 5
+        PADDING     = 2
+        STRIDE      = 2
+Sequential(
+  (0): Conv2d(1, 3, kernel_size=(5, 5), stride=(1, 1), padding=(2, 2), padding_mode=circular)
+  (1): ReLU()
+  (2): Conv2d(3, 3, kernel_size=(5, 5), stride=(2, 2), padding=(2, 2), padding_mode=circular)
+  (3): ReLU()
+  (4): Conv2d(3, 1, kernel_size=(5, 5), stride=(2, 2), padding=(2, 2), padding_mode=circular)
+  (5): Flatten(start_dim=1, end_dim=-1)
+)
