@@ -2,7 +2,7 @@ import argparse
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from pandas import DataFrame
+import pandas as pd
 from cycler import cycler
 #from gym_quad.utils.controllers import PI, PID
 
@@ -19,6 +19,7 @@ def parse_experiment_info():
     parser.add_argument("--scenario", default="line", type=str, help="Which scenario to run")
     parser.add_argument("--controller_scenario", default=None, type=str, help="Which scenario the agent was trained in")
     parser.add_argument("--controller", default=None, type=int, help="Which model to load as main controller. Requires only integer")
+    parser.add_argument("--episodes", default=1, type=int, help="How many episodes to run when testing the quadcopter")
     args = parser.parse_args()
     
     experiment_dir = os.path.join(r"./log", r"{}".format(args.env), r"Experiment {}".format(args.exp_id))
@@ -30,8 +31,7 @@ def parse_experiment_info():
     if args.controller is not None:
         agent_path = os.path.join(agent_path, "model_" + str(args.controller) + ".pkl")
     else:
-        agent_path = os.path.join(agent_path,"model_12650000.pkl")#"last_model.pkl")
-    print(agent_path)
+        agent_path = os.path.join(agent_path,"last_model.pkl")
     return experiment_dir, agent_path, args
 
 
@@ -41,17 +41,18 @@ def calculate_IAE(sim_df):
     """
     IAE_cross = sim_df[r"e"].abs().sum()
     IAE_vertical = sim_df[r"h"].abs().sum()
-    print("IAE Cross track: {}, IAE Vertical track: {}".format(IAE_cross, IAE_vertical))
+    # print("IAE Cross track: {}, IAE Vertical track: {}".format(IAE_cross, IAE_vertical))
     return IAE_cross, IAE_vertical
 
 
-def simulate_environment(env, agent):
+def simulate_environment(episode, env, agent):
     global error_labels, current_labels, input_labels, state_labels
     state_labels = [r"$N$", r"$E$", r"$D$", r"$\phi$", r"$\theta$", r"$\psi$", r"$u$", r"$v$", r"$w$", r"$p$", r"$q$", r"$r$"]
-    current_labels = [r"$u_c$", r"$v_c$", r"$w_c$"]
+    # current_labels = [r"$u_c$", r"$v_c$", r"$w_c$"]
     input_labels = [r"$\eta$", r"$\delta_r$", r"$\delta_s$",r"$\F_4$"]
-    error_labels = [r"$\tilde{u}$", r"$\tilde{\chi}$", r"e", r"$\tilde{\upsilon}$", r"h"]
-    labels = np.hstack(["Time", state_labels, input_labels, error_labels, current_labels])
+    # error_labels = [r"$\tilde{u}$", r"$\tilde{\chi}$", r"e", r"$\tilde{\upsilon}$", r"h"]
+    error_labels = [r"e", r"h"]
+    labels = np.hstack(["Episode", "Time", state_labels, input_labels, error_labels])
     
     done = False
     env.reset()
@@ -60,10 +61,11 @@ def simulate_environment(env, agent):
         _, _, done, _ = env.step(action)
     errors = np.array(env.past_errors)
     time = np.array(env.time).reshape((env.total_t_steps,1))
-    sim_data = np.hstack([time, env.past_states, env.past_actions, errors])
-    df = DataFrame(sim_data, columns=labels)
+    episode = np.full(((env.total_t_steps,1)), episode)
+    sim_data = np.hstack([episode, time, env.past_states, env.past_actions, errors])
+    df = pd.DataFrame(sim_data, columns=labels)
     error_labels = [r"e", r"h"]
-    return df
+    return df, env
 
 
 def set_default_plot_rc():
@@ -148,26 +150,27 @@ def plot_control_errors(sim_dfs):
 
 def plot_3d(env, sim_df):
     """
-    Plots the UAV path in 3D inside the environment provided.
+    Plots the Quadcopter path in 3D inside the environment provided.
     """
-    
     plt.rcdefaults()
     plt.rc('lines', linewidth=3)
+
     ax = env.plot3D()#(wps_on=False)
-    ax.plot3D(sim_df[r"$N$"], sim_df[r"$E$"], sim_df[r"$D$"], color="#EECC55", label="UAV Path")#, linestyle="dashed")
-    ax.set_xlabel(xlabel="North [m]", fontsize=14)
-    ax.set_ylabel(ylabel="East [m]", fontsize=14)
-    ax.set_zlabel(zlabel="Down [m]", fontsize=14)
+    ax.plot3D(sim_df[r"$N$"], sim_df[r"$E$"], sim_df[r"$D$"], color="#EECC55", label="Quadcopter Path")#, linestyle="dashed")
+    ax.set_xlabel(xlabel=r"$x_w$ [m]", fontsize=14)
+    ax.set_ylabel(ylabel=r"$y_w$ [m]", fontsize=14)
+    ax.set_zlabel(zlabel=r"$z_w$ [m]", fontsize=14)
     ax.legend(loc="upper right", fontsize=14)
-    ax.set_ylim([-2,2])
-    ax.set_zlim([-2,2])
-    plt.savefig('line.pdf')
+    ax.set_xlim([-200,200])
+    ax.set_ylim([-200,200])
+    ax.set_zlim([-200,200])
+    # plt.savefig('line.pdf')
     plt.show()
 
 
 def plot_multiple_3d(env, sim_dfs):
     """
-    Plots multiple AUV paths in 3D inside the environment provided.
+    Plots multiple Quadcopter paths in 3D inside the environment provided.
     """
     plt.rcdefaults()
     c = ['#EE6666', '#88BB44', '#EECC55']
@@ -230,6 +233,39 @@ def plot_collision_reward_function():
     ax.xaxis.set_tick_params(labelsize=14)
     ax.yaxis.set_tick_params(labelsize=14)
     plt.show()
+
+
+def write_report(experiment_dir: str, sim_df: pd.DataFrame, env, episode: int) -> None:
+    sim_df.to_csv(os.path.join(experiment_dir, 'test_sim.csv'), index=False)
+    episode_df = sim_df.loc[sim_df['Episode'] == episode]
+
+    timesteps = episode_df.shape[0]
+    avg_ape = np.sqrt(episode_df['e']**2 + episode_df['h']**2).mean()
+    iae_cross, iae_vertical = calculate_IAE(episode_df)
+    success = int(env.success)
+    collision = int(env.collided)
+    data = {
+        'Episode': episode, 
+        'Timesteps': timesteps, 
+        'Avg Absolute Path Error': avg_ape,
+        'IAE Cross': iae_cross,
+        'IAE Vertical': iae_vertical,
+        'Success': success,
+        'Collision': collision
+    }
+
+    summary = pd.read_csv(os.path.join(experiment_dir, 'test_summary.csv'))
+    summary = summary.append(data, ignore_index=True)
+    summary.to_csv(os.path.join(experiment_dir, 'test_summary.csv'), index=False)
+
+    with open(os.path.join(experiment_dir, 'report.txt'), 'w') as f:
+        f.write('# PERFORMANCE METRICS (LAST {} EPISODES AVG.)\n'.format(summary.shape[0]))
+        f.write('{:<30}{:<30.2f}\n'.format('Avg. Number of Timesteps', summary['Timesteps'].mean()))
+        f.write('{:<30}{:<30.2f}\n'.format('Avg. Absolute Path Error [m]', summary['Avg Absolute Path Error'].mean()))
+        f.write('{:<30}{:<30.2f}\n'.format('Avg. IAE Cross Track [m]', summary['IAE Cross'].mean()))
+        f.write('{:<30}{:<30.2f}\n'.format('Avg. IAE Verical Track [m]', summary['IAE Vertical'].mean()))
+        f.write('{:<30}{:<30.2f}\n'.format('Success Rate [%]', summary['Success'].mean()*100))
+        f.write('{:<30}{:<30.2f}\n'.format('Collision Rate [%]', summary['Collision'].mean()*100))
 
 
 if __name__ == "__main__":
