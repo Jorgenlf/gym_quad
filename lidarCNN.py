@@ -22,8 +22,8 @@ class LidarCNN(BaseFeaturesExtractor):
         # Adjust kernel size for sensor density. (Default 180 sensors with 0.05 overlap --> kernel covers 9 sensors.\\225 sensors
         self.in_channels = observation_space.shape[0]
         self.kernel_size = 5
-        self.padding = (self.kernel_size - 1) // 2
-        self.stride = self.padding
+        self.padding = 2
+        self.stride = 2
         padding_mode='circular'
         print("RADAR_CNN CONFIG")
         print("\tIN_CHANNELS =", self.in_channels)
@@ -32,18 +32,22 @@ class LidarCNN(BaseFeaturesExtractor):
         print("\tSTRIDE      =", self.stride)
 
         self.cnn = nn.Sequential(
-            # in_channels: sensor distance, obst_velocity_x, obst_velocity_y
-            nn.Conv2d(in_channels=self.in_channels, out_channels=3, kernel_size=self.kernel_size, padding=self.padding,
-                      padding_mode=padding_mode), #   nn.Conv2d(16, 33, (3, 5), stride=(2, 1), padding=(4, 2), dilation=(3, 1)),
-
-            nn.ReLU(),
-            nn.Conv2d(in_channels=3, out_channels=3, kernel_size=self.kernel_size, padding=self.padding,
-                      padding_mode=padding_mode, stride=self.stride),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=3, out_channels=1, kernel_size=self.kernel_size, padding=self.padding,
+            nn.Conv2d(in_channels=self.in_channels, out_channels=1, kernel_size=self.kernel_size, padding=self.padding,
                       padding_mode=padding_mode, stride=self.stride),
             nn.Flatten()
         )
+        # self.cnn = nn.Sequential(
+        #     nn.Conv2d(in_channels=self.in_channels, out_channels=3, kernel_size=self.kernel_size, padding=self.padding,
+        #               padding_mode=padding_mode),
+
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels=3, out_channels=3, kernel_size=self.kernel_size, padding=self.padding,
+        #               padding_mode=padding_mode, stride=self.stride),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels=3, out_channels=1, kernel_size=self.kernel_size, padding=self.padding,
+        #               padding_mode=padding_mode, stride=self.stride),
+        #     nn.Flatten()
+        # )
 
         # Compute shape by doing one forward pass
         self.n_flatten = 0
