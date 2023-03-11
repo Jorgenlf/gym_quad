@@ -14,8 +14,8 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 if __name__ == "__main__":
-    experiment_dir, agent_path, scenario = parse_experiment_info()
-    env = gym.make("PathColav3d-v0", scenario=scenario)
+    experiment_dir, agent_path, args = parse_experiment_info()
+    env = gym.make(args.env, scenario=args.scenario)
     agent = PPO.load(agent_path)
     sim_df,_,_ = simulate_environment(env, agent)
     sim_df.to_csv(r'simdata.csv')
