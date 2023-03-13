@@ -29,11 +29,11 @@ if __name__ == "__main__":
             sim_df = episode_df
 
         write_report(experiment_dir, sim_df, env, episode)
-        plot_attitude(sim_df)
+        # plot_attitude(sim_df)
         #plot_velocity(sim_df)
         #plot_angular_velocity(sim_df)
         #plot_control_inputs([sim_df])
         #plot_control_errors([sim_df])
-        plot_3d(env, sim_df)
+        # plot_3d(env, sim_df)
         #plot_current_data(sim_df)
 
