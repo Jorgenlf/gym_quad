@@ -41,17 +41,15 @@ def calculate_IAE(sim_df):
     """
     IAE_cross = sim_df[r"e"].abs().sum()
     IAE_vertical = sim_df[r"h"].abs().sum()
-    # print("IAE Cross track: {}, IAE Vertical track: {}".format(IAE_cross, IAE_vertical))
     return IAE_cross, IAE_vertical
 
 
 def simulate_environment(episode, env, agent):
     global error_labels, current_labels, input_labels, state_labels
     state_labels = [r"$N$", r"$E$", r"$D$", r"$\phi$", r"$\theta$", r"$\psi$", r"$u$", r"$v$", r"$w$", r"$p$", r"$q$", r"$r$"]
-    # current_labels = [r"$u_c$", r"$v_c$", r"$w_c$"]
     input_labels = [r"$\eta$", r"$\delta_r$", r"$\delta_s$",r"$\F_4$"]
-    # error_labels = [r"$\tilde{u}$", r"$\tilde{\chi}$", r"e", r"$\tilde{\upsilon}$", r"h"]
-    error_labels = [r"e", r"h"]
+    error_labels = [r"$\tilde{u}$", r"$\tilde{\chi}$", r"e", r"$\tilde{\upsilon}$", r"h"]
+    # error_labels = [r"e", r"h"]
     labels = np.hstack(["Episode", "Time", state_labels, input_labels, error_labels])
     
     done = False
@@ -64,7 +62,6 @@ def simulate_environment(episode, env, agent):
     episode = np.full(((env.total_t_steps,1)), episode)
     sim_data = np.hstack([episode, time, env.past_states, env.past_actions, errors])
     df = pd.DataFrame(sim_data, columns=labels)
-    error_labels = [r"e", r"h"]
     return df, env
 
 
@@ -135,16 +132,18 @@ def plot_control_errors(sim_dfs):
     """
     Plot control inputs from simulation data
     """
-    #error_labels = [r'e', r'h']
     set_default_plot_rc()
     c = ['#EE6666', '#88BB44', '#EECC55']
     for i, sim_df in enumerate(sim_dfs):
         error = np.sqrt(sim_df[r"e"]**2+sim_df[r"h"]**2)
-        plt.plot(sim_df["Time"], error, linewidth=4, color=c[i])
+        plt.plot(sim_df["Time"], error, linewidth=4, color='r')
+        plt.plot(sim_df["Time"], sim_df[r"e"], linewidth=4, color='g')
+        plt.plot(sim_df["Time"], sim_df[r"h"], linewidth=4, color='b')
+        plt.plot(sim_df["Time"], sim_df[r"$\tilde{\chi}$"], linewidth=4, color='k')
+        plt.plot(sim_df["Time"], sim_df[r"$\tilde{\upsilon}$"], linewidth=4, color='y')
     plt.xlabel(xlabel="Time [s]", fontsize=12)
     plt.ylabel(ylabel="Tracking Error [m]", fontsize=12)
     #plt.ylim([0,15])
-    plt.legend([r"$\lambda_r=0.9$", r"$\lambda_r=0.5$", r"$\lambda_r=0.1$"], loc="upper right", fontsize=14)
     plt.show()
 
 

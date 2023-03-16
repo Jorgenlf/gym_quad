@@ -38,7 +38,7 @@ hyperparams = {
 
 policy_kwargs = dict(
                         features_extractor_class = PerceptionNavigationExtractor,
-                        features_extractor_kwargs = dict(sensor_dim_x=15,sensor_dim_y=15,features_dim=16),
+                        features_extractor_kwargs = dict(sensor_dim_x=15,sensor_dim_y=15,features_dim=32),
                         net_arch=[dict(pi=[128, 64, 32], vf=[128, 64, 32])]
                     )
 

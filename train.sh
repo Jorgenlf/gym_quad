@@ -1,8 +1,8 @@
 #!/bin/sh
 
-python train3d.py --exp_id 3 &
+python train3d.py --exp_id 4 &
 PID=$!
 
-sleep 3600 #1h0m
+sleep 7200 #2h0m
 kill $PID
 ./train.sh

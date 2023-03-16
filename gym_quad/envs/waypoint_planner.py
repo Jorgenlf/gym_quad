@@ -172,7 +172,8 @@ class WaypointPlanner(gym.Env):
 
         self.quadcopter.step(action)
         self.past_states.append(np.copy(self.quadcopter.state))
-        self.past_errors.append(np.array([self.e,self.h]))#[self.u_error, self.chi_error, self.e, self.upsilon_error, self.h]))
+        # self.past_errors.append(np.array([self.e,self.h]))
+        self.past_errors.append(np.array([self.u_error, self.chi_error, self.e, self.upsilon_error, self.h]))
         self.past_actions.append(self.quadcopter.input)
 
         if self.path:
@@ -274,11 +275,14 @@ class WaypointPlanner(gym.Env):
 
     def get_chi_upsilon(self,la_dist):
         chi_r = np.arctan2(-self.e, la_dist)
+        # chi_r = np.arctan2(self.e, la_dist)
         upsilon_r = np.arctan2(self.h, np.sqrt(self.e**2 + la_dist**2))
         chi_d = self.chi_p + chi_r
         upsilon_d =self.upsilon_p + upsilon_r
         chi_error = np.clip(geom.ssa(self.quadcopter.chi - chi_d)/np.pi, -1, 1)
+        # chi_error = geom.ssa(self.quadcopter.chi - chi_d)
         upsilon_error = np.clip(geom.ssa(self.quadcopter.upsilon - upsilon_d)/np.pi, -1, 1)
+        # upsilon_error = geom.ssa(self.quadcopter.upsilon - upsilon_d)
         return chi_error,upsilon_error
 
     def update_control_errors(self):
