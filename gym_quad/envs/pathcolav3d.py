@@ -233,9 +233,9 @@ class PathColav3d(gym.Env):
         chi_error_5,upsilon_error_5=self.get_chi_upsilon(5)
         #print(chi_error_1,upsilon_error_1,chi_error_5,upsilon_error_5)
         obs = np.zeros(self.n_obs_states + self.n_obs_errors + self.n_obs_inputs)
-        obs[0] = self.quadcopter.relative_velocity[0]#np.clip(self.quadcopter.relative_velocity[0] / 2, -1, 1)
-        obs[1] = self.quadcopter.relative_velocity[1]#np.clip(self.quadcopter.relative_velocity[1] / 0.3, -1, 1)
-        obs[2] = self.quadcopter.relative_velocity[2]#np.clip(self.quadcopter.relative_velocity[2] / 0.3, -1, 1)
+        obs[0] = self.quadcopter.velocity[0]#np.clip(self.quadcopter.velocity[0] / 2, -1, 1)
+        obs[1] = self.quadcopter.velocity[1]#np.clip(self.quadcopter.velocity[1] / 0.3, -1, 1)
+        obs[2] = self.quadcopter.velocity[2]#np.clip(self.quadcopter.velocity[2] / 0.3, -1, 1)
         obs[3] =self.quadcopter.roll #np.clip(self.quadcopter.roll / np.pi, -1, 1)
         obs[4] =self.quadcopter.pitch#np.clip(self.quadcopter.pitch / np.pi, -1, 1)
         obs[5] =self.quadcopter.heading  #np.clip(self.quadcopter.heading / np.pi, -1, 1)
@@ -325,7 +325,7 @@ class PathColav3d(gym.Env):
 
     def update_control_errors(self):
         # Update cruise speed error
-        self.u_error = np.clip((self.cruise_speed - self.quadcopter.relative_velocity[0])/2, -1, 1)
+        self.u_error = np.clip((self.cruise_speed - self.quadcopter.velocity[0])/2, -1, 1)
         self.chi_error = 0.0
         self.e = 0.0
         self.upsilon_error = 0.0

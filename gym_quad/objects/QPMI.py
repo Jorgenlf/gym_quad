@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import fminbound
 from mpl_toolkits.mplot3d import Axes3D
 
+from typing import Tuple
 
 class QPMI():
     def __init__(self, waypoints):
@@ -42,6 +43,7 @@ class QPMI():
             self.y_params.append(y_params_n)
             self.z_params.append(z_params_n)
 
+
     def get_u_index(self, u):
         n = 0
         while n < len(self.us)-1:
@@ -51,15 +53,18 @@ class QPMI():
                 n += 1
         return n
 
+
     def calculate_ur(self, u):
         n = self.get_u_index(u)
         ur = (u-self.us[n])/(self.us[n+1] - self.us[n])
         return ur
 
+
     def calculate_uf(self, u):
         n = self.get_u_index(u)
         uf = (self.us[n+1]-u)/(self.us[n+1] - self.us[n])
         return uf        
+
 
     def __call__(self, u):
         if u >= self.us[0] and u <= self.us[1]: # first stretch
@@ -128,6 +133,7 @@ class QPMI():
             z = ur*z2 + uf*z1
         return np.array([x,y,z])
 
+
     def calculate_gradient(self, u):
         if u >= self.us[0] and u <= self.us[1]: # first stretch
             ax = self.x_params[0][0]
@@ -182,6 +188,92 @@ class QPMI():
             dy = ur*dy2 + uf*dy1
             dz = ur*dz2 + uf*dz1
         return np.array([dx,dy,dz])
+    
+
+    def calculate_acceleration(self, u):
+        """
+        Calculate the acceleration of the path. in other words, the derivative of the tangent vector.
+        """
+        if u >= self.us[0] and u <= self.us[1]: # first stretch
+            ax = self.x_params[0][0]
+            ay = self.y_params[0][0]
+            az = self.z_params[0][0]
+
+            # print(ax)
+            # print(ay)
+            # print(az)
+            
+            ddx = ax*2
+            ddy = ay*2
+            ddz = az*2
+
+        elif u >= self.us[-2]: # last stretch
+            ax = self.x_params[-1][0]
+            ay = self.y_params[-1][0]
+            az = self.z_params[-1][0]
+            
+            ddx = ax*2
+            ddy = ay*2
+            ddz = az*2
+
+        else: # else we are in the intermediate waypoints and we use membership functions to calc polynomials
+            n = self.get_u_index(u)
+            ur = self.calculate_ur(u)
+            uf = self.calculate_uf(u)
+            
+            ax1 = self.x_params[n-1][0]
+            ay1 = self.y_params[n-1][0]
+            az1 = self.z_params[n-1][0]
+            
+            ddx1 = ax1*2
+            ddy1 = ay1*2
+            ddz1 = az1*2
+
+            ax2 = self.x_params[n][0]
+            ay2 = self.y_params[n][0]
+            az2 = self.z_params[n][0]
+            
+            ddx2 = ax2*2
+            ddy2 = ay2*2
+            ddz2 = az2*2
+
+            ddx = ur*ddx2 + uf*ddx1
+            ddy = ur*ddy2 + uf*ddy1
+            ddz = ur*ddz2 + uf*ddz1
+        return np.array([ddx,ddy,ddz])
+    
+
+    def calculate_vectors(self, u: float) -> Tuple[np.array, np.array, np.array]:
+        """
+        Calculate path describing vectors at point u.
+
+        Parameters:
+        ----------
+        u : float
+            Distance along the path from the beginning of the path
+
+        Returns:
+        -------
+        t_hat : np.array
+            Unit tangent vector
+        n_hat : np.array
+            Unit normal vector - perpendicular to the tangent in yhe osculating plane
+        b_hat : np.array
+            Unit binormal vector - perpendicular to both tangent vector and normal vector
+        """
+
+        dp = self.calculate_gradient(u)
+        ddp = self.calculate_acceleration(u)
+
+        # print(f"dp : {dp}")
+        # print(f"ddp: {ddp}")
+
+        t_hat = dp / np.linalg.norm(dp)
+        n_hat = ddp / np.linalg.norm(ddp)
+        b_hat = np.cross(t_hat, n_hat)
+
+        return t_hat, n_hat, b_hat
+
 
     def get_direction_angles(self, u):
         dx, dy, dz = self.calculate_gradient(u)[:]
@@ -189,6 +281,7 @@ class QPMI():
         elevation = np.arctan2(-dz, np.sqrt(dx**2 + dy**2))
         return azimuth, elevation
     
+
     def get_closest_u(self, position, wp_idx):
         x1 = self.us[wp_idx] - 10
         x2 = self.us[wp_idx+1] + 10 if wp_idx < len(self.us)-2 else self.length
@@ -196,11 +289,14 @@ class QPMI():
                         full_output=0, x1=x1, x2=x2, xtol=1e-6, maxfun=500)
         return output
 
+
     def get_closest_position(self, position, wp_idx):
         return self(self.get_closest_u(position))
 
+
     def get_endpoint(self):
         return self(self.length)
+
 
     def plot_path(self, wps_on=True):
         u = np.linspace(self.us[0], self.us[-1], 10000)
@@ -219,8 +315,8 @@ class QPMI():
 
 
 def generate_random_waypoints(nwaypoints,scen):
-    np.random.seed()
     waypoints = [np.array([0,0,0])]
+
     if scen == '3d':
         for i in range(nwaypoints-1):
             distance = 50
@@ -232,6 +328,7 @@ def generate_random_waypoints(nwaypoints,scen):
 
             wp = np.array([x, y, z])
             waypoints.append(wp)
+
     elif scen =='3d_new':
         a_start_angle=np.random.uniform(-np.pi,np.pi)
         e_start_angle=np.random.uniform(-np.pi,np.pi) 
@@ -257,6 +354,7 @@ def generate_random_waypoints(nwaypoints,scen):
 
             wp = np.array([x, y, z])
             waypoints.append(wp)
+
     elif scen =='horizontal_new':
         a_start_angle=np.random.uniform(-np.pi,np.pi)
         e_start_angle=np.random.uniform(-np.pi,np.pi) 
@@ -270,6 +368,7 @@ def generate_random_waypoints(nwaypoints,scen):
             z = 0#waypoints[i][2] - distance*np.sin(elevation)
             wp = np.array([x, y, z])
             waypoints.append(wp)
+
     elif scen=='line':
         for i in range(nwaypoints-1):
             distance = 50
@@ -281,6 +380,7 @@ def generate_random_waypoints(nwaypoints,scen):
 
             wp = np.array([x, y, z])
             waypoints.append(wp)
+
     elif scen=='line_new':
         a_start_angle=np.random.uniform(-np.pi,np.pi)
         azimuth = a_start_angle+np.random.uniform(-np.pi/4, np.pi/4)
@@ -294,6 +394,7 @@ def generate_random_waypoints(nwaypoints,scen):
 
             wp = np.array([x, y, z])
             waypoints.append(wp)
+
     return np.array(waypoints)
 
 

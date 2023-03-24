@@ -73,5 +73,5 @@ waypoint_planner_config = {
 register(
     id='WaypointPlanner-v0',
     entry_point='gym_quad.envs:WaypointPlanner',
-    kwargs={'env_config': pid_pathcolav_config}
+    kwargs={'env_config': waypoint_planner_config}
 )

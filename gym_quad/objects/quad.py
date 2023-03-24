@@ -38,12 +38,13 @@ class Quad():
 
     def step(self, action):
         # Un-normalize actions from neural network
-        F_1 = _thrust(action[0])
-        F_2 = _thrust(action[1])
-        F_3 = _thrust(action[2])
-        F_4 = _thrust(action[3])
+        # F_1 = _thrust(action[0])
+        # F_2 = _thrust(action[1])
+        # F_3 = _thrust(action[2])
+        # F_4 = _thrust(action[3])
 
-        self.input=np.array([F_1,F_2,F_3,F_4])
+        # self.input=np.array([F_1,F_2,F_3,F_4])
+        self.input = action
         self._sim()
 
 
@@ -77,7 +78,7 @@ class Quad():
     @property
     def position(self):
         """
-        Returns an array holding the position of the AUV in NED
+        Returns an array holding the position of the Quadcopter in NED
         coordinates.
         """
         return self.state[0:3]
@@ -85,44 +86,44 @@ class Quad():
     @property
     def attitude(self):
         """
-        Returns an array holding the attitude of the AUV wrt. to NED coordinates.
+        Returns an array holding the attitude of the Quadcopter wrt. to NED coordinates.
         """
         return self.state[3:6]
 
     @property
     def heading(self):
         """
-        Returns the heading of the AUV wrt true north.
+        Returns the heading of the Quadcopter wrt true north.
         """
         return geom.ssa(self.state[5])
 
     @property
     def pitch(self):
         """
-        Returns the pitch of the AUV wrt NED.
+        Returns the pitch of the Quadcopter wrt NED.
         """
         return geom.ssa(self.state[4])
 
     @property
     def roll(self):
         """
-        Returns the roll of the AUV wrt NED.
+        Returns the roll of the Quadcopter wrt NED.
         """
         return geom.ssa(self.state[3])
 
     @property
-    def relative_velocity(self):
+    def velocity(self):
         """
-        Returns the surge, sway and heave velocity of the AUV.
+        Returns the surge, sway and heave velocity of the Quadcopter.
         """
         return self.state[6:9]
 
     @property
     def relative_speed(self):
         """
-        Returns the length of the velocity vector of the AUV.
+        Returns the length of the velocity vector of the Quadcopter.
         """
-        return np.linalg.norm(self.relative_velocity)
+        return np.linalg.norm(self.velocity)
 
     @property
     def angular_velocity(self):
