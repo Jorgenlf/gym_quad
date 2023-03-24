@@ -79,7 +79,6 @@ class TestStateSpace(unittest.TestCase):
 
         a_0 = R_bw(init_eta[3:6]) @ np.array([0, 0, g]) + thrust_max * np.array([0, 0, np.sum(action)]) / m
         alpha_0 = thrust_max * np.array([l * (action[3] - action[1]), l * (action[2] - action[0]), lamb * (action[1] + action[3] - action[0] - action[2])]) / np.diagonal(Ig)
-        # alpha_0 = ss.M_inv().dot(ss.B().dot(action))[3:6]
 
         position_true    = init_eta[0:3] + R_wb(init_eta[3:6]) @ (0.5 * a_0 * h ** 2)
         velocity_true    = a_0 * h
@@ -89,15 +88,6 @@ class TestStateSpace(unittest.TestCase):
         orientation_true[0] = geom.ssa(orientation_true[0])
         orientation_true[1] = geom.ssa(orientation_true[1])
         orientation_true[2] = geom.ssa(orientation_true[2])
-
-        print("\nposition_true:", position_true)
-        print("position_sim :", position_sim)
-        print("orientation_true:", orientation_true)
-        print("orientation_sim :", orientation_sim)
-        print("velocity_true:", velocity_true)
-        print("velocity_sim :", velocity_sim)
-        print("angular_vel_true:", angular_vel_true)
-        print("angular_vel_sim :", angular_vel_sim)
 
         self.assertTrue(np.allclose(position_true, position_sim, rtol=1e-1, atol=1e-1))
         self.assertTrue(np.allclose(orientation_true, orientation_sim, rtol=1e-1, atol=1e-1))
@@ -123,16 +113,6 @@ class TestStateSpace(unittest.TestCase):
             orientation_true[0] = geom.ssa(orientation_true[0])
             orientation_true[1] = geom.ssa(orientation_true[1])
             orientation_true[2] = geom.ssa(orientation_true[2])
-
-            print(f"\n{_}")
-            print("position_true:", position_true)
-            print("position_sim :", position_sim)
-            print("orientation_true:", orientation_true)
-            print("orientation_sim :", orientation_sim)
-            print("velocity_true:", velocity_true)
-            print("velocity_sim :", velocity_sim)
-            print("angular_vel_true:", angular_vel_true)
-            print("angular_vel_sim :", angular_vel_sim)
 
             self.assertTrue(np.allclose(position_true, position_sim, rtol=1e-1, atol=1e-1))
             self.assertTrue(np.allclose(orientation_true, orientation_sim, rtol=1e-1, atol=1e-1))
