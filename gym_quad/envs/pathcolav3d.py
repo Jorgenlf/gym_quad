@@ -315,7 +315,7 @@ class PathColav3d(gym.Env):
         return done, step_reward
 
     def get_chi_upsilon(self,la_dist):
-        chi_r = np.arctan2(-self.e, la_dist)
+        chi_r = np.arctan2(self.e, la_dist)
         upsilon_r = np.arctan2(self.h, np.sqrt(self.e**2 + la_dist**2))
         chi_d = self.chi_p + chi_r
         upsilon_d =self.upsilon_p + upsilon_r

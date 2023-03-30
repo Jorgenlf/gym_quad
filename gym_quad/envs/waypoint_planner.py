@@ -106,6 +106,9 @@ class WaypointPlanner(gym.Env):
         self.collided = False
         self.penalize_control = 0.0
 
+        self.prev_position_error = [0, 0, 0]
+        self.total_position_error = [0, 0, 0]
+
         self.observation = None
         self.action_derivative = np.zeros(self.n_actuators)
         self.past_states = []
@@ -168,13 +171,10 @@ class WaypointPlanner(gym.Env):
         if len(self.past_actions) > 0:
             self.action_derivative = (action[1:]-self.past_actions[-1][1:])/(self.step_size)
 
-        F = self.get_input()
-        # F = np.array([-ss.m*ss.g/4, -ss.m*ss.g/4, -ss.m*ss.g/4, -ss.m*ss.g/4])
-        # F = np.array([0, 0, 0, 0])
-        # print(F)
+        F = self.path_following_controller()
         self.quadcopter.step(F)
-        # time.sleep(0.1)
         # self.quadcopter.step(action)
+        self.progression.append(self.prog/self.path.length)
         self.past_states.append(np.copy(self.quadcopter.state))
         # self.past_errors.append(np.array([self.e,self.h]))
         self.past_errors.append(np.array([self.u_error, self.chi_error, self.e, self.upsilon_error, self.h]))
@@ -202,11 +202,6 @@ class WaypointPlanner(gym.Env):
         self.total_t_steps += 1
         self.time.append(self.total_t_steps*self.step_size)
 
-        # t_hat, n_hat, b_hat = self.path.calculate_vectors(self.prog)
-        # print('Path vectors:')
-        # print(f'\tTangent : {t_hat}')
-        # print(f'\tNormal  : {n_hat}')
-        # print(f'\tBinormal: {b_hat}')
         return self.observation, step_reward, done, info
 
 
@@ -284,8 +279,7 @@ class WaypointPlanner(gym.Env):
         return done, step_reward
 
     def get_chi_upsilon(self,la_dist):
-        chi_r = np.arctan2(-self.e, la_dist)
-        # chi_r = np.arctan2(self.e, la_dist)
+        chi_r = np.arctan2(self.e, la_dist)
         upsilon_r = np.arctan2(self.h, np.sqrt(self.e**2 + la_dist**2))
         chi_d = self.chi_p + chi_r
         upsilon_d =self.upsilon_p + upsilon_r
@@ -303,7 +297,6 @@ class WaypointPlanner(gym.Env):
         self.upsilon_error = 0.0
         self.h = 0.0
 
-        self.progression.append(self.prog/self.path.length)
         # Get path course and elevation
         s = self.prog
         self.chi_p, self.upsilon_p = self.path.get_direction_angles(s)
@@ -321,27 +314,25 @@ class WaypointPlanner(gym.Env):
         self.h = h
         self.chi_error,self.upsilon_error=self.get_chi_upsilon(self.la_dist)
     
-    def get_input(self):
+    def path_following_controller(self):
         # Get path course and elevation
         self.chi_p, self.upsilon_p = self.path.get_direction_angles(self.prog)
 
         # Calculate tracking errors
-        # SF_rotation = geom.Rzyx(0, self.upsilon_p, self.chi_p)
-        # e_p = np.transpose(SF_rotation).dot(self.path(self.prog) - self.quadcopter.position)
-        # e_p[0] = 0 # Ignore position error in the tangent direction
         prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
         v = self.path.calculate_gradient(prog)
+        a = self.path.calculate_acceleration(prog)
         e_p = self.path(prog) - self.quadcopter.position
-        e_v = self.cruise_speed * v / np.linalg.norm(v) - self.quadcopter.velocity
+        e_p_dot = (e_p - self.prev_position_error) / self.step_size
+        self.total_position_error += e_p
+        e_v = self.cruise_speed * v / np.linalg.norm(v) - geom.Rzyx(*self.quadcopter.attitude) @ self.quadcopter.velocity
+        self.prev_position_error = e_p
 
         # Define PD control weights for position and attitude
-        omega_n = 2 # Natural frequency
-        xi = 1      # Damping ratio, 1 -> critically damped
-
-        # K_p_pos = np.diag([2, 2, 2])
-        # K_d_pos = np.diag([1, 1, 1])
-        K_p_pos = np.diag([ss.m * omega_n**2, ss.m * omega_n**2, ss.m * omega_n**2])
-        K_d_pos = np.diag([2 * ss.m * xi * omega_n, 2 * ss.m * xi * omega_n, 2 * ss.m * xi * omega_n])
+        K_p_pos = np.diag([3, 3, 6])
+        K_d_pos = np.diag([0.5, 0.5, 0.5])
+        K_i_pos = np.diag([0.01, 0.01, 0.01])
+        K_v = np.diag([0.5, 0.5, 0.5])
 
         omega_n = 9 # Natural frequency
         xi = 1      # Damping ratio, 1 -> critically damped
@@ -350,43 +341,21 @@ class WaypointPlanner(gym.Env):
         K_d_att = np.diag([2 * ss.I_x * xi * omega_n, 2 * ss.I_y * xi * omega_n, 2 * ss.I_z * xi * omega_n])
 
         # Calculate desired accelerations and attitudes
-        a_des = K_p_pos @ e_p + K_d_pos @ e_v # + a_T
-        phi_des   = geom.ssa(- (1 / ss.g) * (a_des[0] * np.sin(self.chi_p) - a_des[1] * np.cos(self.chi_p)))
-        theta_des = geom.ssa(- (1 / ss.g) * (a_des[0] * np.cos(self.chi_p) + a_des[1] * np.sin(self.chi_p)))
+        a_des = K_p_pos @ e_p + K_d_pos @ e_p_dot + K_i_pos @ self.total_position_error + K_v @ e_v + a
+        b_x = a_des[0] / (a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_u*self.quadcopter.surge)/ss.m)
+        b_y = a_des[1] / (a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_v*self.quadcopter.sway)/ss.m)
+        phi_des   = geom.ssa(b_x * np.sin(self.chi_p) - b_y * np.cos(self.chi_p))
+        theta_des = geom.ssa(b_x * np.cos(self.chi_p) + b_y * np.sin(self.chi_p))
         e_att = geom.ssa(np.array([phi_des, theta_des, self.chi_p]) - self.quadcopter.attitude)
-        e_angvel = geom.ssa(np.array([0, 0, 0]) - self.quadcopter.angular_velocity)
+        e_angvel = np.array([0, 0, 0]) - self.quadcopter.angular_velocity
 
         # Calculate desired inputs
         u_des = np.array([0.0, 0.0, 0.0, 0.0])
-        u_des[0] = ss.m * (a_des[2] - ss.g)
+        u_des[0] = ss.m * (a_des[2] + ss.g) + ss.d_w*self.quadcopter.heave
         u_des[1:] = K_p_att @ e_att + K_d_att @ e_angvel
-        # print(u_des[0])
-        # print(ss.m * (a_des[2] - ss.g))
-        # print(u_des.dtype)
 
         F = np.linalg.inv(ss.B()[2:]).dot(u_des)
-        # F = np.clip(F, ss.thrust_min, ss.thrust_max)
-        # print("Force:", F)
-
-        # print(f"\nPosition      : {self.quadcopter.position}")
-        # print(f"Position error: {e_p}")
-        # print(f"Velocity      : {self.quadcopter.velocity}")
-        # print(f"Velocity error: {e_v}")
-        # print(f"Ang vel       : {self.quadcopter.velocity}")
-        # print(f"Ang vel error : {e_v}")
-        # print(f"Des acc       : {a_des}")
-        # print(f"phi: a_des[0] * np.sin(self.chi_p)   : {a_des[0] * np.sin(self.chi_p)}")
-        # print(f"phi: a_des[1] * np.cos(self.chi_p )  : {a_des[1] * np.cos(self.chi_p)}")
-        # print(f"theta: a_des[0] * np.sin(self.chi_p) : {a_des[0] * np.cos(self.chi_p)}")
-        # print(f"theta: a_des[1] * np.cos(self.chi_p) : {a_des[1] * np.sin(self.chi_p)}")
-        # print(f"Des phi       : {phi_des}")
-        # print(f"Des theta     : {theta_des}")
-        # print(f"Attitude      : {self.quadcopter.attitude}")
-        # print(f"Attitude error: {e_att}")
-        # print(f"K_p_att       : {K_p_att}")
-        # print(f"K_p_att @ e_att: {K_p_att @ e_att}")
-        # print(f"Desired input : {u_des}")
-        # print(f"Thrust input  : {F}")
+        F = np.clip(F, ss.thrust_min, ss.thrust_max)
 
         return F
 
@@ -589,7 +558,8 @@ class WaypointPlanner(gym.Env):
         
         waypoints = generate_random_waypoints(self.n_waypoints,'horizontal_new')
         self.path = QPMI(waypoints)
-        init_pos = [np.random.uniform(0,2)*(-5), np.random.normal(0,1)*5, 0]#np.random.normal(0,1)*5]
+        # init_pos = [np.random.uniform(0,2)*(-5), np.random.normal(0,1)*5, 0]#np.random.normal(0,1)*5]
+        init_pos = [0, 0, 0]#np.random.normal(0,1)*5]
         #init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos, init_attitude])
@@ -609,7 +579,7 @@ class WaypointPlanner(gym.Env):
         initial_state = np.zeros(6)
         waypoints = generate_random_waypoints(self.n_waypoints,'3d_new')
         self.path = QPMI(waypoints)
-        init_pos=[0,0,0]
+        init_pos=[0, 0, 0]
         init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state

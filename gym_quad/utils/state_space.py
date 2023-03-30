@@ -48,7 +48,7 @@ def C(nu):
     Cv = np.array([0,
                  0,
                  0,
-                 (I_z - I_y) * q * r, # needs to be changed, but currently doesnt affect the quactopter.
+                 (I_z - I_y) * q * r,
                  (I_x - I_z) * r * p,
                  0])
     return Cv
@@ -67,25 +67,27 @@ def G(eta):
     phi = eta[3]
     theta = eta[4]
 
-    G = np.array([(W)*sin(theta),
-                  -(W)*cos(theta)*sin(phi),
-                  -(W)*cos(theta)*cos(phi),
-                  0,
-                  0,
-                  0])
+    G = np.array([
+        -(W)*sin(theta),
+        (W)*cos(theta)*sin(phi),
+        (W)*cos(theta)*cos(phi),
+        0,
+        0,
+        0
+    ])
     return G
 
 ##############################################################
 
 # Aerodynamic friction Coefficients
-k_u = 0.3729
-k_v = 0.3729
-k_w = 0.3729
+d_u = 0.3729
+d_v = 0.3729
+d_w = 0.3729
 
-# Linear drag coefficient / Translational drag Coefficients
-k_p = 5.56e-4
-k_q = 5.56e-4
-k_r = 5.56e-4
+# Ritational drag Coefficients
+d_p = 5.56e-4
+d_q = 5.56e-4
+d_r = 5.56e-4
 
 def d(nu):
     u = nu[0]
@@ -96,12 +98,12 @@ def d(nu):
     r = nu[5]
 
     d = np.array([
-        k_u * u,
-        k_v * v,
-        k_w * w,
-        k_p * p ** 2,
-        k_q * q ** 2,
-        k_r * r ** 2
+        d_u * u,
+        d_v * v,
+        d_w * w,
+        d_p * p ** 2,
+        d_q * q ** 2,
+        d_r * r ** 2
     ])
 
     return d

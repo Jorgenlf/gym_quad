@@ -78,7 +78,7 @@ class Quad():
     @property
     def position(self):
         """
-        Returns an array holding the position of the Quadcopter in NED
+        Returns an array holding the position of the Quadcopter in world frame.
         coordinates.
         """
         return self.state[0:3]
@@ -86,7 +86,7 @@ class Quad():
     @property
     def attitude(self):
         """
-        Returns an array holding the attitude of the Quadcopter wrt. to NED coordinates.
+        Returns an array holding the attitude of the Quadcopter wrt. to world coordinates.
         """
         return self.state[3:6]
 
@@ -100,14 +100,14 @@ class Quad():
     @property
     def pitch(self):
         """
-        Returns the pitch of the Quadcopter wrt NED.
+        Returns the pitch of the Quadcopter wrt world frame.
         """
         return geom.ssa(self.state[4])
 
     @property
     def roll(self):
         """
-        Returns the roll of the Quadcopter wrt NED.
+        Returns the roll of the Quadcopter wrt world frame.
         """
         return geom.ssa(self.state[3])
 
@@ -117,6 +117,27 @@ class Quad():
         Returns the surge, sway and heave velocity of the Quadcopter.
         """
         return self.state[6:9]
+    
+    @property
+    def surge(self):
+        """
+        Returns the surge velocity of the Quadcopter.
+        """
+        return self.state[6]
+    
+    @property
+    def sway(self):
+        """
+        Returns the sway velocity of the Quadcopter.
+        """
+        return self.state[7]
+    
+    @property
+    def heave(self):
+        """
+        Returns the heave velocity of the Quadcopter.
+        """
+        return self.state[8]
 
     @property
     def relative_speed(self):
@@ -128,14 +149,14 @@ class Quad():
     @property
     def angular_velocity(self):
         """
-        Returns the rate of rotation about the NED frame.
+        Returns the rate of rotation about the world frame.
         """
         return self.state[9:12]
     
     @property
     def chi(self):
         """
-        Returns the rate of rotation about the NED frame.
+        Returns the rate of rotation about the world frame.
         """
         [N_dot, E_dot, D_dot] = self.position_dot
         return np.arctan2(E_dot, N_dot)
@@ -143,10 +164,10 @@ class Quad():
     @property
     def upsilon(self):
         """
-        Returns the rate of rotation about the NED frame.
+        Returns the rate of rotation about the world frame.
         """
         [N_dot, E_dot, D_dot] = self.position_dot
-        return np.arctan2(-D_dot, np.sqrt(N_dot**2 + E_dot**2))
+        return np.arctan2(D_dot, np.sqrt(N_dot**2 + E_dot**2))
 
 def _thrust(force):
     force = np.clip(force, -1, 1)

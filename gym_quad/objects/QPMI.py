@@ -265,9 +265,6 @@ class QPMI():
         dp = self.calculate_gradient(u)
         ddp = self.calculate_acceleration(u)
 
-        # print(f"dp : {dp}")
-        # print(f"ddp: {ddp}")
-
         t_hat = dp / np.linalg.norm(dp)
         n_hat = ddp / np.linalg.norm(ddp)
         b_hat = np.cross(t_hat, n_hat)
@@ -278,7 +275,7 @@ class QPMI():
     def get_direction_angles(self, u):
         dx, dy, dz = self.calculate_gradient(u)[:]
         azimuth = np.arctan2(dy, dx)
-        elevation = np.arctan2(-dz, np.sqrt(dx**2 + dy**2))
+        elevation = np.arctan2(dz, np.sqrt(dx**2 + dy**2))
         return azimuth, elevation
     
 
@@ -324,8 +321,7 @@ def generate_random_waypoints(nwaypoints,scen):
             elevation = np.random.uniform(-np.pi/4, np.pi/4)
             x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
             y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
-            z = waypoints[i][2] - distance*np.sin(elevation)
-
+            z = waypoints[i][2] + distance*np.sin(elevation)
             wp = np.array([x, y, z])
             waypoints.append(wp)
 
@@ -334,12 +330,11 @@ def generate_random_waypoints(nwaypoints,scen):
         e_start_angle=np.random.uniform(-np.pi,np.pi) 
         distance = 50
         for i in range(nwaypoints-1):
-            
             azimuth = a_start_angle+np.random.uniform(-np.pi/4, np.pi/4)
             elevation =e_start_angle+ np.random.uniform(-np.pi/4, np.pi/4)
             x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
             y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
-            z = waypoints[i][2] - distance*np.sin(elevation)
+            z = waypoints[i][2] + distance*np.sin(elevation)
             wp = np.array([x, y, z])
             waypoints.append(wp)
 
@@ -350,8 +345,7 @@ def generate_random_waypoints(nwaypoints,scen):
             elevation = np.random.uniform(-np.pi/4, np.pi/4)
             x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
             y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
-            z = 0#waypoints[i][2] - distance*np.sin(elevation)
-
+            z = 0
             wp = np.array([x, y, z])
             waypoints.append(wp)
 
@@ -360,12 +354,10 @@ def generate_random_waypoints(nwaypoints,scen):
         e_start_angle=np.random.uniform(-np.pi,np.pi) 
         distance = 50
         for i in range(nwaypoints-1):
-            
-            azimuth = a_start_angle+np.random.uniform(-np.pi/4, np.pi/4)
-            elevation =e_start_angle+ np.random.uniform(-np.pi/4, np.pi/4)
-            x = waypoints[i][0] + distance*np.cos(azimuth)#*np.cos(elevation)
-            y = waypoints[i][1] + distance*np.sin(azimuth)#*np.cos(elevation)
-            z = 0#waypoints[i][2] - distance*np.sin(elevation)
+            azimuth = a_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
+            x = waypoints[i][0] + distance*np.cos(azimuth)
+            y = waypoints[i][1] + distance*np.sin(azimuth)
+            z = 0
             wp = np.array([x, y, z])
             waypoints.append(wp)
 
@@ -375,9 +367,8 @@ def generate_random_waypoints(nwaypoints,scen):
             azimuth = np.random.uniform(-np.pi/4, np.pi/4)
             elevation = np.random.uniform(-np.pi/4, np.pi/4)
             x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
-            y = 0#waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
-            z = 0#waypoints[i][2] - distance*np.sin(elevation)
-
+            y = 0
+            z = 0
             wp = np.array([x, y, z])
             waypoints.append(wp)
 
@@ -386,12 +377,10 @@ def generate_random_waypoints(nwaypoints,scen):
         azimuth = a_start_angle+np.random.uniform(-np.pi/4, np.pi/4)
         elevation = np.random.uniform(-np.pi/4, np.pi/4)
         distance = 50
-
         for i in range(nwaypoints-1):
-            x = waypoints[i][0] + distance*np.cos(azimuth)#*np.cos(elevation)
-            y = waypoints[i][1] + distance*np.sin(azimuth)#*np.cos(elevation)
-            z = 0#waypoints[i][2] - distance*np.sin(elevation)
-
+            x = waypoints[i][0] + distance*np.cos(azimuth)
+            y = waypoints[i][1] + distance*np.sin(azimuth)
+            z = 0
             wp = np.array([x, y, z])
             waypoints.append(wp)
 

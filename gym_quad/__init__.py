@@ -45,7 +45,7 @@ waypoint_planner_config = {
     "max_t_steps": 100000,
     "min_reward": -20000,
     "n_obs_states": 9,
-    "cruise_speed": 1.5,
+    "cruise_speed": 2.5,
     "lambda_reward": 0.6,
     "reward_rollrate": -1,
     "reward_control_derivative": [-0.005, -0.005],

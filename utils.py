@@ -50,7 +50,7 @@ def simulate_environment(episode, env, agent):
     input_labels = [r"$\eta$", r"$\delta_r$", r"$\delta_s$",r"$\F_4$"]
     error_labels = [r"$\tilde{u}$", r"$\tilde{\chi}$", r"e", r"$\tilde{\upsilon}$", r"h"]
     # error_labels = [r"e", r"h"]
-    labels = np.hstack(["Episode", "Time", state_labels, input_labels, error_labels])
+    labels = np.hstack(["Episode", "Time", "Progression", state_labels, input_labels, error_labels])
     
     done = False
     env.reset()
@@ -60,7 +60,8 @@ def simulate_environment(episode, env, agent):
     errors = np.array(env.past_errors)
     time = np.array(env.time).reshape((env.total_t_steps,1))
     episode = np.full(((env.total_t_steps,1)), episode)
-    sim_data = np.hstack([episode, time, env.past_states, env.past_actions, errors])
+    progression = np.array(env.progression).reshape((env.total_t_steps,1))
+    sim_data = np.hstack([episode, time, progression, env.past_states, env.past_actions, errors])
     df = pd.DataFrame(sim_data, columns=labels)
     return df, env
 
@@ -147,7 +148,7 @@ def plot_control_errors(sim_dfs):
     plt.show()
 
 
-def plot_3d(env, sim_df):
+def plot_3d(env, sim_df, test_dir):
     """
     Plots the Quadcopter path in 3D inside the environment provided.
     """
@@ -163,8 +164,9 @@ def plot_3d(env, sim_df):
     ax.set_xlim([-200,200])
     ax.set_ylim([-200,200])
     ax.set_zlim([-200,200])
-    # plt.savefig('line.pdf')
-    plt.show()
+    
+    plt.savefig(os.path.join(test_dir, "plots", f"episode{int(sim_df['Episode'].iloc[0])}.pdf"))
+    # plt.show()
 
 
 def plot_multiple_3d(env, sim_dfs):
@@ -234,13 +236,14 @@ def plot_collision_reward_function():
     plt.show()
 
 
-def write_report(experiment_dir: str, sim_df: pd.DataFrame, env, episode: int) -> None:
-    sim_df.to_csv(os.path.join(experiment_dir, 'test_sim.csv'), index=False)
+def write_report(test_dir: str, sim_df: pd.DataFrame, env, episode: int) -> None:
+    sim_df.to_csv(os.path.join(test_dir, 'test_sim.csv'), index=False)
     episode_df = sim_df.loc[sim_df['Episode'] == episode]
 
     timesteps = episode_df.shape[0]
     avg_ape = np.sqrt(episode_df['e']**2 + episode_df['h']**2).mean()
     iae_cross, iae_vertical = calculate_IAE(episode_df)
+    progression = episode_df['Progression'].max()
     success = int(env.success)
     collision = int(env.collided)
     data = {
@@ -249,20 +252,22 @@ def write_report(experiment_dir: str, sim_df: pd.DataFrame, env, episode: int) -
         'Avg Absolute Path Error': avg_ape,
         'IAE Cross': iae_cross,
         'IAE Vertical': iae_vertical,
+        'Progression': progression, 
         'Success': success,
         'Collision': collision
     }
 
-    summary = pd.read_csv(os.path.join(experiment_dir, 'test_summary.csv'))
+    summary = pd.read_csv(os.path.join(test_dir, 'test_summary.csv'))
     summary = summary.append(data, ignore_index=True)
-    summary.to_csv(os.path.join(experiment_dir, 'test_summary.csv'), index=False)
+    summary.to_csv(os.path.join(test_dir, 'test_summary.csv'), index=False)
 
-    with open(os.path.join(experiment_dir, 'report.txt'), 'w') as f:
+    with open(os.path.join(test_dir, 'report.txt'), 'w') as f:
         f.write('# PERFORMANCE METRICS (LAST {} EPISODES AVG.)\n'.format(summary.shape[0]))
         f.write('{:<30}{:<30.2f}\n'.format('Avg. Number of Timesteps', summary['Timesteps'].mean()))
         f.write('{:<30}{:<30.2f}\n'.format('Avg. Absolute Path Error [m]', summary['Avg Absolute Path Error'].mean()))
         f.write('{:<30}{:<30.2f}\n'.format('Avg. IAE Cross Track [m]', summary['IAE Cross'].mean()))
         f.write('{:<30}{:<30.2f}\n'.format('Avg. IAE Verical Track [m]', summary['IAE Vertical'].mean()))
+        f.write('{:<30}{:<30.2f}\n'.format('Avg. Progression [%]', summary['Progression'].mean()*100))
         f.write('{:<30}{:<30.2f}\n'.format('Success Rate [%]', summary['Success'].mean()*100))
         f.write('{:<30}{:<30.2f}\n'.format('Collision Rate [%]', summary['Collision'].mean()*100))
 

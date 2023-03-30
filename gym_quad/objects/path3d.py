@@ -48,7 +48,7 @@ class Path3D():
         for i in range(self.nwaypoints-1):
             derivative = diff[i] / self.segment_lengths[i]
             alpha = np.arctan2(derivative[1], derivative[0])
-            beta = np.arctan2(-derivative[2], np.sqrt(derivative[0]**2 + derivative[1]**2))
+            beta = np.arctan2(derivative[2], np.sqrt(derivative[0]**2 + derivative[1]**2))
             self.azimuth_angles = np.append(self.azimuth_angles, geom.ssa(alpha))
             self.elevation_angles = np.append(self.elevation_angles, geom.ssa(beta))
 
