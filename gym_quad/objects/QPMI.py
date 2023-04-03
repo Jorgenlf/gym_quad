@@ -46,7 +46,7 @@ class QPMI():
 
     def get_u_index(self, u):
         n = 0
-        while n < len(self.us)-1:
+        while n < len(self.us) - 1:
             if u <= self.us[n+1]:
                 break
             else:
@@ -56,7 +56,14 @@ class QPMI():
 
     def calculate_ur(self, u):
         n = self.get_u_index(u)
-        ur = (u-self.us[n])/(self.us[n+1] - self.us[n])
+        # ur = (u - self.us[n]) / (self.us[n+1] - self.us[n])
+        try:
+            ur = (u - self.us[n]) / (self.us[n+1] - self.us[n])
+        except IndexError:
+            print("n:", n)
+            print("u:", u)
+            print("us:", self.us)
+            ur = (u - self.us[n]) / (self.us[n+1] - self.us[n])
         return ur
 
 
@@ -81,6 +88,7 @@ class QPMI():
             x = ax*u**2 + bx*u + cx
             y = ay*u**2 + by*u + cy
             z = az*u**2 + bz*u + cz
+
         elif u >= self.us[-2]-0.001 and u <= self.us[-1]: # last stretch
             ax = self.x_params[-1][0]
             ay = self.y_params[-1][0]
@@ -95,6 +103,7 @@ class QPMI():
             x = ax*u**2 + bx*u + cx
             y = ay*u**2 + by*u + cy
             z = az*u**2 + bz*u + cz
+
         else: # else we are in the intermediate waypoints and we use membership functions to calc polynomials
             n = self.get_u_index(u)
             ur = self.calculate_ur(u)
@@ -131,6 +140,7 @@ class QPMI():
             x = ur*x2 + uf*x1
             y = ur*y2 + uf*y1
             z = ur*z2 + uf*z1
+
         return np.array([x,y,z])
 
 
@@ -198,10 +208,6 @@ class QPMI():
             ax = self.x_params[0][0]
             ay = self.y_params[0][0]
             az = self.z_params[0][0]
-
-            # print(ax)
-            # print(ay)
-            # print(az)
             
             ddx = ax*2
             ddy = ay*2
@@ -240,6 +246,7 @@ class QPMI():
             ddx = ur*ddx2 + uf*ddx1
             ddy = ur*ddy2 + uf*ddy1
             ddz = ur*ddz2 + uf*ddz1
+        
         return np.array([ddx,ddy,ddz])
     
 
@@ -279,9 +286,9 @@ class QPMI():
         return azimuth, elevation
     
 
-    def get_closest_u(self, position, wp_idx):
-        x1 = self.us[wp_idx] - 10
-        x2 = self.us[wp_idx+1] + 10 if wp_idx < len(self.us)-2 else self.length
+    def get_closest_u(self, position, wp_idx, margin = 10.0):
+        x1 = self.us[wp_idx] - margin
+        x2 = self.us[wp_idx+1] + margin if wp_idx < len(self.us) - 2 else self.length
         output = fminbound(lambda u: np.linalg.norm(self(u) - position), 
                         full_output=0, x1=x1, x2=x2, xtol=1e-6, maxfun=500)
         return output
