@@ -5,6 +5,31 @@ def ssa(angle):
     return ((angle + np.pi) % (2*np.pi)) - np.pi
 
 
+def R(x, y, z):
+    """
+    Rotation matrix to world frame.
+
+    Parameters:
+    ----------
+    x : np.array
+        x-axis of coordinate frame expressed in world frame.
+    y : np.array
+        y-axis of coordinate frame expressed in world frame.
+    z : np.array
+        z-axis of coordinate frame expressed in world frame.
+    
+    Returns:
+    -------
+    R : np.array
+        Rotation matrix from the coordinate frame expressed by [x, y, x] to world frame.
+    """
+    return np.transpose(np.vstack((x, y, z)))
+    # return np.vstack([
+    #     np.hstack([x[0], y[0], z[0]]),
+    #     np.hstack([x[1], y[1], z[1]]),
+    #     np.hstack([x[2], y[2], z[2]])])
+
+
 def Rzyx(phi, theta, psi):
     cphi = np.cos(phi)
     sphi = np.sin(phi)

@@ -4,11 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from cycler import cycler
-#from gym_quad.utils.controllers import PI, PID
-
-#PI = PI()
-#PID_cross = PID(Kp=1.8, Ki=0.01, Kd=0.035)
-#PID_cross = PID(Kp=1.8, Ki=0.01, Kd=0.035)
 
 
 def parse_experiment_info():
@@ -166,7 +161,7 @@ def plot_3d(env, sim_df, test_dir):
     ax.set_zlim([-200,200])
     
     plt.savefig(os.path.join(test_dir, "plots", f"episode{int(sim_df['Episode'].iloc[0])}.pdf"))
-    # plt.show()
+    plt.show()
 
 
 def plot_multiple_3d(env, sim_dfs):

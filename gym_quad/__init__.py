@@ -23,8 +23,10 @@ waypoint_planner_config = {
     "n_int_obstacles": 1,
     "n_pro_obstacles": 3,
     "n_adv_obstacles": 8,
-    "n_fictive_waypoints": 1,
-    "distance_fictive_waypoints": 1.0
+    "n_fictive_waypoints": 4,
+    "distance_fictive_waypoints": 3.0,
+    "n_generated_waypoints": 1,
+    "simulation_frequency": 100 # How many timesteps to simulate the quadcopter for each new path
 }
 
 register(

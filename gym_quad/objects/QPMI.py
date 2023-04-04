@@ -264,7 +264,7 @@ class QPMI():
         t_hat : np.array
             Unit tangent vector
         n_hat : np.array
-            Unit normal vector - perpendicular to the tangent in yhe osculating plane
+            Unit normal vector - perpendicular to the tangent in the osculating plane
         b_hat : np.array
             Unit binormal vector - perpendicular to both tangent vector and normal vector
         """
@@ -274,7 +274,8 @@ class QPMI():
 
         t_hat = dp / np.linalg.norm(dp)
         n_hat = ddp / np.linalg.norm(ddp)
-        b_hat = np.cross(t_hat, n_hat)
+        b_hat = np.cross(t_hat, n_hat) / np.linalg.norm(np.cross(t_hat, n_hat))
+        n_hat = - np.cross(t_hat, b_hat) / np.linalg.norm(np.cross(t_hat, b_hat))
 
         return t_hat, n_hat, b_hat
 
@@ -315,6 +316,11 @@ class QPMI():
             for i, wp in enumerate(self.waypoints):
                 if i == 1: ax.scatter3D(*wp, color="#EE6666", label="Waypoints")
                 else: ax.scatter3D(*wp, color="#EE6666")
+        
+        # ax.set_xlabel(xlabel=r"$x_w$ [m]", fontsize=14)
+        # ax.set_ylabel(ylabel=r"$y_w$ [m]", fontsize=14)
+        # ax.set_zlabel(zlabel=r"$z_w$ [m]", fontsize=14)
+
         return ax
 
 

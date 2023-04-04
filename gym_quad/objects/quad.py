@@ -91,12 +91,12 @@ class Quad():
         return self.state[3:6]
 
     @property
-    def heading(self):
+    def roll(self):
         """
-        Returns the heading of the Quadcopter wrt true north.
+        Returns the roll of the Quadcopter wrt world frame.
         """
-        return geom.ssa(self.state[5])
-
+        return geom.ssa(self.state[3])
+    
     @property
     def pitch(self):
         """
@@ -105,11 +105,11 @@ class Quad():
         return geom.ssa(self.state[4])
 
     @property
-    def roll(self):
+    def heading(self):
         """
-        Returns the roll of the Quadcopter wrt world frame.
+        Returns the heading of the Quadcopter wrt true north.
         """
-        return geom.ssa(self.state[3])
+        return geom.ssa(self.state[5])
 
     @property
     def velocity(self):
