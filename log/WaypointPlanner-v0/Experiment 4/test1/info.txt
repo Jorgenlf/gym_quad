@@ -1,0 +1,53 @@
+"cruise_speed": 2.5,
+
+    def get_input(self):
+        # Get path course and elevation
+        self.chi_p, self.upsilon_p = self.path.get_direction_angles(self.prog)
+
+        # Calculate tracking errors
+        prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
+        v = self.path.calculate_gradient(prog)
+        a = self.path.calculate_acceleration(prog)
+        e_p = self.path(prog) - self.quadcopter.position
+        e_p_dot = (e_p - self.prev_position_error) / self.step_size
+        self.total_position_error += e_p
+        e_v = self.cruise_speed * v / np.linalg.norm(v) - geom.Rzyx(*self.quadcopter.attitude) @ self.quadcopter.velocity
+        self.prev_position_error = e_p
+        # Define PD control weights for position and attitude
+        omega_n = 2 # Natural frequency
+        xi = 1      # Damping ratio, 1 -> critically damped
+
+        K_p_pos = np.diag([3, 3, 6])
+        K_d_pos = np.diag([0.5, 0.5, 0.5])
+        K_i_pos = np.diag([0.01, 0.01, 0.01])
+        K_v = np.diag([0.5, 0.5, 0.5])
+        # K_p_pos = np.diag([ss.m * omega_n**2, ss.m * omega_n**2, ss.m * omega_n**2])
+        # K_d_pos = np.diag([2 * ss.m * xi * omega_n, 2 * ss.m * xi * omega_n, 2 * ss.m * xi * omega_n])
+
+        omega_n = 9 # Natural frequency
+        xi = 1      # Damping ratio, 1 -> critically damped
+
+        K_p_att = np.diag([ss.I_x * omega_n**2, ss.I_y * omega_n**2, ss.I_z * omega_n**2])
+        K_d_att = np.diag([2 * ss.I_x * xi * omega_n, 2 * ss.I_y * xi * omega_n, 2 * ss.I_z * xi * omega_n])
+
+        # Calculate desired accelerations and attitudes
+        a_des = K_p_pos @ e_p + K_d_pos @ e_p_dot + K_i_pos @ self.total_position_error + K_v @ e_v + a
+        # print(K_p_pos @ e_p + K_d_pos @ e_p_dot + K_v @ e_v + a, K_i_pos @ self.total_position_error)
+        b_x = a_des[0] / (a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_u*self.quadcopter.surge)/ss.m)
+        b_y = a_des[1] / (a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_v*self.quadcopter.sway)/ss.m)
+        # b_x = a_des[0] / (a_des[2] + ss.g)
+        # b_y = a_des[1] / (a_des[2] + ss.g)
+        phi_des   = geom.ssa(b_x * np.sin(self.chi_p) - b_y * np.cos(self.chi_p))
+        theta_des = geom.ssa(b_x * np.cos(self.chi_p) + b_y * np.sin(self.chi_p))
+        e_att = geom.ssa(np.array([phi_des, theta_des, self.chi_p]) - self.quadcopter.attitude)
+        e_angvel = np.array([0, 0, 0]) - self.quadcopter.angular_velocity
+
+        # Calculate desired inputs
+        u_des = np.array([0.0, 0.0, 0.0, 0.0])
+        u_des[0] = ss.m * (a_des[2] + ss.g) + ss.d_w*self.quadcopter.heave
+        u_des[1:] = K_p_att @ e_att + K_d_att @ e_angvel
+
+        F = np.linalg.inv(ss.B()[2:]).dot(u_des)
+        F = np.clip(F, ss.thrust_min, ss.thrust_max)
+
+        return F
