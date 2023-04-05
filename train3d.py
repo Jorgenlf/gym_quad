@@ -21,7 +21,8 @@ from utils import parse_experiment_info
 
 print('CPU COUNT:', multiprocessing.cpu_count())
 
-scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]#, "proficient", "advanced", "expert"]
+# scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
+scenarios = ["3d_new"]
 
 hyperparams = {
     'n_steps': 1024,
@@ -90,7 +91,7 @@ if __name__ == '__main__':
             if scen!="intermediate":
                 continue
 
-        num_envs = 8
+        num_envs = 1
         # num_envs = multiprocessing.cpu_count() - 1
         print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...", end="")
         if num_envs > 1:
@@ -111,7 +112,7 @@ if __name__ == '__main__':
         else:
             continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
 
-        if scen == "line" and continual_step == 0:
+        if scen == "3d_new" and continual_step == 0:
             agent = PPO('MultiInputPolicy', env, **hyperparams,policy_kwargs=policy_kwargs,seed=seed)
         elif continual_step == 0:
             continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.pkl")

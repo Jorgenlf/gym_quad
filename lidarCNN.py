@@ -7,6 +7,8 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import matplotlib.pyplot as plt
 import numpy as np
 
+import time
+
 class LidarCNN(BaseFeaturesExtractor):
     """
     :param observation_space: (gym.Space) of dimension (N_sensors x 1)
@@ -24,7 +26,7 @@ class LidarCNN(BaseFeaturesExtractor):
         self.kernel_size = 5
         self.padding = 2
         self.stride = 2
-        padding_mode='circular'
+        padding_mode='zeros'
         print("LIDAR_CNN CONFIG")
         print("\tIN_CHANNELS =", self.in_channels)
         print("\tKERNEL_SIZE =", self.kernel_size)
