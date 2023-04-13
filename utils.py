@@ -164,7 +164,7 @@ def plot_3d(env, sim_df, test_dir):
     ax.set_zlim([-200,200])
     
     plt.savefig(os.path.join(test_dir, "plots", f"episode{int(sim_df['Episode'].iloc[0])}.pdf"))
-    plt.show()
+    # plt.show()
 
 
 def plot_multiple_3d(env, sim_dfs):
