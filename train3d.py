@@ -64,7 +64,7 @@ class StatsCallback(BaseCallback):
                         self.logger.record('stats/' + stat, self.prev_stats[i][stat])
         self.prev_stats=stats
 
-        if (n_steps + 1) % 50000 == 0:
+        if (n_steps + 1) % 1024 == 0:
             _self = self.locals.get("self")
             _self.save(os.path.join(agents_dir, "model_" + str(n_steps+1) + ".pkl"))
         n_steps += 1
@@ -92,7 +92,7 @@ if __name__ == '__main__':
                 continue
 
         num_envs = 1
-        # num_envs = multiprocessing.cpu_count() - 1
+        # num_envs = multiprocessing.cpu_count() - 2
         print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...", end="")
         if num_envs > 1:
             env = SubprocVecEnv(

@@ -33,6 +33,7 @@ if __name__ == "__main__":
 
     env = gym.make(args.env, scenario=args.scenario)
     agent = PPO.load(agent_path)
+
     for episode in range(args.episodes):
         try:
             episode_df, env = simulate_environment(episode, env, agent)

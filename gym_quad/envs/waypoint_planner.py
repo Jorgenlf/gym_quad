@@ -28,52 +28,52 @@ class WaypointPlanner(gym.Env):
         for key in env_config:
             setattr(self, key, env_config[key])
 
-        # if self.rl_mode == "path_planning":
-        #     self.action_space = gym.spaces.Box(
-        #         # action = [rot, dist]
-        #         low = np.array([- np.pi, -20]*self.n_generated_waypoints, dtype=np.float32),
-        #         high = np.array([np.pi, 20]*self.n_generated_waypoints, dtype=np.float32),
-        #         # action = [x_dev, y_dev, z_dev]
-        #         # low = np.array([-20]*3*self.n_generated_waypoints, dtype=np.float32),
-        #         # high = np.array([20]*3*self.n_generated_waypoints, dtype=np.float32),
-        #         dtype = np.float32
-        #     )
+        if self.rl_mode == "path_planning":
+            self.action_space = gym.spaces.Box(
+                # action = [rot, dist]
+                low = np.array([- np.pi, -20]*self.n_generated_waypoints, dtype=np.float32),
+                high = np.array([np.pi, 20]*self.n_generated_waypoints, dtype=np.float32),
+                # action = [x_dev, y_dev, z_dev]
+                # low = np.array([-20]*3*self.n_generated_waypoints, dtype=np.float32),
+                # high = np.array([20]*3*self.n_generated_waypoints, dtype=np.float32),
+                dtype = np.float32
+            )
 
-        #     self.perception_space = gym.spaces.Box(
-        #         low = 0,
-        #         high = 1,
-        #         shape = (1, self.sensor_suite[0], self.sensor_suite[1]),
-        #         dtype = np.float32
-        #     )
+            self.perception_space = gym.spaces.Box(
+                low = 0,
+                high = 1,
+                shape = (1, self.sensor_suite[0], self.sensor_suite[1]),
+                dtype = np.float32
+            )
 
-        #     self.navigation_space = gym.spaces.Box(
-        #         low = -np.inf, # Try -1
-        #         high = np.inf, # Try +1
-        #         shape = (1, self.n_obs_states + 3*self.n_fictive_waypoints),
-        #         dtype = np.float32
-        #     )
+            self.navigation_space = gym.spaces.Box(
+                low = -np.inf, # Try -1
+                high = np.inf, # Try +1
+                shape = (1, self.n_obs_states + 3*self.n_fictive_waypoints),
+                dtype = np.float32
+            )
          
-        # elif self.rl_mode == "desired_acc":
-        self.action_space = gym.spaces.Box(
-            low = np.array([-1,-1,-1], dtype=np.float32),
-            high = np.array([1, 1, 1], dtype=np.float32),
-            dtype = np.float32
-        )
+        elif self.rl_mode == "desired_acc":
+            self.action_space = gym.spaces.Box(
+                low = np.array([-1,-1,-1], dtype=np.float32),
+                high = np.array([1, 1, 1], dtype=np.float32),
+                dtype = np.float32
+            )
 
-        self.perception_space = gym.spaces.Box(
-            low = 0,
-            high = 1,
-            shape = (1, self.sensor_suite[0], self.sensor_suite[1]),
-            dtype = np.float32
-        )
-        
-        self.navigation_space = gym.spaces.Box(
-            low = -np.pi, # Try -1
-            high = np.pi, # Try +1
-            # shape = (1, 3),
-            shape = (1, 1),
-            dtype = np.float32
-        )
+            self.perception_space = gym.spaces.Box(
+                low = 0,
+                high = 1,
+                shape = (1, self.sensor_suite[0], self.sensor_suite[1]),
+                dtype = np.float32
+            )
+            
+            self.navigation_space = gym.spaces.Box(
+                low = -np.pi, # Try -1
+                high = np.pi, # Try +1
+                # shape = (1, 3),
+                shape = (1, 1),
+                dtype = np.float32
+            )
 
         self.observation_space = gym.spaces.Dict({
             'perception': self.perception_space#,
@@ -139,6 +139,7 @@ class WaypointPlanner(gym.Env):
         self.collided = False
         self.penalize_control = 0.0
 
+        self.a_des = np.array([0.0, 0.0, 0.0])
         self.prev_position_error = [0, 0, 0]
         self.total_position_error = [0, 0, 0]
         self.fictive_waypoints = None
@@ -179,129 +180,131 @@ class WaypointPlanner(gym.Env):
         """
         Simulates the environment one time-step. 
         """
-        # print(action)
 
         # prof = cProfile.Profile()
         # prof.enable()
 
-        # if self.rl_mode == "path_planning":
-        #     # action = np.array([[0.0, 0.0, 0.0]]*self.n_generated_waypoints, dtype=np.float32)
-        #     # action = np.array([0.0, 0.0], dtype=np.float32)
-        #     self.alternative_path = self.generate_alternative_path(action)
+        if self.rl_mode == "path_planning":
+            # action = np.array([[0.0, 0.0, 0.0]]*self.n_generated_waypoints, dtype=np.float32)
+            # action = np.array([0.0, 0.0], dtype=np.float32)
+            self.alternative_path = self.generate_alternative_path(action)
 
-        #     step_reward = 0
+            step_reward = 0
 
-        #     # Quadcopter dynamics are simulated for #self.simulation_frequency times fore each newly generated path
-        #     for _ in range(self.simulation_frequency):
+            # Quadcopter dynamics are simulated for #self.simulation_frequency times fore each newly generated path
+            for _ in range(self.simulation_frequency):
 
-        #         # Simulate quadcopter dynamics one time-step and save action and state
-        #         self.update_control_errors()
+                # Simulate quadcopter dynamics one time-step and save action and state
+                self.update_control_errors()
 
-        #         F = self.path_following_controller(self.alternative_path)
-        #         self.quadcopter.step(F)
+                F = self.path_following_controller(self.alternative_path)
+                self.quadcopter.step(F)
 
-        #         self.progression.append(self.prog/self.path.length)
-        #         self.past_states.append(np.copy(self.quadcopter.state))
-        #         # self.past_errors.append(np.array([self.e,self.h]))
-        #         self.past_errors.append(np.array([self.u_error, self.chi_error, self.e, self.upsilon_error, self.h]))
-        #         self.past_actions.append(self.quadcopter.input)
+                self.progression.append(self.prog/self.path.length)
+                self.past_states.append(np.copy(self.quadcopter.state))
+                # self.past_errors.append(np.array([self.e,self.h]))
+                self.past_errors.append(np.array([self.u_error, self.chi_error, self.e, self.upsilon_error, self.h]))
+                self.past_actions.append(self.quadcopter.input)
 
-        #         if self.path:
-        #             self.prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
-        #             self.path_prog.append(self.prog)
+                if self.path:
+                    self.prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
+                    self.path_prog.append(self.prog)
                     
-        #             # Check if a waypoint is passed
-        #             k = self.path.get_u_index(self.prog)
-        #             if k > self.waypoint_index:
-        #                 print("Passed waypoint {:d}".format(k+1), self.path.waypoints[k], "\tquad position:", self.quadcopter.position)
-        #                 self.passed_waypoints = np.vstack((self.passed_waypoints, self.path.waypoints[k]))
-        #                 self.waypoint_index = k
+                    # Check if a waypoint is passed
+                    k = self.path.get_u_index(self.prog)
+                    if k > self.waypoint_index:
+                        print("Passed waypoint {:d}".format(k+1), self.path.waypoints[k], "\tquad position:", self.quadcopter.position)
+                        self.passed_waypoints = np.vstack((self.passed_waypoints, self.path.waypoints[k]))
+                        self.waypoint_index = k
                 
-        #         # Check collision
-        #         for obstacle in self.nearby_obstacles:
-        #             if np.linalg.norm(obstacle.position - self.quadcopter.position) <= obstacle.radius + self.quadcopter.safety_radius:
-        #                 self.collided = True
+                # Check collision
+                for obstacle in self.nearby_obstacles:
+                    if np.linalg.norm(obstacle.position - self.quadcopter.position) <= obstacle.radius + self.quadcopter.safety_radius:
+                        self.collided = True
                 
-        #         step_reward += self.step_reward()
+                step_reward += self.step_reward()
                 
-        #         end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad and self.waypoint_index == self.n_waypoints-2
-        #         end_cond_2 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
-        #         end_cond_3 = self.total_t_steps >= self.max_t_steps
-        #         end_cond_4 = self.reward < self.min_reward / self.simulation_frequency
-        #         if end_cond_1 or end_cond_2 or end_cond_3 or end_cond_4 or self.collided:
-        #             if end_cond_1:
-        #                 print("Quadcopter reached target!")
-        #                 self.success = True
-        #             elif self.collided:
-        #                 print("Quadcopter collided!")
-        #                 self.success = False
-        #             else:
-        #                 print("Episode ended")
-        #             self.done = True
+                end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad and self.waypoint_index == self.n_waypoints-2
+                end_cond_2 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
+                end_cond_3 = self.total_t_steps >= self.max_t_steps
+                end_cond_4 = self.reward < self.min_reward / self.simulation_frequency # ?
+                if end_cond_1 or end_cond_2 or end_cond_3 or end_cond_4 or self.collided:
+                    if end_cond_1:
+                        print("Quadcopter reached target!")
+                        self.success = True
+                    elif self.collided:
+                        print("Quadcopter collided!")
+                        self.success = False
+                    else:
+                        print("Episode ended")
+                    self.done = True
                 
-        #         # Save sim time info
-        #         self.total_t_steps += 1
-        #         self.time.append(self.total_t_steps*self.step_size)
+                # Save sim time info
+                self.total_t_steps += 1
+                self.time.append(self.total_t_steps*self.step_size)
 
-        #         # Stop simulation if quadcopter collided or other end condition is reached
-        #         if self.done:
-        #             break
-
-        #     info = {}
-        #     step_reward /= self.simulation_frequency
+                # Stop simulation if quadcopter collided or other end condition is reached
+                if self.done:
+                    break
         
-        # elif self.rl_mode == "desired_acc":
-        self.update_control_errors()
+        elif self.rl_mode == "desired_acc":
+            self.update_control_errors()
 
-        # action = np.array([0.0,0.0,0.0])
+            # action = np.array([0.0,0.0,0.0])
 
-        F = self.path_following_controller(self.path, action)
-        self.quadcopter.step(F)
-        # print(self.quadcopter.position)
+            F = self.path_following_controller(self.path, action)
+            self.quadcopter.step(F)
+            # print(self.quadcopter.position)
 
-        self.progression.append(self.prog/self.path.length)
-        self.past_states.append(np.copy(self.quadcopter.state))
-        # self.past_errors.append(np.array([self.e,self.h]))
-        self.past_errors.append(np.array([self.u_error, self.chi_error, self.e, self.upsilon_error, self.h]))
-        self.past_actions.append(self.quadcopter.input)
+            self.progression.append(self.prog/self.path.length)
+            self.past_states.append(np.copy(self.quadcopter.state))
+            # self.past_errors.append(np.array([self.e,self.h]))
+            self.past_errors.append(np.array([self.u_error, self.chi_error, self.e, self.upsilon_error, self.h]))
+            self.past_actions.append(self.quadcopter.input)
 
-        if self.path:
-            self.prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
-            self.path_prog.append(self.prog)
+            if self.path:
+                self.prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
+                self.path_prog.append(self.prog)
+                
+                # Check if a waypoint is passed
+                k = self.path.get_u_index(self.prog)
+                if k > self.waypoint_index:
+                    print("Passed waypoint {:d}".format(k+1), self.path.waypoints[k], "\tquad position:", self.quadcopter.position)
+                    self.passed_waypoints = np.vstack((self.passed_waypoints, self.path.waypoints[k]))
+                    self.waypoint_index = k
             
-            # Check if a waypoint is passed
-            k = self.path.get_u_index(self.prog)
-            if k > self.waypoint_index:
-                print("Passed waypoint {:d}".format(k+1), self.path.waypoints[k], "\tquad position:", self.quadcopter.position)
-                self.passed_waypoints = np.vstack((self.passed_waypoints, self.path.waypoints[k]))
-                self.waypoint_index = k
-        
-        # Check collision
-        for obstacle in self.nearby_obstacles:
-            if np.linalg.norm(obstacle.position - self.quadcopter.position) <= obstacle.radius + self.quadcopter.safety_radius:
-                self.collided = True
-        
-        end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad and self.waypoint_index == self.n_waypoints-2
-        end_cond_2 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
-        end_cond_3 = self.total_t_steps >= self.max_t_steps
-        end_cond_4 = self.reward < self.min_reward
-        if end_cond_1 or end_cond_2 or end_cond_3 or end_cond_4 or self.collided:
-            if end_cond_1:
-                print("Quadcopter reached target!")
-                self.success = True
-            elif self.collided:
-                print("Quadcopter collided!")
-                self.success = False
-            else:
-                print("Episode ended")
-            self.done = True
-        
-        # Save sim time info
-        self.total_t_steps += 1
-        self.time.append(self.total_t_steps*self.step_size)
+            # Check collision
+            for obstacle in self.nearby_obstacles:
+                if np.linalg.norm(obstacle.position - self.quadcopter.position) <= obstacle.radius + self.quadcopter.safety_radius:
+                    self.collided = True
+            
+            end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad and self.waypoint_index == self.n_waypoints-2
+            end_cond_2 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
+            end_cond_3 = self.total_t_steps >= self.max_t_steps
+            end_cond_4 = self.reward < self.min_reward
+            end_cond_4 = False
+            if end_cond_1 or end_cond_2 or end_cond_3 or end_cond_4 or self.collided:
+                # print(end_cond_1)
+                # print(end_cond_2)
+                # print(end_cond_3)
+                # print(end_cond_4)
+                if end_cond_1:
+                    print("Quadcopter reached target!")
+                    self.success = True
+                elif self.collided:
+                    print("Quadcopter collided!")
+                    self.success = False
+                else:
+                    print("Episode ended")
+                self.done = True
+            
+            # Save sim time info
+            self.total_t_steps += 1
+            self.time.append(self.total_t_steps*self.step_size)
+
+            step_reward = self.step_reward()
 
         info = {}
-        step_reward = self.step_reward()
 
         # Make next observation
         self.observation = self.observe()
@@ -318,18 +321,18 @@ class WaypointPlanner(gym.Env):
         Returns observations of the environment. 
         """
 
-        # if self.rl_mode == "path_planning":
-        #     self.fictive_waypoints = self.generate_fictive_waypoints(distance = self.distance_fictive_waypoints)
+        if self.rl_mode == "path_planning":
+            self.fictive_waypoints = self.generate_fictive_waypoints(distance = self.distance_fictive_waypoints)
 
-        #     obs = np.zeros(self.n_obs_states + 3*self.n_fictive_waypoints)
-        #     obs[0:3] = self.quadcopter.position
-        #     obs[3:6] = self.quadcopter.attitude
-        #     obs[6:6+3*self.n_fictive_waypoints] = self.fictive_waypoints.flatten()
+            obs = np.zeros(self.n_obs_states + 3*self.n_fictive_waypoints)
+            obs[0:3] = self.quadcopter.position
+            obs[3:6] = self.quadcopter.attitude
+            obs[6:6+3*self.n_fictive_waypoints] = self.fictive_waypoints.flatten()
             
-        # elif self.rl_mode == "desired_acc":
-        obs = np.array([0])
-        # obs = np.zeros(3)
-        # obs[0:3] = self.quadcopter.attitude
+        elif self.rl_mode == "desired_acc":
+            obs = np.array([0])
+            # obs = np.zeros(3)
+            # obs[0:3] = self.quadcopter.attitude
 
         # Update nearby obstacles and calculate distances
         self.update_nearby_obstacles()      
@@ -355,13 +358,13 @@ class WaypointPlanner(gym.Env):
         self.reward_path_following_sum += self.lambda_reward * reward_path_following
         step_reward = self.lambda_reward * reward_path_following + (1 - self.lambda_reward) * reward_collision_avoidance
 
-        # if self.rl_mode == "path_planning":
-        #     step_reward /= self.simulation_frequency
+        if self.rl_mode == "path_planning":
+            step_reward /= self.simulation_frequency
 
         self.reward += step_reward
 
-        print('\nReward Path:', self.lambda_reward * reward_path_following)
-        print('Reward Coll:', (1 - self.lambda_reward) * reward_collision_avoidance)
+        # print('\nReward Path:', self.lambda_reward * reward_path_following)
+        # print('Reward Coll:', (1 - self.lambda_reward) * reward_collision_avoidance)
   
         return step_reward
 
@@ -386,15 +389,6 @@ class WaypointPlanner(gym.Env):
         prog = alternative_path.get_closest_u(self.quadcopter.position, self.waypoint_index, margin=self.distance_fictive_waypoints)
         self.chi_p, self.upsilon_p = alternative_path.get_direction_angles(prog)
 
-        # Calculate tracking errors
-        v = alternative_path.calculate_gradient(prog)
-        a = alternative_path.calculate_acceleration(prog)
-        e_p = alternative_path(prog) - self.quadcopter.position
-        e_p_dot = (e_p - self.prev_position_error) / self.step_size
-        self.total_position_error += e_p
-        e_v = self.cruise_speed * v / np.linalg.norm(v) - geom.Rzyx(*self.quadcopter.attitude) @ self.quadcopter.velocity
-        self.prev_position_error = e_p
-
         # Define PD control weights for position and attitude
         K_p_pos = np.diag([3.0, 3.0, 6.0])#/2
         K_d_pos = np.diag([0.5, 0.5, 0.5])#*10
@@ -407,10 +401,22 @@ class WaypointPlanner(gym.Env):
         K_p_att = np.diag([ss.I_x * omega_n**2, ss.I_y * omega_n**2, ss.I_z * omega_n**2])
         K_d_att = np.diag([2 * ss.I_x * xi * omega_n, 2 * ss.I_y * xi * omega_n, 2 * ss.I_z * xi * omega_n])
 
+        # Calculate tracking errors
+        v = alternative_path.calculate_gradient(prog)
+        a = alternative_path.calculate_acceleration(prog)
+        e_p = alternative_path(prog) - self.quadcopter.position
+        # if not np.any(self.a_des > 1.0): # Anti-wind up
+        #     self.total_position_error += e_p
+        self.total_position_error += e_p * (self.a_des < 1.0).astype(int)
+        e_p_dot = (e_p - self.prev_position_error) / self.step_size
+        self.prev_position_error = e_p
+        e_v = self.cruise_speed * v / np.linalg.norm(v) - geom.Rzyx(*self.quadcopter.attitude) @ self.quadcopter.velocity
+
         # Calculate desired accelerations and attitudes
-        a_des = K_p_pos @ e_p + K_d_pos @ e_p_dot + K_i_pos @ self.total_position_error + K_v @ e_v + a + geom.Rzyx(*self.quadcopter.attitude) @ action
-        b_x = a_des[0] / (a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_u*self.quadcopter.surge)/ss.m)
-        b_y = a_des[1] / (a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_v*self.quadcopter.sway)/ss.m)
+        self.a_des = K_p_pos @ e_p + K_i_pos @ self.total_position_error + K_d_pos @ e_p_dot + K_v @ e_v + a# + geom.Rzyx(*self.quadcopter.attitude) @ action
+        print(self.a_des, K_p_pos @ e_p, K_i_pos @ self.total_position_error, K_d_pos @ e_p_dot)
+        b_x = self.a_des[0] / (self.a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_u*self.quadcopter.surge)/ss.m)
+        b_y = self.a_des[1] / (self.a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_v*self.quadcopter.sway)/ss.m)
         phi_des   = geom.ssa(b_x * np.sin(self.chi_p) - b_y * np.cos(self.chi_p))
         theta_des = geom.ssa(b_x * np.cos(self.chi_p) + b_y * np.sin(self.chi_p))
         e_att = geom.ssa(np.array([phi_des, theta_des, self.chi_p]) - self.quadcopter.attitude)
@@ -418,7 +424,7 @@ class WaypointPlanner(gym.Env):
 
         # Calculate desired inputs
         u_des = np.array([0.0, 0.0, 0.0, 0.0])
-        u_des[0] = ss.m * (a_des[2] + ss.g) + ss.d_w*self.quadcopter.heave
+        u_des[0] = ss.m * (self.a_des[2] + ss.g) + ss.d_w*self.quadcopter.heave
         u_des[1:] = K_p_att @ e_att + K_d_att @ e_angvel
 
         F = np.linalg.inv(ss.B()[2:]).dot(u_des)
@@ -835,8 +841,8 @@ class WaypointPlanner(gym.Env):
         initial_state = np.zeros(6)
         waypoints = generate_random_waypoints(self.n_waypoints,'3d_new')
         self.path = QPMI(waypoints)
-        init_pos=[0, 0, 0]
-        init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
+        init_pos=[5, 7, -2]
+        init_attitude=np.array([0, 0, self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
     
@@ -913,13 +919,13 @@ class WaypointPlanner(gym.Env):
     def scenario_test_path(self):
         # test_waypoints = np.array([np.array([0,0,0]), np.array([1,1,0]), np.array([9,9,0]), np.array([10,10,0])])
         # test_waypoints = np.array([np.array([0,0,0]), np.array([5,0,0]), np.array([10,0,0]), np.array([15,0,0])])
-        test_waypoints = np.array([np.array([0,0,0]), np.array([20,0,0]), np.array([40,0,0]), np.array([60,0,0])])
+        test_waypoints = np.array([np.array([0,0,0]), np.array([10,10,0]), np.array([20,20,0]), np.array([30,30,0])])
         self.n_waypoints = len(test_waypoints)
         self.path = QPMI(test_waypoints)
-        init_pos = [0,0,0]
+        init_pos = [0,10,0]
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos, init_attitude])
-        self.obstacles.append(Obstacle(radius=5, position=self.path(14)))
+        # self.obstacles.append(Obstacle(radius=5, position=self.path(14)))
         return initial_state
 
 
