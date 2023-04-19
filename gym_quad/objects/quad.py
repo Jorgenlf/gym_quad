@@ -158,8 +158,8 @@ class Quad():
         """
         Returns the rate of rotation about the world frame.
         """
-        [N_dot, E_dot, D_dot] = self.position_dot
-        return np.arctan2(E_dot, N_dot)
+        [x_dot, y_dot, z_dot] = self.position_dot
+        return np.arctan2(y_dot, x_dot)
         
     @property
     def upsilon(self):

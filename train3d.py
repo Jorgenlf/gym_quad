@@ -22,7 +22,7 @@ from utils import parse_experiment_info
 print('CPU COUNT:', multiprocessing.cpu_count())
 
 # scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
-scenarios = ["3d_new"]
+scenarios = ["intermediate"]
 
 hyperparams = {
     'n_steps': 1024,
@@ -38,10 +38,10 @@ hyperparams = {
 }
 
 policy_kwargs = dict(
-                        features_extractor_class = PerceptionNavigationExtractor,
-                        features_extractor_kwargs = dict(sensor_dim_x=15,sensor_dim_y=15,features_dim=32),
-                        net_arch=[dict(pi=[128, 64, 32], vf=[128, 64, 32])]
-                    )
+    features_extractor_class = PerceptionNavigationExtractor,
+    features_extractor_kwargs = dict(sensor_dim_x=15,sensor_dim_y=15,features_dim=32),
+    net_arch = [dict(pi=[128, 64, 32], vf=[128, 64, 32])]
+)
 
 class StatsCallback(BaseCallback):
     def __init__(self):
@@ -64,7 +64,7 @@ class StatsCallback(BaseCallback):
                         self.logger.record('stats/' + stat, self.prev_stats[i][stat])
         self.prev_stats=stats
 
-        if (n_steps + 1) % 1024 == 0:
+        if (n_steps + 1) % 5000 == 0:
             _self = self.locals.get("self")
             _self.save(os.path.join(agents_dir, "model_" + str(n_steps+1) + ".pkl"))
         n_steps += 1
@@ -91,7 +91,7 @@ if __name__ == '__main__':
             if scen!="intermediate":
                 continue
 
-        num_envs = 1
+        num_envs = 8
         # num_envs = multiprocessing.cpu_count() - 2
         print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...", end="")
         if num_envs > 1:
@@ -112,7 +112,7 @@ if __name__ == '__main__':
         else:
             continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
 
-        if scen == "3d_new" and continual_step == 0:
+        if scen == "intermediate" and continual_step == 0:
             agent = PPO('MultiInputPolicy', env, **hyperparams,policy_kwargs=policy_kwargs,seed=seed)
         elif continual_step == 0:
             continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.pkl")

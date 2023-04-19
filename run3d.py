@@ -40,7 +40,7 @@ if __name__ == "__main__":
             sim_df = sim_df.append(episode_df)
         except NameError:
             sim_df = episode_df
-
+        
         write_report(test_dir, sim_df, env, episode)
         # plot_attitude(sim_df)
         #plot_velocity(sim_df)

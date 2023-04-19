@@ -1,6 +1,7 @@
 import argparse
 import os
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import proj3d
 import numpy as np
 import pandas as pd
 from cycler import cycler
@@ -151,20 +152,22 @@ def plot_3d(env, sim_df, test_dir):
     plt.rc('lines', linewidth=3)
 
     ax = env.plot3D()#(wps_on=False)
+    ax.scatter3D(sim_df[r"$N$"][0], sim_df[r"$E$"][0], sim_df[r"$D$"][0], color="#66FF66", label="Initial Position")
     ax.plot3D(sim_df[r"$N$"], sim_df[r"$E$"], sim_df[r"$D$"], color="#EECC55", label="Quadcopter Path")#, linestyle="dashed")
-    ax.set_xlabel(xlabel=r"$x_w$ [m]", fontsize=14)
-    ax.set_ylabel(ylabel=r"$y_w$ [m]", fontsize=14)
-    ax.set_zlabel(zlabel=r"$z_w$ [m]", fontsize=14)
+    ax.set_xlabel(xlabel=r"$x_w$ [m]", fontsize=18)
+    ax.set_ylabel(ylabel=r"$y_w$ [m]", fontsize=18)
+    ax.set_zlabel(zlabel=r"$z_w$ [m]", fontsize=18)
+    ax.tick_params(axis='both', which='major', labelsize=14)
     ax.legend(loc="upper right", fontsize=14)
-    # ax.set_xlim([-10,40])
-    # ax.set_ylim([-10,40])
-    # ax.set_zlim([-10,10])
+    # f = lambda x,y,z: proj3d.proj_transform(x,y,z, ax.get_proj())[:2]
+    # ax.legend(loc="lower left", bbox_to_anchor=f(-70,-120,200), 
+    #       bbox_transform=ax.transData, fontsize=16)
     ax.set_xlim([-200,200])
     ax.set_ylim([-200,200])
     ax.set_zlim([-200,200])
     
     plt.savefig(os.path.join(test_dir, "plots", f"episode{int(sim_df['Episode'].iloc[0])}.pdf"))
-    # plt.show()
+    plt.show()
 
 
 def plot_multiple_3d(env, sim_dfs):

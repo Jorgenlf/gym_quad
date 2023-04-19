@@ -307,8 +307,8 @@ class QPMI():
         u = np.linspace(self.us[0], self.us[-1], 10000)
         quadratic_path = []
         for du in u:
-                quadratic_path.append(self(du))
-                self.get_direction_angles(du)
+            quadratic_path.append(self(du))
+            self.get_direction_angles(du)
         quadratic_path = np.array(quadratic_path)
         ax = plt.axes(projection='3d')
         ax.plot3D(xs=quadratic_path[:,0], ys=quadratic_path[:,1], zs=quadratic_path[:,2], color="#3388BB", label="Path")

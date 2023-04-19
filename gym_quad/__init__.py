@@ -4,7 +4,7 @@ from gym.envs.registration import register
 
 waypoint_planner_config = {
     "step_size": 0.01,
-    "max_t_steps": 100000,
+    "max_t_steps": 50000,
     "min_reward": -20000,
     "n_obs_states": 6,
     "cruise_speed": 2.5,
@@ -18,17 +18,18 @@ waypoint_planner_config = {
     "sonar_range": 25,
     "n_obs_errors": 8,
     "n_obs_inputs": 0,
-    "la_dist": 3,
+    "la_dist": 5,
     "accept_rad": 1,
     "n_waypoints": 7,
     "n_int_obstacles": 1,
     "n_pro_obstacles": 3,
     "n_adv_obstacles": 8,
-    "n_fictive_waypoints": 4,
-    "distance_fictive_waypoints": 3.0,
+    "n_fictive_waypoints": 1,
+    # "distance_fictive_waypoints": 3.0,
+    "fictive_waypoint_span": 10,
     "n_generated_waypoints": 1,
-    "simulation_frequency": 100, # How many timesteps to simulate the quadcopter for each new path
-    "rl_mode": "desired_acc" # [path_planning, desired_acc]
+    "simulation_frequency": 20, # How many timesteps to simulate the quadcopter for each new path
+    "rl_mode": "path_planning" # [path_planning, desired_acc]
 }
 
 register(
