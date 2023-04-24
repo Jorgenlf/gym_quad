@@ -317,9 +317,9 @@ class QPMI():
                 if i == 1: ax.scatter3D(*wp, color="#EE6666", label="Waypoints")
                 else: ax.scatter3D(*wp, color="#EE6666")
         
-        # ax.set_xlabel(xlabel=r"$x_w$ [m]", fontsize=14)
-        # ax.set_ylabel(ylabel=r"$y_w$ [m]", fontsize=14)
-        # ax.set_zlabel(zlabel=r"$z_w$ [m]", fontsize=14)
+        ax.set_xlabel(xlabel=r"$x_w$ [m]", fontsize=14)
+        ax.set_ylabel(ylabel=r"$y_w$ [m]", fontsize=14)
+        ax.set_zlabel(zlabel=r"$z_w$ [m]", fontsize=14)
 
         return ax
 
@@ -344,7 +344,7 @@ def generate_random_waypoints(nwaypoints,scen):
         distance = 50
         for i in range(nwaypoints-1):
             azimuth = a_start_angle+np.random.uniform(-np.pi/4, np.pi/4)
-            elevation =e_start_angle+ np.random.uniform(-np.pi/4, np.pi/4)
+            elevation = e_start_angle+ np.random.uniform(-np.pi/8, np.pi/8)
             x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
             y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
             z = waypoints[i][2] + distance*np.sin(elevation)

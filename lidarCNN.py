@@ -26,7 +26,7 @@ class LidarCNN(BaseFeaturesExtractor):
         self.kernel_size = 5
         self.padding = 2
         self.stride = 2
-        padding_mode='zeros'
+        padding_mode='circular'
         print("LIDAR_CNN CONFIG")
         print("\tIN_CHANNELS =", self.in_channels)
         print("\tKERNEL_SIZE =", self.kernel_size)
