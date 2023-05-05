@@ -343,8 +343,8 @@ def generate_random_waypoints(nwaypoints,scen):
         e_start_angle=np.random.uniform(-np.pi,np.pi) 
         distance = 50
         for i in range(nwaypoints-1):
-            azimuth = a_start_angle+np.random.uniform(-np.pi/4, np.pi/4)
-            elevation = e_start_angle+ np.random.uniform(-np.pi/8, np.pi/8)
+            azimuth = a_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
+            elevation = e_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
             x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
             y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
             z = waypoints[i][2] + distance*np.sin(elevation)

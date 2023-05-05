@@ -331,10 +331,10 @@ class WaypointPlanner(gym.Env):
             self.fictive_waypoints = self.generate_fictive_waypoints(distance = self.la_dist)
 
             obs = np.zeros(self.n_obs_states + 2*3)
-            obs[0:3] = self.quadcopter.attitude
-            obs[3:6] = self.normal_vector
-            obs[6:9] = self.binormal_vector
-            obs[9:12] = self.fictive_waypoints[0] - self.quadcopter.position
+            obs[0:3] = self.quadcopter.attitude / np.pi
+            obs[3:6] = geom.Rzyx(*self.quadcopter.attitude) @ self.normal_vector
+            obs[6:9] = geom.Rzyx(*self.quadcopter.attitude) @ self.binormal_vector
+            obs[9:12] = geom.Rzyx(*self.quadcopter.attitude) @ (self.fictive_waypoints[0] - self.quadcopter.position)
 
             # obs[6:6+3*self.n_fictive_waypoints] = self.fictive_waypoints.flatten()
             # obs[6+3*self.n_fictive_waypoints:9+3*self.n_fictive_waypoints] = self.normal_vector
@@ -363,14 +363,16 @@ class WaypointPlanner(gym.Env):
 
         # print(reward_path_following)
 
-        reward_path_following = np.clip(- np.log(dist_from_path), - np.inf, - np.log(0.5)) / (- np.log(0.5))
+        reward_path_following = np.clip(- np.log(dist_from_path), - np.inf, - np.log(0.1)) / (- np.log(0.1))
+            
         col_rew = self.penalize_obstacle_closeness()
         # print(col_rew)
         # reward_collision_avoidance = np.clip(col_rew, -5, 0)
-        reward_collision_avoidance = - np.log(1 - col_rew)
+        reward_collision_avoidance = - 2 * np.log(1 - col_rew)
         # self.reward_collision -= 0 if not self.collided else 1000
         if self.collided:
             self.reward_collision = - 1000
+            # print("Reward:", self.reward_collision)
         step_reward = self.lambda_reward * reward_path_following + (1 - self.lambda_reward) * reward_collision_avoidance + self.reward_collision
 
         if self.rl_mode == "path_planning":
@@ -913,14 +915,18 @@ class WaypointPlanner(gym.Env):
 
     def scenario_intermediate(self):
         initial_state = self.scenario_3d_new()
-        rad = np.random.uniform(4, 10)
-        pos = self.path(self.path.length/2)
-        self.obstacles.append(Obstacle(radius=rad, position=pos))
-        lengths = np.linspace(self.path.length*1/6, self.path.length*5/6, self.n_int_obstacles)
+        obstacle_radius = np.random.uniform(low=4,high=10)
+        obstacle_coords = self.path(self.path.length/2) + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
+        self.obstacles.append(Obstacle(radius=obstacle_radius, position=obstacle_coords[0]))
+
+        lengths = np.linspace(self.path.length*1.5/6, self.path.length*5/6, self.n_int_obstacles)
         for l in lengths:
             obstacle_radius = np.random.uniform(low=4,high=10)
-            obstacle_coords = self.path(l)
-            obstacle = Obstacle(obstacle_radius, obstacle_coords)
+            obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
+            # print(self.path(l))
+            # print(np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3)))
+            # print(obstacle_coords)
+            obstacle = Obstacle(obstacle_radius, obstacle_coords[0])
             if self.check_object_overlap(obstacle):
                 continue
             else:
@@ -930,7 +936,7 @@ class WaypointPlanner(gym.Env):
 
     def scenario_proficient(self):
         initial_state = self.scenario_intermediate()
-        lengths = np.random.uniform(self.path.length*1/6, self.path.length*5/6, self.n_pro_obstacles)
+        lengths = np.random.uniform(self.path.length*1/3, self.path.length*2/3, self.n_pro_obstacles)
         n_checks = 0
         while len(self.obstacles) < self.n_pro_obstacles and n_checks < 1000:
             for l in lengths:
@@ -949,7 +955,7 @@ class WaypointPlanner(gym.Env):
     def scenario_advanced(self):
         initial_state = self.scenario_proficient()
         while len(self.obstacles) < self.n_adv_obstacles: # Place the rest of the obstacles randomly
-            s = np.random.uniform(self.path.length*1/6, self.path.length*5/6)
+            s = np.random.uniform(self.path.length*1/3, self.path.length*2/3)
             obstacle_radius = np.random.uniform(low=4,high=10)
             obstacle_coords = self.path(s) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
             obstacle = Obstacle(obstacle_radius, obstacle_coords[0])
@@ -977,7 +983,7 @@ class WaypointPlanner(gym.Env):
         init_pos = [0,0,0]
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos, init_attitude])
-        self.obstacles.append(Obstacle(radius=5, position=self.path(10)))
+        self.obstacles.append(Obstacle(radius=10, position=self.path(20)))
         return initial_state
 
 

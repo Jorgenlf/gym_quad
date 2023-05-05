@@ -21,7 +21,7 @@ waypoint_planner_config = {
     "la_dist": 5,
     "accept_rad": 1,
     "n_waypoints": 7,
-    "n_int_obstacles": 1,
+    "n_int_obstacles": 5,
     "n_pro_obstacles": 3,
     "n_adv_obstacles": 8,
     "n_fictive_waypoints": 1,

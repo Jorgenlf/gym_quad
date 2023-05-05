@@ -53,18 +53,23 @@ class StatsCallback(BaseCallback):
         self.error_names=["e", "h"]
     
     def _on_step(self):
-        done_array=np.array(self.locals.get("dones") if self.locals.get("dones") is not None else self.locals.get("dones"))
-        stats=self.locals.get("self").get_env().env_method("get_stats")
+        done_array = np.array(self.locals.get("dones") if self.locals.get("dones") is not None else self.locals.get("dones"))
+        stats = self.locals.get("self").get_env().env_method("get_stats")
         global n_steps
         
         for i in range(len(done_array)):
             if done_array[i]:
-                if  self.prev_stats is not None:
+                if self.prev_stats is not None:
                     for stat in self.prev_stats[i].keys():
                         self.logger.record('stats/' + stat, self.prev_stats[i][stat])
-        self.prev_stats=stats
+                # for stat in stats[i].keys():
+                #     self.logger.record('stats/' + stat, stats[i][stat])
+        self.prev_stats = stats
 
-        if (n_steps + 1) % 5000 == 0:
+        # print("\nstats:", stats)
+        # print("prev_stats:", self.prev_stats)
+
+        if (n_steps + 1) % 10000 == 0:
             _self = self.locals.get("self")
             _self.save(os.path.join(agents_dir, "model_" + str(n_steps+1) + ".pkl"))
         n_steps += 1

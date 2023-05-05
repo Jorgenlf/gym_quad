@@ -166,8 +166,8 @@ class Quad():
         """
         Returns the rate of rotation about the world frame.
         """
-        [N_dot, E_dot, D_dot] = self.position_dot
-        return np.arctan2(D_dot, np.sqrt(N_dot**2 + E_dot**2))
+        [x_dot, y_dot, z_dot] = self.position_dot
+        return np.arctan2(z_dot, np.sqrt(x_dot**2 + y_dot**2))
 
 def _thrust(force):
     force = np.clip(force, -1, 1)
