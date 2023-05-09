@@ -53,6 +53,8 @@ def simulate_environment(episode, env, agent):
     while not done:
         action = agent.predict(env.observation, deterministic=True)[0]
         _, _, done, _ = env.step(action)
+        # if episode in [0, 1, 2, 3]:
+        #     break
     errors = np.array(env.past_errors)
     time = np.array(env.time).reshape((env.total_t_steps,1))
     episode = np.full(((env.total_t_steps,1)), episode)
@@ -160,7 +162,7 @@ def plot_3d(env, sim_df, test_dir):
     ax.tick_params(axis='both', which='major', labelsize=14)
     ax.legend(loc="upper right", fontsize=14)
     # f = lambda x,y,z: proj3d.proj_transform(x,y,z, ax.get_proj())[:2]
-    # ax.legend(loc="lower left", bbox_to_anchor=f(-70,-120,200), 
+    # ax.legend(loc="lower left", bbox_to_anchor=f(0,-120,100), 
     #       bbox_transform=ax.transData, fontsize=16)
     ax.set_xlim([-200,200])
     ax.set_ylim([-200,200])
