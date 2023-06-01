@@ -4,7 +4,7 @@ from gym.envs.registration import register
 
 waypoint_planner_config = {
     "step_size": 0.01,
-    "max_t_steps": 200000,
+    "max_t_steps": 60000,
     "min_reward": -20000,
     "n_obs_states": 6,
     "cruise_speed": 2.5,
@@ -20,7 +20,7 @@ waypoint_planner_config = {
     "n_obs_inputs": 0,
     "la_dist": 5,
     "accept_rad": 1,
-    "n_waypoints": 26,
+    "n_waypoints": 7,
     "n_int_obstacles": 5,
     "n_pro_obstacles": 3,
     "n_adv_obstacles": 8,
