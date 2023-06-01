@@ -1,0 +1,13 @@
+python run3d.py --exp_id 100 --controller_scenario intermediate --controller 820000 --scenario helix
+
+    def scenario_helix(self):
+        initial_state = np.zeros(6)
+        waypoints = generate_random_waypoints(self.n_waypoints,'helix')
+        self.path = QPMI(waypoints)
+        # init_pos = helix_param(0)
+        init_pos = [110, 0, -26]
+        init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
+        # init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
+        initial_state = np.hstack([init_pos, init_attitude])
+        self.obstacles.append(Obstacle(radius=100, position=[0,0,0]))
+        return initial_state

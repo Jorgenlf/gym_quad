@@ -1,0 +1,12 @@
+python run3d.py --exp_id 100 --controller_scenario intermediate --controller 820000 --scenario 3d_new --episodes 100
+
+    def scenario_3d_new(self):
+        initial_state = np.zeros(6)
+        waypoints = generate_random_waypoints(self.n_waypoints,'3d_new')
+        self.path = QPMI(waypoints)
+        # init_pos=[-10, -10, 0]
+        init_pos = [np.random.uniform(-10,10), np.random.uniform(-10,10), np.random.uniform(-10,10)]
+        init_pos=[0, 0, 0]
+        init_attitude=np.array([0, 0, self.path.get_direction_angles(0)[0]])
+        initial_state = np.hstack([init_pos, init_attitude])
+        return initial_state

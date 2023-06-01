@@ -1,0 +1,2 @@
+Episode,Timesteps,Avg Absolute Path Error,IAE Cross,IAE Vertical,Progression,Success,Collision
+0.0,10.0,0.00010757311795793015,1.2677866347559543e-05,0.0010756250107562529,4.215596199529709e-06,0.0,0.0
