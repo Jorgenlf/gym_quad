@@ -5,6 +5,7 @@ import gym
 import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import proj3d
 import skimage.measure
 import time
 
@@ -91,16 +92,16 @@ class WaypointPlanner(gym.Env):
             "horizontal_new": self.scenario_horizontal_new,
             "3d": self.scenario_3d,
             "3d_new": self.scenario_3d_new,
-            #"helix": self.scenario_helix,
+            "helix": self.scenario_helix,
             "intermediate": self.scenario_intermediate,
             "proficient": self.scenario_proficient,
-            "advanced": self.scenario_advanced,
+            # "advanced": self.scenario_advanced,
             "expert": self.scenario_expert,
             # Testing scenarios
             "test_path": self.scenario_test_path,
             "test": self.scenario_test,
             "test_current": self.scenario_test_current,
-            #"horizontal": self.scenario_horizontal_test,
+            "horizontal": self.scenario_horizontal_test,
             "vertical": self.scenario_vertical_test,
             "deadend": self.scenario_deadend_test
         }
@@ -231,14 +232,14 @@ class WaypointPlanner(gym.Env):
                 # end_cond_4 = self.reward < self.min_reward / self.simulation_frequency # ?
                 if end_cond_1 or end_cond_2 or end_cond_3 or self.collided:# or end_cond_4:
                     self.done = True
-                    if end_cond_1:
+                    if end_cond_1 or end_cond_2:
                         print("Quadcopter reached target!")
                         self.success = True
                     elif self.collided:
                         print("Quadcopter collided!")
                         self.success = False
-                    elif end_cond_2:
-                        print("Passed endpoint without hitting")
+                    # elif end_cond_2:
+                    #     print("Passed endpoint without hitting")
                     elif end_cond_3:
                         print("Exceeded time limit")
                 
@@ -516,6 +517,7 @@ class WaypointPlanner(gym.Env):
         alternative_path : QPMI
             New path for the quadcopter to follow.
         """
+        # action = [0,0]
         path_waypoints = np.copy(self.path.waypoints)
         generated_waypoints = np.copy(self.fictive_waypoints[0:self.n_generated_waypoints])
 
@@ -570,7 +572,7 @@ class WaypointPlanner(gym.Env):
         # print(f"{self.total_t_steps}: {waypoints}")
 
         alternative_path = QPMI(waypoints)
-        # if self.total_t_steps % 4000 == 0:
+        # if self.total_t_steps % 2000 == 0:
         #     self.action = action
             # x_p, y_p, z_p = self.path.calculate_vectors(self.prog)
             # print("x_p:", x_p, "y_p:", y_p, "z_p:", z_p)
@@ -578,6 +580,7 @@ class WaypointPlanner(gym.Env):
             # print("x_p @ y_p:", x_p @ y_p)
             # print("x_p @ z_p:", x_p @ z_p)
             # print("y_p @ z_p:", y_p @ z_p)
+            # self.lookahead_point = generated_waypoints[-1]
             # self.plot3D()
         return alternative_path
     
@@ -740,6 +743,7 @@ class WaypointPlanner(gym.Env):
         return - 20 * reward_colav / sensor_suite_correction
 
 
+
     def plot_section3(self):
         plt.rc('lines', linewidth=3)
         ax = self.plot3D(wps_on=False)
@@ -766,7 +770,7 @@ class WaypointPlanner(gym.Env):
         """
         ax = self.path.plot_path(wps_on)
         for obstacle in self.obstacles:    
-            ax.plot_surface(*obstacle.return_plot_variables(), color='r')
+            ax.plot_surface(*obstacle.return_plot_variables(), color='r', zorder=1)
 
         # generated_waypoints = self.fictive_waypoints
         # if self.prog > 5:
@@ -781,19 +785,42 @@ class WaypointPlanner(gym.Env):
 
         # action = [0.1, 0.2]
         # waypoint_deviations = self.fictive_waypoint_span * (self.action[0] * self.normal_vector + self.action[1] * self.binormal_vector)
-        
-        # ax.quiver(*self.path(waypoint_prog), *self.tangent_vector, color='r')
-        # ax.quiver(*self.path(waypoint_prog), *self.normal_vector, color='g')
-        # ax.quiver(*self.path(waypoint_prog), *self.binormal_vector, color='b')
+
+        # ax.quiver(*self.fictive_waypoints[0], *(10 * self.tangent_vector), color='r', label="Tangent Vector")
+        # ax.quiver(*self.fictive_waypoints[0], *(10 * self.normal_vector), color='g', label="Normal Vector")
+        # ax.quiver(*self.fictive_waypoints[0], *(10 * self.binormal_vector), color='b', label="Binormal Vector")
+        # ax.quiver(*self.fictive_waypoints[0], *(-10 * self.normal_vector), color='g')
+        # ax.quiver(*self.fictive_waypoints[0], *(-10 * self.binormal_vector), color='b')
+        # ax.quiver(*self.quadcopter.position, *self.normal_vector, color='g')
+        # ax.quiver(*self.quadcopter.position, *self.binormal_vector, color='b')
         # ax.scatter3D(*(generated_waypoints[-1]), color="#000000", label="Fictive point")
-        # ax.scatter3D(*(generated_waypoints[-1] + waypoint_deviations), color="#000000", label="Generated point")
-        # ax.scatter3D(*self.quadcopter.position, color="y", label="Quadcopter position")
+        # ax.scatter3D(0, 0, 0, color="#66FF66", label="Initial Position")
+        # ax.scatter3D(*self.quadcopter.position, color="#000000", label="Quadcopter Position")
+        # ax.scatter3D(*self.waypoints[1], color="y", label="wp1")
+        # ax.scatter3D(*self.waypoints[2], color="y", label="wp2")
 
         # ax.set_xlabel(xlabel=r"$x_w$ [m]", fontsize=18)
         # ax.set_ylabel(ylabel=r"$y_w$ [m]", fontsize=18)
         # ax.set_zlabel(zlabel=r"$z_w$ [m]", fontsize=18)
 
-        # ax.legend(loc="upper right", fontsize=14)
+        # Generate points on the circular plane
+        # theta = np.linspace(0, 2*np.pi, 100)
+
+        # Calculate the radius of the circular plane
+        # radius = np.linalg.norm(8.1 * self.normal_vector)
+        # radius = 15
+
+        # x = self.fictive_waypoints[0][0] + radius * np.cos(theta)
+        # y = self.fictive_waypoints[0][1] + radius * np.sin(theta)
+        # X, Y = np.meshgrid(x, y)
+        # Z = self.fictive_waypoints[0][2] - (self.tangent_vector[0] * (X - self.fictive_waypoints[0][0]) + self.tangent_vector[1] * (Y - self.fictive_waypoints[0][1])) / self.tangent_vector[2]
+        # ax.plot_surface(X, Y, Z, alpha=0.1)
+
+
+        # f = lambda x,y,z: proj3d.proj_transform(x,y,z, ax.get_proj())[:2]
+        # ax.legend(loc="lower left", bbox_to_anchor=f(70,0,-40), 
+        #     bbox_transform=ax.transData, fontsize=16)
+
 
         return self.axis_equal3d(ax)
 
@@ -900,26 +927,22 @@ class WaypointPlanner(gym.Env):
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
     
-    """
-    def scenario_helix(self):
-        initial_state = np.zeros(6)
-        self.current = Current(mu=0, Vmin=0, Vmax=0, Vc_init=0, alpha_init=0, beta_init=0, t_step=0) #Current object with zero velocity
-        waypoints = generate_random_waypoints(self.n_waypoints,'helix')
-        self.path = QPMI(waypoints)
-        init_pos = helix_param(0)
-        #init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
-        init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
-        initial_state = np.hstack([init_pos, init_attitude])
-        return initial_state
-    """
 
     def scenario_intermediate(self):
         initial_state = self.scenario_3d_new()
         obstacle_radius = np.random.uniform(low=4,high=10)
-        obstacle_coords = self.path(self.path.length/2) + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
-        self.obstacles.append(Obstacle(radius=obstacle_radius, position=obstacle_coords[0]))
+        obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
+        self.obstacles.append(Obstacle(radius=obstacle_radius, position=obstacle_coords))
+        return initial_state
 
-        lengths = np.linspace(self.path.length*1.5/6, self.path.length*5/6, self.n_int_obstacles)
+
+    def scenario_proficient(self):
+        initial_state = self.scenario_3d_new()
+        obstacle_radius = np.random.uniform(low=4,high=10)
+        obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
+        self.obstacles.append(Obstacle(radius=obstacle_radius, position=obstacle_coords))
+
+        lengths = np.linspace(self.path.length*1/6, self.path.length*5/6, 2)
         for l in lengths:
             obstacle_radius = np.random.uniform(low=4,high=10)
             obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
@@ -931,60 +954,42 @@ class WaypointPlanner(gym.Env):
                 continue
             else:
                 self.obstacles.append(obstacle)
-
-        # rad = np.random.uniform(4, 10)
-        # pos = self.path(self.path.length/2)
-        # self.obstacles.append(Obstacle(radius=rad, position=pos))
-        # lengths = np.linspace(self.path.length*1/3, self.path.length*2/3, 1)
-        # for l in lengths:
-        #     obstacle_radius = np.random.uniform(low=4,high=10)
-        #     obstacle_coords = self.path(l)
-        #     obstacle = Obstacle(obstacle_radius, obstacle_coords)
-        #     if self.check_object_overlap(obstacle):
-        #         continue
-        #     else:
-        #         self.obstacles.append(obstacle)
-
         return initial_state
 
 
-    def scenario_proficient(self):
-        initial_state = self.scenario_intermediate()
-        lengths = np.random.uniform(self.path.length*1/3, self.path.length*2/3, self.n_pro_obstacles)
-        n_checks = 0
-        while len(self.obstacles) < self.n_pro_obstacles and n_checks < 1000:
-            for l in lengths:
-                obstacle_radius = np.random.uniform(low=4,high=10)
-                obstacle_coords = self.path(l)
-                obstacle = Obstacle(obstacle_radius, obstacle_coords)
-                if self.check_object_overlap(obstacle):
-                    n_checks += 1
-                    continue
-
-                else:
-                    self.obstacles.append(obstacle)
-        return initial_state
+    # def scenario_advanced(self):
+    #     initial_state = self.scenario_proficient()
+    #     while len(self.obstacles) < self.n_adv_obstacles: # Place the rest of the obstacles randomly
+    #         s = np.random.uniform(self.path.length*1/3, self.path.length*2/3)
+    #         obstacle_radius = np.random.uniform(low=4,high=10)
+    #         obstacle_coords = self.path(s) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
+    #         obstacle = Obstacle(obstacle_radius, obstacle_coords[0])
+    #         if self.check_object_overlap(obstacle):
+    #             continue
+    #         else:
+    #             self.obstacles.append(obstacle)
+    #     return initial_state
 
 
-    def scenario_advanced(self):
-        initial_state = self.scenario_proficient()
-        while len(self.obstacles) < self.n_adv_obstacles: # Place the rest of the obstacles randomly
-            s = np.random.uniform(self.path.length*1/3, self.path.length*2/3)
+    def scenario_expert(self):
+        initial_state = self.scenario_3d_new()
+        obstacle_radius = np.random.uniform(low=4,high=10)
+        obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
+        self.obstacles.append(Obstacle(radius=obstacle_radius, position=obstacle_coords))
+
+        lengths = np.linspace(self.path.length*1.5/6, self.path.length*5/6, 5)
+        for l in lengths:
             obstacle_radius = np.random.uniform(low=4,high=10)
-            obstacle_coords = self.path(s) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
+            obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
+            # print(self.path(l))
+            # print(np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3)))
+            # print(obstacle_coords)
             obstacle = Obstacle(obstacle_radius, obstacle_coords[0])
             if self.check_object_overlap(obstacle):
                 continue
             else:
                 self.obstacles.append(obstacle)
-        return initial_state
-
-
-    def scenario_expert(self):
-        initial_state = self.scenario_advanced()
-        self.current = Current(mu=0.2, Vmin=0.5, Vmax=1.0, Vc_init=np.random.uniform(0.5, 1), \
-                                    alpha_init=np.random.uniform(-np.pi, np.pi), beta_init=np.random.uniform(-np.pi/4, np.pi/4), t_step=self.step_size)
-        self.penalize_control = 1.0
+        
         return initial_state
 
 
@@ -1015,47 +1020,60 @@ class WaypointPlanner(gym.Env):
 
 
     def scenario_horizontal_test(self):
-        waypoints = [(0,0,0), (50,0,0), (100,0,0)]
+        waypoints = [(0,0,0), (50,0.1,0), (100,0,0)]
         self.path = QPMI(waypoints)
         self.current = Current(mu=0, Vmin=0, Vmax=0, Vc_init=0, alpha_init=0, beta_init=0, t_step=0)
         self.obstacles = []
         for i in range(7):
             y = -30+10*i
             self.obstacles.append(Obstacle(radius=5, position=[50,y,0]))
-        init_pos = [0,0,0]
+        init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-5, high=5, size=(1,3))
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
-        initial_state = np.hstack([init_pos, init_attitude])
+        initial_state = np.hstack([init_pos[0], init_attitude])
         return initial_state
 
 
     def scenario_vertical_test(self):
-        waypoints = [(0,0,0), (50,0,0), (100,0,0)]
+        waypoints = [(0,0,0), (50,0,1), (100,0,0)]
         self.path = QPMI(waypoints)
         self.current = Current(mu=0, Vmin=0, Vmax=0, Vc_init=0, alpha_init=0, beta_init=0, t_step=0)
         self.obstacles = []
         for i in range(7):
             z = -30+10*i
             self.obstacles.append(Obstacle(radius=5, position=[50,0,z]))
-        init_pos = [0,0,0]
+        init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-5, high=5, size=(1,3))
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
-        initial_state = np.hstack([init_pos, init_attitude])
+        initial_state = np.hstack([init_pos[0], init_attitude])
         return initial_state
 
 
     def scenario_deadend_test(self):
-        waypoints = [(0,0,0), (50,0,0), (100,0,0)]
+        waypoints = [(0,0,0), (50,0.5,0), (100,0,0)]
         self.path = QPMI(waypoints)
         self.current = Current(mu=0, Vmin=0, Vmax=0, Vc_init=0, alpha_init=0, beta_init=0, t_step=0)
-        radius = 25
+        radius = 10
         angles = np.linspace(-90, 90, 10)*np.pi/180
         obstalce_radius = (angles[1]-angles[0])*radius/2
         for ang1 in angles:
             for ang2 in angles:
-                x = 30+radius*np.cos(ang1)*np.cos(ang2)
+                x = 45 + radius*np.cos(ang1)*np.cos(ang2)
                 y = radius*np.cos(ang1)*np.sin(ang2)
                 z = -radius*np.sin(ang1)
                 self.obstacles.append(Obstacle(obstalce_radius, [x, y, z]))
-        init_pos = [0,0,0]
+        init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-5, high=5, size=(1,3))
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
-        initial_state = np.hstack([init_pos, init_attitude])
+        initial_state = np.hstack([init_pos[0], init_attitude])
+        return initial_state
+    
+
+    def scenario_helix(self):
+        initial_state = np.zeros(6)
+        waypoints = generate_random_waypoints(self.n_waypoints,'helix')
+        self.path = QPMI(waypoints)
+        # init_pos = helix_param(0)
+        init_pos = np.array([110, 0, -26]) + np.random.uniform(low=-5, high=5, size=(1,3))
+        init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
+        # init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
+        initial_state = np.hstack([init_pos[0], init_attitude])
+        self.obstacles.append(Obstacle(radius=100, position=[0,0,0]))
         return initial_state

@@ -341,6 +341,7 @@ def generate_random_waypoints(nwaypoints,scen):
     elif scen =='3d_new':
         a_start_angle=np.random.uniform(-np.pi,np.pi)
         e_start_angle=np.random.uniform(-np.pi,np.pi) 
+        e_start_angle=0
         distance = 50
         for i in range(nwaypoints-1):
             azimuth = a_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
@@ -394,6 +395,18 @@ def generate_random_waypoints(nwaypoints,scen):
             x = waypoints[i][0] + distance*np.cos(azimuth)
             y = waypoints[i][1] + distance*np.sin(azimuth)
             z = 0
+            wp = np.array([x, y, z])
+            waypoints.append(wp)
+
+    elif scen=='helix':
+        waypoints = []
+        n_waypoints = 26
+        angles = np.linspace(0, 4*np.pi, n_waypoints)
+        radius = 110
+        for i, angle in enumerate(angles):
+            x = radius*np.cos(angle)
+            y = radius*np.sin(angle)
+            z = 2*i - n_waypoints
             wp = np.array([x, y, z])
             waypoints.append(wp)
 

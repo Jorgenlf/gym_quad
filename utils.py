@@ -53,8 +53,6 @@ def simulate_environment(episode, env, agent):
     while not done:
         action = agent.predict(env.observation, deterministic=True)[0]
         _, _, done, _ = env.step(action)
-        # if episode in [0, 1, 2, 3]:
-        #     break
     errors = np.array(env.past_errors)
     time = np.array(env.time).reshape((env.total_t_steps,1))
     episode = np.full(((env.total_t_steps,1)), episode)
@@ -169,7 +167,7 @@ def plot_3d(env, sim_df, test_dir):
     ax.set_zlim([-200,200])
     
     plt.savefig(os.path.join(test_dir, "plots", f"episode{int(sim_df['Episode'].iloc[0])}.pdf"))
-    plt.show()
+    # plt.show()
 
 
 def plot_multiple_3d(env, sim_dfs):
@@ -275,5 +273,40 @@ def write_report(test_dir: str, sim_df: pd.DataFrame, env, episode: int) -> None
         f.write('{:<30}{:<30.2f}\n'.format('Collision Rate [%]', summary['Collision'].mean()*100))
 
 
+def plot_lidar():
+    """
+    Plots the Quadcopter path in 3D inside the environment provided.
+    """
+    plt.rcdefaults()
+    plt.rc('lines', linewidth=3)
+
+    ax = plt.axes(projection='3d')
+
+    horizontal_angles = np.linspace(-180, 180, 15)
+    vertical_angles = np.linspace(-90, 90, 15)
+    distance = 25
+    for horizontal_angle in horizontal_angles:
+        for vertical_angle in vertical_angles:
+            x = distance*np.cos(horizontal_angle)*np.cos(vertical_angle)
+            y = distance*np.sin(horizontal_angle)*np.cos(vertical_angle)
+            z = distance*np.sin(vertical_angle)
+            ax.quiver(0, 0, 0, x, y, z, color='r')
+
+    ax.set_xlabel(xlabel=r"$x_b$ [m]", fontsize=18)
+    ax.set_ylabel(ylabel=r"$y_b$ [m]", fontsize=18)
+    ax.set_zlabel(zlabel=r"$z_b$ [m]", fontsize=18)
+
+    ax.tick_params(axis='both', which='major', labelsize=14)
+    ax.legend(loc="upper right", fontsize=14)
+    # f = lambda x,y,z: proj3d.proj_transform(x,y,z, ax.get_proj())[:2]
+    # ax.legend(loc="lower left", bbox_to_anchor=f(0,-120,100), 
+    #       bbox_transform=ax.transData, fontsize=16)
+    ax.set_xlim([-40,40])
+    ax.set_ylim([-40,40])
+    ax.set_zlim([-40,40])
+    
+    plt.show()
+
+
 if __name__ == "__main__":
-    plot_collision_reward_function()
+    plot_lidar()
