@@ -1,1 +1,0 @@
-from gym_quad.envs.waypoint_planner import WaypointPlanner
