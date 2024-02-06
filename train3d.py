@@ -82,7 +82,7 @@ if __name__ == '__main__':
     seed=np.random.randint(0,10000)
     with open('seed.txt', 'w') as file:
         file.write(str(seed))
-    print("set seed"+" "+ experiment_dir)
+    print("set seed"+" "+ experiment_dir) #TODO make seed save to log/experiment dir
 
     for i, scen in enumerate(scenarios):
         agents_dir = os.path.join(experiment_dir, scen, "agents")
