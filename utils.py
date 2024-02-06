@@ -266,7 +266,7 @@ def write_report(test_dir: str, sim_df: pd.DataFrame, env, episode: int) -> None
         f.write('# PERFORMANCE METRICS (LAST {} EPISODES AVG.)\n'.format(summary.shape[0]))
         f.write('{:<30}{:<30.2f}\n'.format('Avg. Number of Timesteps', summary['Timesteps'].mean()))
         f.write('{:<30}{:<30.2f}\n'.format('Avg. Absolute Path Error [m]', summary['Avg Absolute Path Error'].mean()))
-        f.write('{:<30}{:<30.2f}\n'.format('Avg. IAE Cross Track [m]', summary['IAE Cross'].mean()))
+        f.write('{:<30}{:<30.2f}\n'.format('Avg. IAE Cross Track [m]', summary['IAE Cross'].mean())) #integral absolute error
         f.write('{:<30}{:<30.2f}\n'.format('Avg. IAE Verical Track [m]', summary['IAE Vertical'].mean()))
         f.write('{:<30}{:<30.2f}\n'.format('Avg. Progression [%]', summary['Progression'].mean()*100))
         f.write('{:<30}{:<30.2f}\n'.format('Success Rate [%]', summary['Success'].mean()*100))
@@ -275,7 +275,7 @@ def write_report(test_dir: str, sim_df: pd.DataFrame, env, episode: int) -> None
 
 def plot_lidar():
     """
-    Plots the Quadcopter path in 3D inside the environment provided.
+    Plots the Lidar readings in 3D example
     """
     plt.rcdefaults()
     plt.rc('lines', linewidth=3)

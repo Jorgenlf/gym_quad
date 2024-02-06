@@ -6,7 +6,7 @@ import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import proj3d
-import skimage.measure
+# import skimage.measure
 import time
 
 from gym_quad.objects.quad import Quad
@@ -447,7 +447,7 @@ class WaypointPlanner(gym.Env):
         if self.rl_mode == "path_planning":
             self.a_des = a_des_pos + a_des_vel + a
         elif self.rl_mode == "desired_acc":
-            self.a_des = a_des_pos + a_des_vel + a + geom.Rzyx(*self.quadcopter.attitude) @ action
+            self.a_des = a_des_pos + a_des_vel + a + geom.Rzyx(*self.quadcopter.attitude) @ action 
         b_x = self.a_des[0] / (self.a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_u*self.quadcopter.surge)/ss.m)
         b_y = self.a_des[1] / (self.a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_v*self.quadcopter.sway)/ss.m)
         phi_des   = geom.ssa(b_x * np.sin(self.chi_p) - b_y * np.cos(self.chi_p))

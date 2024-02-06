@@ -96,7 +96,7 @@ if __name__ == '__main__':
             if scen!="intermediate":
                 continue
 
-        num_envs = 8
+        num_envs = 2
         # num_envs = multiprocessing.cpu_count() - 2
         print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...", end="")
         if num_envs > 1:
