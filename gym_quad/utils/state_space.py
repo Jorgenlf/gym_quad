@@ -84,7 +84,7 @@ d_u = 0.3729
 d_v = 0.3729
 d_w = 0.3729
 
-# Ritational drag Coefficients
+# Rotational drag Coefficients
 d_p = 5.56e-4
 d_q = 5.56e-4
 d_r = 5.56e-4

@@ -1,8 +1,16 @@
 import unittest
 import numpy as np
 
-import sys;
-sys.path.append("/cluster/work/orjanic/gym_quad")
+import sys
+import os
+#Use os and sys to access the modules inside gym_quad (imports below are from gym_quad)
+# Get the directory of the current script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Get the parent and grandparent directory of the current script
+parent_dir = os.path.dirname(script_dir)
+grand_parent_dir = os.path.dirname(parent_dir)
+# Add the parent directory to the Python path
+sys.path.append(grand_parent_dir)
 
 import gym_quad.objects.quad as quad
 import gym_quad.utils.state_space as ss
@@ -16,8 +24,13 @@ lamb = ss.lamb
 Ig = ss.Ig
 thrust_max = ss.thrust_max
 
-k_lin = np.array([ss.k_u, ss.k_v, ss.k_w])
-k_rot = np.array([ss.k_p, ss.k_q, ss.k_r])
+# k_lin = np.array([ss.k_u, ss.k_v, ss.k_w])
+# k_rot = np.array([ss.k_p, ss.k_q, ss.k_r])
+
+#I assume these are the drag coefficients for the linear and angular velocities 
+# which were renamed from k_u, k_v and so on to d_u, d_v and so on at some point
+k_lin = np.array([ss.d_u, ss.d_v, ss.d_w])
+k_rot = np.array([ss.d_p, ss.d_q, ss.d_r])
 
 # Rotation from body to world
 def R_wb(x):
