@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import gym
+import gymnasium as gym
 import gym_quad
 import os
 import glob

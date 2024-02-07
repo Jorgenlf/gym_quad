@@ -1,6 +1,6 @@
 import numpy as np
 
-from gym.envs.registration import register
+from gymnasium.envs.registration import register
 
 waypoint_planner_config = {
     "step_size": 0.01,

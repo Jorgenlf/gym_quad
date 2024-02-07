@@ -1,7 +1,7 @@
 from turtle import up
 import numpy as np
 import pandas as pd
-import gym
+import gymnasium as gym
 import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
 import matplotlib.pyplot as plt
@@ -15,31 +15,32 @@ from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.obstacle3d import Obstacle
 from gym_quad.utils.controllers import PI, PID
 
+from gymnasium.spaces import Box
+
 class WaypointPlanner(gym.Env):
     """
     Creates an environment with a quadcopter, a path and obstacles.
     """
     def __init__(self, env_config, scenario="line", seed=None):
-        np.random.seed(0)
+        np.random.seed(0) 
         
         for key in env_config:
             setattr(self, key, env_config[key])
 
         if self.rl_mode == "path_planning":
-            self.action_space = gym.spaces.Box(
-                low = np.array([-1, -1]*self.n_generated_waypoints, dtype=np.float32),
-                high = np.array([1, 1]*self.n_generated_waypoints, dtype=np.float32),
-                dtype = np.float32
-            )
+            action_low = np.array([-1, -1] * self.n_generated_waypoints, dtype=np.float32)
+            action_high = np.array([1, 1] * self.n_generated_waypoints, dtype=np.float32)
+            self.action_space = Box(low=action_low, high=action_high, dtype=np.float32)
 
-            self.perception_space = gym.spaces.Box(
+
+            self.perception_space = Box(
                 low = 0,
                 high = 1,
                 shape = (1, self.sensor_suite[0], self.sensor_suite[1]),
                 dtype = np.float32
             )
 
-            self.navigation_space = gym.spaces.Box(
+            self.navigation_space = Box(
                 low = -np.inf,
                 high = np.inf,
                 shape = (1, self.n_obs_states + 2*3),
@@ -52,20 +53,20 @@ class WaypointPlanner(gym.Env):
             })
             
         elif self.rl_mode == "desired_acc":
-            self.action_space = gym.spaces.Box(
+            self.action_space = Box(
                 low = np.array([-1,-1,-1], dtype=np.float32),
                 high = np.array([1, 1, 1], dtype=np.float32),
                 dtype = np.float32
             )
 
-            self.perception_space = gym.spaces.Box(
+            self.perception_space = Box(
                 low = 0,
                 high = 1,
                 shape = (1, self.sensor_suite[0], self.sensor_suite[1]),
                 dtype = np.float32
             )
             
-            # self.navigation_space = gym.spaces.Box(
+            # self.navigation_space = Box(
             #     low = -np.pi, # Try -1
             #     high = np.pi, # Try +1
             #     # shape = (1, 3),
@@ -113,10 +114,12 @@ class WaypointPlanner(gym.Env):
         return {"reward_path_following":self.reward_path_following_sum, "reward_collision_avoidance":self.reward_collision_avoidance_sum, "reward_collision":self.reward_collision}#,"obs":self.past_obs,"states":self.past_states,"errors":self.past_errors}
 
 
-    def reset(self):
+    def reset(self,**kwargs):
         """
         Resets environment to initial state. 
         """
+        seed = kwargs.get('seed', None)
+        print("PRINTING SEED WHEN RESETTING:", seed)
         self.quadcopter = None
         self.path = None
         self.path_generated = None
@@ -340,7 +343,7 @@ class WaypointPlanner(gym.Env):
             # obs[6:6+3*self.n_fictive_waypoints] = self.fictive_waypoints.flatten()
             # obs[6+3*self.n_fictive_waypoints:9+3*self.n_fictive_waypoints] = self.normal_vector
 
-            return {'perception':[self.sensor_readings], 'navigation': [obs]}
+            return {'perception':[self.sensor_readings], 'navigation': [obs]} #TODO fix this
             
         elif self.rl_mode == "desired_acc":
             return {'perception':[self.sensor_readings]}

@@ -16,7 +16,7 @@ All hyperparameters and setup can be tuned in the file [train.py] and [__init__.
 For training an agent, run:
 
 ```
-python train.py --exp_id [x]
+python train3d.py --exp_id [x]
 ```
 
 Where x is the experiment id number. 
@@ -27,7 +27,7 @@ Where x is the experiment id number.
 For running an agent in any scenario, use:
 
 ```
-python run.py --exp_id [x] --scenario [scenario] --controller_scenario [controller_scenario] --controller [y]
+python run3d.py --exp_id [x] --scenario [scenario] --controller_scenario [controller_scenario] --controller [y]
 ```
 
 Where x is the experiment id number, scenario is what scenario to run, controller_scenario is which scenario the controller was trained in and y is

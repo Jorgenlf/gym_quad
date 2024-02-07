@@ -1,6 +1,6 @@
 
 import os
-import gym
+import gymnasium as gym
 import gym_quad
 import stable_baselines3.common.results_plotter as results_plotter
 import numpy as np
