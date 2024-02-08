@@ -37,14 +37,14 @@ class WaypointPlanner(gym.Env):
                 low = 0,
                 high = 1,
                 shape = (1, self.sensor_suite[0], self.sensor_suite[1]),
-                dtype = np.float32
+                dtype = np.float64
             )
 
             self.navigation_space = Box(
                 low = -np.inf,
                 high = np.inf,
                 shape = (1, self.n_obs_states + 2*3),
-                dtype = np.float32
+                dtype = np.float64
             )
 
             self.observation_space = gym.spaces.Dict({
@@ -63,7 +63,7 @@ class WaypointPlanner(gym.Env):
                 low = 0,
                 high = 1,
                 shape = (1, self.sensor_suite[0], self.sensor_suite[1]),
-                dtype = np.float32
+                dtype = np.float64
             )
             
             # self.navigation_space = Box(
@@ -119,7 +119,7 @@ class WaypointPlanner(gym.Env):
         Resets environment to initial state. 
         """
         seed = kwargs.get('seed', None)
-        print("PRINTING SEED WHEN RESETTING:", seed)
+        # print("PRINTING SEED WHEN RESETTING:", seed)
         self.quadcopter = None
         self.path = None
         self.path_generated = None
@@ -153,7 +153,16 @@ class WaypointPlanner(gym.Env):
         self.normal_vector = np.array([0,0,0])
         self.binormal_vector = np.array([0,0,0])
 
-        self.observation = None
+        if self.rl_mode == "path_planning":
+            self.observation = {
+                'perception': np.zeros((1, self.sensor_suite[0], self.sensor_suite[1])),
+                'navigation': np.zeros((1, self.n_obs_states + 2*3))
+            }
+        elif self.rl_mode == "desired_acc":
+            self.observation = {
+                'perception': np.zeros((1, self.sensor_suite[0], self.sensor_suite[1]))
+            }
+
         self.past_states = []
         self.past_actions = []
         self.past_errors = []
@@ -343,17 +352,17 @@ class WaypointPlanner(gym.Env):
             # obs[6:6+3*self.n_fictive_waypoints] = self.fictive_waypoints.flatten()
             # obs[6+3*self.n_fictive_waypoints:9+3*self.n_fictive_waypoints] = self.normal_vector
 
-            return {'perception':[self.sensor_readings], 'navigation': [obs]} #TODO fix this
+            sensor_readings = self.sensor_readings.reshape(1, self.sensor_suite[0], self.sensor_suite[1])
+            obs = obs.reshape(1, self.n_obs_states + 2*3)
+
+            # print(f"sensor_readings shape: {self.sensor_readings.shape}")
+            # print(f"obs shape: {obs.shape}")
+
+            return {'perception':sensor_readings, 'navigation': obs} #TODO fix this
             
         elif self.rl_mode == "desired_acc":
-            return {'perception':[self.sensor_readings]}
-            obs = np.array([0])
-            # obs = np.zeros(3)
-            # obs[0:3] = self.quadcopter.attitude
+            return {'perception':sensor_readings}
 
-        # print({'perception':[self.sensor_readings], 'navigation': [obs]})
-
-        # return {'perception':[self.sensor_readings], 'navigation': [obs]}
 
 
     def step_reward(self):

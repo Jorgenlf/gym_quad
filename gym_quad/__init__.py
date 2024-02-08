@@ -1,5 +1,3 @@
-import numpy as np
-
 from gymnasium.envs.registration import register
 
 waypoint_planner_config = {

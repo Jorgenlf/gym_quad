@@ -77,12 +77,17 @@ class StatsCallback(BaseCallback):
 
 
 if __name__ == '__main__':
+
+
     experiment_dir, _, args = parse_experiment_info()
-    
+
+    train_threads = "single" # "single" or "multi" TODO add to args
+        
     seed=np.random.randint(0,10000)
     with open('seed.txt', 'w') as file:
         file.write(str(seed))
     print("set seed"+" "+ experiment_dir) #TODO make seed save to log/experiment dir
+
 
     for i, scen in enumerate(scenarios):
         agents_dir = os.path.join(experiment_dir, scen, "agents")
@@ -96,18 +101,9 @@ if __name__ == '__main__':
             if scen!="intermediate":
                 continue
 
-        num_envs = 2
-        # num_envs = multiprocessing.cpu_count() - 2
-        print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...", end="")
-        if num_envs > 1:
-            env = SubprocVecEnv(
-                [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir, allow_early_resets=True)
-                for i in range(num_envs)]
-            )
-        else:
-            env = DummyVecEnv(
-                [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir,allow_early_resets=True)]
-            )
+    if train_threads == "single":
+        print("INITIALIZING ENVIRONMENT...",scen.upper(), end="")
+        env = Monitor(gym.make(args.env, scenario=scen), agents_dir, allow_early_resets=True)
         print("DONE")
         print("INITIALIZING AGENT...", end="")
 
@@ -127,10 +123,51 @@ if __name__ == '__main__':
             agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
         print("DONE")
 
-        best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - num_envs*continual_step
+        best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - continual_step
         print("TRAINING FOR", timesteps, "TIMESTEPS")
         agent.learn(total_timesteps=timesteps, tb_log_name="PPO2",callback=StatsCallback())
         print("FINISHED TRAINING AGENT IN", scen.upper())
         save_path = os.path.join(agents_dir, "last_model.pkl")
         agent.save(save_path)
         print("SAVE SUCCESSFUL")
+
+
+    elif train_threads == "multi":
+            num_envs = 2
+            # num_envs = multiprocessing.cpu_count() - 2
+            print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...", end="")
+            if num_envs > 1:
+                env = SubprocVecEnv(
+                    [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir, allow_early_resets=True)
+                    for i in range(num_envs)]
+                )
+            else:
+                env = DummyVecEnv(
+                    [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir,allow_early_resets=True)]
+                )
+            print("DONE")
+            print("INITIALIZING AGENT...", end="")
+
+            agents = glob.glob(os.path.join(experiment_dir, scen, "agents", "model_*.pkl"))
+            if agents == []:
+                continual_step = 0
+            else:
+                continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
+
+            if scen == "intermediate" and continual_step == 0:
+                agent = PPO('MultiInputPolicy', env, **hyperparams,policy_kwargs=policy_kwargs,seed=seed)
+            elif continual_step == 0:
+                continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.pkl")
+                agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
+            else:
+                continual_model = os.path.join(experiment_dir, scen, "agents", f"model_{continual_step}.pkl")
+                agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
+            print("DONE")
+
+            best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - num_envs*continual_step
+            print("TRAINING FOR", timesteps, "TIMESTEPS")
+            agent.learn(total_timesteps=timesteps, tb_log_name="PPO2",callback=StatsCallback())
+            print("FINISHED TRAINING AGENT IN", scen.upper())
+            save_path = os.path.join(agents_dir, "last_model.pkl")
+            agent.save(save_path)
+            print("SAVE SUCCESSFUL")
