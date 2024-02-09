@@ -178,7 +178,10 @@ class WaypointPlanner(gym.Env):
         self.generate_environment()
         self.update_control_errors()
         self.observation = self.observe()
-        return self.observation
+
+        ##dummy info for debugging might actually be smart to keep info empty when resetting anyways
+        info = {}
+        return (self.observation,info)
 
 
     def generate_environment(self):
@@ -328,7 +331,10 @@ class WaypointPlanner(gym.Env):
         # prof.disable()
         # prof.sort_stats(pstats.SortKey.CUMULATIVE).print_stats()
 
-        return self.observation, step_reward, self.done, info
+        #dummy truncated for debugging See stack overflow QnA or Sb3 documentation for how to use truncated
+        truncated = False
+
+        return self.observation, step_reward, self.done, truncated, info
 
 
     def observe(self):
@@ -361,6 +367,7 @@ class WaypointPlanner(gym.Env):
             return {'perception':sensor_readings, 'navigation': obs} #TODO fix this
             
         elif self.rl_mode == "desired_acc":
+            sensor_readings = self.sensor_readings.reshape(1, self.sensor_suite[0], self.sensor_suite[1])
             return {'perception':sensor_readings}
 
 

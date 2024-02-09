@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
     experiment_dir, _, args = parse_experiment_info()
 
-    train_threads = "single" # "single" or "multi" TODO add to args
+    train_threads = "multi" # "single" or "multi" TODO add to args if wanted
         
     seed=np.random.randint(0,10000)
     with open('seed.txt', 'w') as file:
