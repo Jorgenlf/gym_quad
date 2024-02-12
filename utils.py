@@ -52,7 +52,7 @@ def simulate_environment(episode, env, agent):
     env.reset()
     while not done:
         action = agent.predict(env.observation, deterministic=True)[0]
-        _, _, done, _ = env.step(action)
+        _, _, done, _, _ = env.step(action)
     errors = np.array(env.past_errors)
     time = np.array(env.time).reshape((env.total_t_steps,1))
     episode = np.full(((env.total_t_steps,1)), episode)
