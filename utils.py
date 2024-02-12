@@ -257,9 +257,13 @@ def write_report(test_dir: str, sim_df: pd.DataFrame, env, episode: int) -> None
         'Success': success,
         'Collision': collision
     }
-
     summary = pd.read_csv(os.path.join(test_dir, 'test_summary.csv'))
-    summary = summary.append(data, ignore_index=True)
+    data_df = pd.DataFrame([data])
+
+    # summary = summary.dropna(axis=1, how='all') #drop empty columns might be needed in the future
+    # data_df = data_df.dropna(axis=1, how='all')
+
+    summary = pd.concat([summary, data_df ], ignore_index=True)
     summary.to_csv(os.path.join(test_dir, 'test_summary.csv'), index=False)
 
     with open(os.path.join(test_dir, 'report.txt'), 'w') as f:

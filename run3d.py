@@ -10,13 +10,19 @@ from gym_quad.utils.controllers import PI, PID
 from mpl_toolkits.mplot3d import Axes3D
 from stable_baselines3 import PPO
 from utils import *
-
+from argparse import Namespace
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 
 
 if __name__ == "__main__":
     experiment_dir, agent_path, args = parse_experiment_info()
+
+    # Uncomment and run in debug mode for debugging---------
+    # experiment_dir = "./log\WaypointPlanner-v0\Experiment 100"
+    # agent_path = "./log/WaypointPlanner-v0/Experiment 100/intermediate/agents/model_820000.pkl"
+    # args = Namespace(env='WaypointPlanner-v0', exp_id=100, scenario='3d', controller_scenario='intermediate', controller=820000, episodes=1)
+    #-------------------------
 
     tests = glob.glob(os.path.join(experiment_dir, "test*"))
     if tests == []:
@@ -37,7 +43,7 @@ if __name__ == "__main__":
     for episode in range(args.episodes):
         try:
             episode_df, env = simulate_environment(episode, env, agent)
-            sim_df = sim_df.append(episode_df)
+            sim_df = pd.concat([sim_df, episode_df], ignore_index=True)
         except NameError:
             sim_df = episode_df
         
