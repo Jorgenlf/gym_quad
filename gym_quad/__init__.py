@@ -1,7 +1,7 @@
 from gymnasium.envs.registration import register
 
 ctbr_vae_config = {
-        "step_size": 0.01,
+    "step_size": 0.01,
     "max_t_steps": 60000,
     "min_reward": -20000,
     "n_obs_states": 6,
@@ -26,11 +26,10 @@ ctbr_vae_config = {
     "fictive_waypoint_span": 10,
     "n_generated_waypoints": 1,
     "simulation_frequency": 10, # How many timesteps to simulate the quadcopter for each new path
-    "rl_mode": "path_planning" # [path_planning, desired_acc]
 }
 
 register(
-    id='WaypointPlanner-v0',
+    id='CTBR_VAE-v0',
     entry_point='gym_quad.envs:CTBR_VAE',
     kwargs={'env_config': ctbr_vae_config}
 )

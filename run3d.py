@@ -12,7 +12,11 @@ from stable_baselines3 import PPO
 from utils import *
 from argparse import Namespace
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # Tensflow logging level
+# '0': (default) logs all messages.
+# '1': logs messages with level INFO and above.
+# '2': logs messages with level WARNING and above.
+# '3': logs messages with level ERROR and above.
 
 
 if __name__ == "__main__":
