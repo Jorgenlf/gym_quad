@@ -6,7 +6,6 @@ import os
 import glob
 import re
 
-from gym_quad.utils.controllers import PI, PID
 from mpl_toolkits.mplot3d import Axes3D
 from stable_baselines3 import PPO
 from utils import *
