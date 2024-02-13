@@ -10,6 +10,11 @@ from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.obstacle3d import Obstacle
  
 
+#TODO decide the abstraction level between PPO agent and quadcopter controller and implement new controller
+#TODO Implement the reward fcn from the specialization project step by step
+#TODO Set up curriculum learning
+
+
 class CTBR_VAE(gym.Env):
     '''Creates an environment where the actionspace consists of Collective thrust and body rates which will be passed to a PD or PID controller, 
     while the observationspace uses a Varial AutoEncoder "plus more" for observations to  environment.'''
