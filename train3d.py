@@ -54,7 +54,7 @@ class StatsCallback(BaseCallback):
     
     def _on_step(self):
         done_array = np.array(self.locals.get("dones") if self.locals.get("dones") is not None else self.locals.get("dones"))
-        stats = self.locals.get("self").get_env().env_method("get_stats")
+        stats = self.locals.get("self").get_env().env_method("get_stats") #TODO use info dict from env which is returned by step rather than this??
         global n_steps
         
         for i in range(len(done_array)):
@@ -77,11 +77,10 @@ class StatsCallback(BaseCallback):
 
 
 if __name__ == '__main__':
-
-
+    
     experiment_dir, _, args = parse_experiment_info()
 
-    train_threads = "multi" # "single" or "multi" TODO add to args if wanted
+    train_threads = "single" # "single" or "multi" TODO add to args if wanted
         
     seed=np.random.randint(0,10000)
     with open('seed.txt', 'w') as file:
@@ -101,6 +100,7 @@ if __name__ == '__main__':
             if scen!="intermediate":
                 continue
 
+    #SINGLE THREADED TRAINING
     if train_threads == "single":
         print("INITIALIZING ENVIRONMENT...",scen.upper(), end="")
         env = Monitor(gym.make(args.env, scenario=scen), agents_dir, allow_early_resets=True)
@@ -125,13 +125,13 @@ if __name__ == '__main__':
 
         best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - continual_step
         print("TRAINING FOR", timesteps, "TIMESTEPS")
-        agent.learn(total_timesteps=timesteps, tb_log_name="PPO2",callback=StatsCallback())
+        agent.learn(total_timesteps=timesteps, tb_log_name="PPO2",callback=StatsCallback(),progress_bar=True)
         print("FINISHED TRAINING AGENT IN", scen.upper())
         save_path = os.path.join(agents_dir, "last_model.pkl")
         agent.save(save_path)
         print("SAVE SUCCESSFUL")
 
-
+    #MULTI THREADED TRAINING
     elif train_threads == "multi":
             num_envs = 2
             # num_envs = multiprocessing.cpu_count() - 2
@@ -166,7 +166,7 @@ if __name__ == '__main__':
 
             best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - num_envs*continual_step
             print("TRAINING FOR", timesteps, "TIMESTEPS")
-            agent.learn(total_timesteps=timesteps, tb_log_name="PPO2",callback=StatsCallback())
+            agent.learn(total_timesteps=timesteps, tb_log_name="PPO2",callback=StatsCallback(),progress_bar=True)
             print("FINISHED TRAINING AGENT IN", scen.upper())
             save_path = os.path.join(agents_dir, "last_model.pkl")
             agent.save(save_path)

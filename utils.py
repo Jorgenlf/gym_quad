@@ -10,7 +10,8 @@ from cycler import cycler
 def parse_experiment_info():
     """Parser for the flags that can be passed with the run/train/test scripts."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", default="WaypointPlanner-v0", type=str, help="Which environment to run/train/test")
+    # parser.add_argument("--env", default="WaypointPlanner-v0", type=str, help="Which environment to run/train/test")
+    parser.add_argument("--env", default="CTBR_VAE-v0", type=str, help="Which environment to run/train/test")
     parser.add_argument("--exp_id", type=int, help="Which experiment number to run/train/test")
     parser.add_argument("--scenario", default="line", type=str, help="Which scenario to run")
     parser.add_argument("--controller_scenario", default=None, type=str, help="Which scenario the agent was trained in")

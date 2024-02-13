@@ -14,7 +14,7 @@ class CTBR_VAE(gym.Env):
     '''Creates an environment where the actionspace consists of Collective thrust and body rates which will be passed to a PD or PID controller, 
     while the observationspace uses a Varial AutoEncoder "plus more" for observations to  environment.'''
 
-    def __init__(self, env_config, init_scenario="line", seed=None):
+    def __init__(self, env_config, scenario="line", seed=None):
         np.random.seed(0) 
 
         # Set all the parameters from GYM_QUAD/qym_quad/__init__.py as attributes of the class
@@ -51,7 +51,7 @@ class CTBR_VAE(gym.Env):
         self.sectors_vertical =  np.linspace(-max_vertical_angle*np.pi/180, max_vertical_angle*np.pi/180, self.sensor_suite[1])
         
         #Scenario set up
-        self.scenario = init_scenario
+        self.scenario = scenario
         self.scenario_switch = {
             # Training scenarios, all functions defined at the bottom of this file
             "line": self.scenario_line, 
@@ -351,6 +351,16 @@ class CTBR_VAE(gym.Env):
                 "reward_collision":self.reward_collision}
                 #,"obs":self.past_obs,"states":self.past_states,"errors":self.past_errors}
 
+    def get_chi_upsilon(self,la_dist): #TODO Probs doesnt need to be a fcn as called once
+        chi_r = np.arctan2(self.e, la_dist)
+        upsilon_r = np.arctan2(self.h, np.sqrt(self.e**2 + la_dist**2))
+        chi_d = self.chi_p + chi_r
+        upsilon_d =self.upsilon_p + upsilon_r
+        chi_error = np.clip(geom.ssa(self.quadcopter.chi - chi_d)/np.pi, -1, 1)
+        # chi_error = geom.ssa(self.quadcopter.chi - chi_d)
+        upsilon_error = np.clip(geom.ssa(self.quadcopter.upsilon - upsilon_d)/np.pi, -1, 1)
+        # upsilon_error = geom.ssa(self.quadcopter.upsilon - upsilon_d)
+        return chi_error,upsilon_error
 
     def calculate_object_distance(self, alpha, beta, obstacle):
         """
