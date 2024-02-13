@@ -1,4 +1,6 @@
 
+
+#Moved to old folder from gym_quad/utils/controllers.py"
 class PI():
     def __init__(self, Kp=2, Ki=1.5):
         self.Kp = Kp
