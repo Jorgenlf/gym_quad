@@ -17,7 +17,7 @@ from gym_quad.objects.obstacle3d import Obstacle
 
 class CTBR_VAE(gym.Env):
     '''Creates an environment where the actionspace consists of Collective thrust and body rates which will be passed to a PD or PID controller, 
-    while the observationspace uses a Varial AutoEncoder "plus more" for observations to  environment.'''
+    while the observationspace uses a Varial AutoEncoder "plus more" for observations of environment.'''
 
     def __init__(self, env_config, scenario="line", seed=None):
         np.random.seed(0) 
@@ -201,8 +201,8 @@ class CTBR_VAE(gym.Env):
         end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad and self.waypoint_index == self.n_waypoints-2
         end_cond_2 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
         end_cond_3 = self.total_t_steps >= self.max_t_steps
-        end_cond_4 = self.reward < self.min_reward
-        end_cond_4 = False
+        # end_cond_4 = self.reward < self.min_reward
+        # end_cond_4 = False
         if end_cond_1 or end_cond_2 or end_cond_3 or self.collided: # or end_cond_4:
             if end_cond_1:
                 print("Quadcopter reached target!")
@@ -286,7 +286,7 @@ class CTBR_VAE(gym.Env):
         Returns:
         -------
         F : np.array
-            Thrust inputs needed to follow the alternative path.
+            Thrust inputs needed to follow the path.
         """
 
         #!!!!!!!!!!!!!!!!
@@ -545,7 +545,10 @@ class CTBR_VAE(gym.Env):
         return self.axis_equal3d(ax)
 
 
-    def plot_section3(self):
+    def plot_section3d(self):
+        """
+        Returns 3D plot of path, obstacles and quadcopter.
+        """
         plt.rc('lines', linewidth=3)
         ax = self.plot3D(wps_on=False)
         ax.set_xlabel(xlabel="North [m]", fontsize=14)

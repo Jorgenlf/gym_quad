@@ -6,6 +6,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 from typing import Tuple
 
+"""Path generation using Quadratic Piecewise Membership Functions (QPMI)"""
 class QPMI():
     def __init__(self, waypoints):
         self.waypoints = waypoints

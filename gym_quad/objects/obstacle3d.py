@@ -23,7 +23,7 @@ class Obstacle():
 
 if __name__ == "__main__":
     fig = plt.figure()
-    ax = fig.gca(projection="3d")
+    ax = fig.add_subplot(projection = '3d')
     o1 = Obstacle(3, [0,0,0])
     ax.plot_surface(*o1.return_plot_variables())
     o2 = Obstacle(5, [10,0,0])
