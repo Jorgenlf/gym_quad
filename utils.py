@@ -17,6 +17,7 @@ def parse_experiment_info():
     parser.add_argument("--controller_scenario", default=None, type=str, help="Which scenario the agent was trained in")
     parser.add_argument("--controller", default=None, type=int, help="Which model to load as main controller. Requires only integer")
     parser.add_argument("--episodes", default=1, type=int, help="How many episodes to run when testing the quadcopter")
+    parser.add_argument("--manual_control", default=False, type=bool, help="Whether to use manual control or not")
     args = parser.parse_args()
     
     experiment_dir = os.path.join(r"./log", r"{}".format(args.env), r"Experiment {}".format(args.exp_id))
