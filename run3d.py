@@ -123,6 +123,6 @@ if __name__ == "__main__":
 
     if manual_control:
         # env = gym.make(args.env, scenario=args.scenario)
-        env = gym.make("CTBR_VAE-v0")
+        env = gym.make("LV_VAE-v0")
         _manual_control(env)
         exit()

@@ -1,6 +1,6 @@
 from gymnasium.envs.registration import register
 
-ctbr_vae_config = {
+lv_vae_config = {
     "step_size": 0.01,
     "max_t_steps": 60000,
     "min_reward": -20000,
@@ -29,9 +29,9 @@ ctbr_vae_config = {
 }
 
 register(
-    id='CTBR_VAE-v0',
-    entry_point='gym_quad.envs:CTBR_VAE',
-    kwargs={'env_config': ctbr_vae_config}
+    id='LV_VAE-v0',
+    entry_point='gym_quad.envs:LV_VAE',
+    kwargs={'env_config': lv_vae_config}
 )
 
 

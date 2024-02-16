@@ -15,8 +15,8 @@ from gym_quad.objects.obstacle3d import Obstacle
 #TODO Set up curriculum learning
 
 
-class CTBR_VAE(gym.Env):
-    '''Creates an environment where the actionspace consists of Collective thrust and body rates which will be passed to a PD or PID controller, 
+class LV_VAE(gym.Env):
+    '''Creates an environment where the actionspace consists of Linear velocity and yaw rate which will be passed to a PD or PID controller, 
     while the observationspace uses a Varial AutoEncoder "plus more" for observations of environment.'''
 
     def __init__(self, env_config, scenario="line", seed=None):
