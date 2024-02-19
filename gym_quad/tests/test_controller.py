@@ -32,7 +32,8 @@ class TestController(unittest.TestCase):
 
     def velocity_controller(self, action):
         """
-        Controller translating linear velocity and yaw rate to forces. Based on Kulkarni and Kostas paper.
+        PD Controller mapping linear velocity and yaw rate to forces. 
+        Based on Kulkarni and Kostas paper.
         
         Parameters:
         ----------
@@ -72,6 +73,8 @@ class TestController(unittest.TestCase):
         u[1:] = np.dot(K_p, v_error) + np.dot(K_d, self.quadcopter.acceleration-desired_acc)     #TODO get this working before copying into LV_VAE  
         
         # B = ????? #TODO
+
+
 
         return F
     
