@@ -35,7 +35,7 @@ class ConvDecoder1(BaseDecoder):
                  latent_dim:int,
                  flattened_size:int,
                  activation=nn.ReLU()) -> None:
-        super().__init__()
+        super().__init__(latent_dim=latent_dim, image_size=image_size)
         self.name = 'conv1'
         self.channels = channels
         self.latent_dim = latent_dim
@@ -51,7 +51,7 @@ class ConvDecoder1(BaseDecoder):
 
         # Transposed convolutional block 
         self.t_conv_block = nn.Sequential(
-            nn.ConvTranspose2d(self.flattened_size, 128, kernel_size=3, stride=2, padding=1, output_padding=1),
+            nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, output_padding=1),
             activation,
             nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, output_padding=1),
             activation,
@@ -64,6 +64,7 @@ class ConvDecoder1(BaseDecoder):
 
     def forward(self, z:torch.Tensor) -> torch.Tensor:
         z = self.fc(z)
+        z = z.view(-1, 256, 14, 14) # Reshape the tensor to match the shape of the last convolutional layer in the encoder
         z_tconv = self.t_conv_block(z)
         x_hat = self.sigmoid(z_tconv)
         return x_hat

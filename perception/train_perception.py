@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import matplotlib.pyplot as plt
 
 class TrainerVAE():
     """Trainer class for β-VAE"""
@@ -30,15 +31,21 @@ class TrainerVAE():
         self.validation_loss = {'Total loss':[], 'Reconstruction loss':[], 'KL divergence loss':[]}
 
     def loss_function(self, x_hat, x, mu, logvar, beta):
+        # Create mask with ones for the valid pixels (> 0) to disregard invalid pixels in the loss
+        valid_pixels = torch.where(x > 0, torch.ones_like(x), torch.zeros_like(x)) # Mask is defined for the whole batch (x)
+
         # BCE = Binary cross entropy = reconstruction loss
-        BCE_loss = F.binary_cross_entropy(x_hat, x, reduction='sum')
+        BCE_loss_ = F.binary_cross_entropy(x_hat, x, reduction='none') * valid_pixels # Masked pixel-wise loss only regarding valid pixels 
+        BCE_loss = torch.sum(BCE_loss_, dim=(1,2,3))/torch.sum(valid_pixels) #torch.mean(torch.sum(BCE_loss_, dim=(1,2,3)))#/torch.sum(valid_pixels)) # Sum over all pixels. Divide by the number of valid pixels to get the average loss per valid pixel to hinder bias in training. Mean to get scalar for backprop.
+            
+
 
         # see Appendix B from VAE paper:
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
         # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-        KL_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        KL_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1)
 
-        return BCE_loss + beta*KL_divergence, BCE_loss, KL_divergence
+        return torch.sum(BCE_loss + beta*KL_divergence), torch.sum(BCE_loss), torch.sum(KL_divergence)
     
     def train_epoch(self):
         """Trains model for one epoch, returns the average loss (bce + beta*kl, bce and kl) for the epoch"""

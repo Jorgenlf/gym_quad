@@ -13,6 +13,8 @@ from PIL import Image
 
 class SunRGBD:
     """
+    Class for handling the SUN RGB-D dataset, methods are specific to the dataset.
+
     Original dataset is obtained from https://rgbd.cs.princeton.edu/, and is fully described in the following paper by B. Zhou et al.:
     B. Zhou, A. Lapedriza, J. Xiao, A. Torralba, and A. Oliva. Learning Deep Features for Scene Recognition using Places Database Advances in Neural Information Processing Systems 27 (NIPS2014)
 
@@ -28,12 +30,11 @@ class SunRGBD:
         self.orig_data_path = orig_data_path
         self.data_path_depth = data_path_depth
         self.data_path_rgb = data_path_rgb
-        self.depth_divide_by_to_get_meters = 10000
 
     def merge_folders_from_stripped(self, folder1, folder2, output_folder, prefix='img_d', suffix='png'):
         """For merging folders with data from https://github.com/ankurhanda/sunrgbd-meta-data"""
         if os.path.exists(output_folder):
-            print(f"Data already exists in {output_folder   }")
+            print(f"Data already exists in {output_folder}")
             return
         
         print(f"Merging {folder1} and {folder2} into {output_folder}")
@@ -68,7 +69,8 @@ class SunRGBD:
             dst = os.path.join(output_folder, f"{prefix}_{i:05d}.{suffix}")  
             shutil.copyfile(src, dst)
     
-    def split_train_validate_test(self, train_test_split:float, train_val_split:float) -> None:
+
+    def split_train_validate_test(self, train_test_split:float, train_val_split:float, shuffle:bool = True) -> None:
         """Splits the data into train, validate and test sets"""
         data_size = len(os.listdir(self.data_path_depth))
         train_size = int(data_size * train_test_split)
@@ -76,39 +78,28 @@ class SunRGBD:
         test_size = data_size - train_size
         train_size = train_size - val_size
 
-        # Create the train, validate and test folders for depth images
+        # Create the train, validate and test folders for depth images 
         if not os.path.exists(f"{self.data_path_depth}_train"):
-            os.makedirs(os.path.join(f"{self.data_path_depth}_train","dummyclass"))
+            os.makedirs(f"{self.data_path_depth}_train")
         if not os.path.exists(f"{self.data_path_depth}_val"):
-            os.makedirs(f"{self.data_path_depth}_val/dummyclass")
+            os.makedirs(f"{self.data_path_depth}_val")
         if not os.path.exists(f"{self.data_path_depth}_test"):
-            os.makedirs(f"{self.data_path_depth}_test/dummyclass")
+            os.makedirs(f"{self.data_path_depth}_test")
         
         # Shuffle the files and copy them to the train, validate and test folders
         files = os.listdir(self.data_path_depth)
-        np.random.shuffle(files)
+        if shuffle:
+            np.random.shuffle(files)
         for i, file in enumerate(files):
             if i < train_size:
-                shutil.copyfile(os.path.join(self.data_path_depth, file), os.path.join(f"{self.data_path_depth}_train","dummyclass", file))
+                shutil.copyfile(os.path.join(self.data_path_depth, file), os.path.join(f"{self.data_path_depth}_train", file))
             elif i < train_size + val_size:
-                shutil.copyfile(os.path.join(self.data_path_depth, file), os.path.join(f"{self.data_path_depth}_val/dummyclass", file))
+                shutil.copyfile(os.path.join(self.data_path_depth, file), os.path.join(f"{self.data_path_depth}_val", file))
             else:
-                shutil.copyfile(os.path.join(self.data_path_depth, file), os.path.join(f"{self.data_path_depth}_test/dummyclass", file))
-        
-        print('Splitted dataset into train, validate and test sets')
-        print(f"Train size: {train_size}, Validate size: {val_size}, Test size: {test_size}")
-        
-    
+                shutil.copyfile(os.path.join(self.data_path_depth, file), os.path.join(f"{self.data_path_depth}_test", file))
+                
 
-"""
-sun = SunRGBD(data_path_depth="../data/sunrgbd_images_depth", data_path_rgb="../data/sunrgbd_images_rgb")
-orig_data_path = "../data/sunrgbd_stripped"
-sun.merge_folders_from_stripped(folder1=f"{orig_data_path}/sunrgbd_train_depth", folder2=f"{orig_data_path}/sunrgbd_test_depth", output_folder="../data/sunrgbd_images_depth", prefix='img_d', suffix='png')
-sun.merge_folders_from_stripped(folder1=f"{orig_data_path}/sunrgbd_train_img", folder2=f"{orig_data_path}/sunrgbd_test_img", output_folder="../data/sunrgbd_images_rgb", prefix='img_rgb', suffix='jpg')
-sun.split_train_validate_test(train_test_split=0.7, train_val_split=0.2)
-"""
-
-class sjef:
+class DataReader:
     def __init__(self,
                  path_img_depth:str,
                  path_img_rgb:str,
@@ -126,36 +117,86 @@ class sjef:
         self.transforms_train = transforms_train
         self.transforms_validate = transforms_validate
 
-    def load_data_sunrgbd(self, sun:SunRGBD):
+    def load_split_data_sunrgbd(self, sun:SunRGBD, shuffle:bool = True):
         
         orig_data_path = sun.orig_data_path
 
-        sun.merge_folders_from_stripped(folder1=f"{orig_data_path}/sunrgbd_train_depth", folder2=f"{orig_data_path}/sunrgbd_test_depth", output_folder="data/sunrgbd_images_depth", prefix='img_d', suffix='png')
-        sun.merge_folders_from_stripped(folder1=f"{orig_data_path}/sunrgbd_train_img", folder2=f"{orig_data_path}/sunrgbd_test_img", output_folder="data/sunrgbd_images_rgb", prefix='img_rgb', suffix='jpg')
-        
-        sun.split_train_validate_test(train_test_split=self.train_test_split, train_val_split=self.train_val_split)
+        if not os.path.exists(self.path_img_depth):
+            sun.merge_folders_from_stripped(folder1=f"{orig_data_path}/sunrgbd_train_depth", 
+                                            folder2=f"{orig_data_path}/sunrgbd_test_depth", 
+                                            output_folder=self.path_img_depth, 
+                                            prefix='img_d', suffix='png')
+            
+            sun.merge_folders_from_stripped(folder1=f"{orig_data_path}/sunrgbd_train_img", 
+                                            folder2=f"{orig_data_path}/sunrgbd_test_img", 
+                                            output_folder=self.path_img_depth, 
+                                            prefix='img_rgb', suffix='jpg')
+            
+        if not os.path.exists(self.path_img_depth + "_train"): # If exists, assume that the data has already been split
+            sun.split_train_validate_test(train_test_split=self.train_test_split, train_val_split=self.train_val_split, shuffle=shuffle)
 
 
-        train_data = torchvision.datasets.ImageFolder(root=self.path_img_depth + "_train", 
-                                                      transform=self.transforms_train)
-        val_data = torchvision.datasets.ImageFolder(root=self.path_img_depth + "_val",
-                                                    transform=self.transforms_validate)
-        test_data = torchvision.datasets.ImageFolder(root=self.path_img_depth + "_test",
-                                                     transform=self.transforms_validate)
-        
-
+        train_data = CustomDepthDataset(root_dir=self.path_img_depth + "_train",
+                                        transform=self.transforms_train)
+        val_data   = CustomDepthDataset(root_dir=self.path_img_depth + "_val",
+                                        transform=self.transforms_validate)
+        test_data  = CustomDepthDataset(root_dir=self.path_img_depth + "_test",
+                                        transform=self.transforms_validate)
+    
         train_loader = DataLoader(train_data, 
                                   batch_size=self.batch_size, 
-                                  shuffle=True)
-        
-        val_loader = DataLoader(val_data, 
-                                batch_size=self.batch_size, 
-                                shuffle=True)
-        
-        test_loader = DataLoader(test_data, 
-                                 batch_size=1, 
-                                 shuffle=True)
+                                  shuffle=shuffle)     
+        val_loader   = DataLoader(val_data, 
+                                  batch_size=self.batch_size, 
+                                  shuffle=shuffle)
+        test_loader  = DataLoader(test_data, 
+                                  batch_size=self.batch_size, 
+                                  shuffle=shuffle)
 
         return train_loader, val_loader, test_loader
     
 
+class CustomDepthDataset(Dataset):
+    """
+    - Custom depth image dataset for the SUN RGB-D dataset. Images are assumed to be 16-bit depth images.
+    - Images are converted to meters and normalized to [0, 1] range, and then converted to tensors.
+    - Output tensors have one channel.
+    - Additional transformations can be added to the transform argument in the constructor.
+    """
+    def __init__(self, root_dir, transform=None):
+        """
+        Args:
+            root_dir (string): Directory with all the depth images.
+            transform (callable, optional): Optional transform to be applied on a sample.
+        """
+        self.root_dir = root_dir
+        self.transform = transform
+        self.image_files = [os.path.join(root_dir, f) for f in os.listdir(root_dir) if f.endswith('.png')]
+        self.depth_divide_by_to_get_meters = 10000
+    
+    def __len__(self):
+        return len(self.image_files)
+
+    def __getitem__(self, idx):
+        img_path = self.image_files[idx]
+        img = Image.open(img_path)
+        img_np = np.array(img, dtype=np.float32)  # Convert to numpy array and ensure it's float32
+
+        # Convert to meters and normalize
+        img_np = img_np / self.depth_divide_by_to_get_meters  # Conversion to meters
+        img_np = (img_np - img_np.min()) / (img_np.max() - img_np.min())
+
+        # Due to a bug, some pixels have values slightly larger than 1 (1,0000001 or 1.0000002), set these to 1
+        img_np[img_np > 1] = 1.0
+        
+        # Pixels with value == 0 are invalid, set these to -1 as an invalid mask to be used in loss function
+        # img_np[img_np == 0] = -1
+        # This is done directly in the loss function instead
+
+        # Convert to 1-channeled tensor
+        img_tensor = torch.from_numpy(img_np).unsqueeze(0)  # Add channel dimension
+
+        if self.transform:
+            img_tensor = self.transform(img_tensor)
+
+        return img_tensor

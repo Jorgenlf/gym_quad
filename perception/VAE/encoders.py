@@ -49,7 +49,7 @@ class ConvEncoder1(BaseEncoder):
                  channels:int, 
                  latent_dim:int,
                  activation=nn.ReLU()) -> None:
-        super().__init__()
+        super().__init__(latent_dim=latent_dim, image_size=image_size)
 
         self.name = 'conv1'
         self.channels = channels
@@ -73,7 +73,8 @@ class ConvEncoder1(BaseEncoder):
 
         # Calculate the size of the flattened feature maps
         # Adjust the size calculations based on the number of convolution and pooling layers
-        self.flattened_size = self._get_conv_output(image_size)
+        self.flattened_size, dim_before_flatten = self._get_conv_output(image_size)
+        print(f'Flattened size: {self.flattened_size}, dimension before flatten: {dim_before_flatten}')
         
         # Fully connected layers for mu and logvar
         self.fc_mu = nn.Sequential(
@@ -91,7 +92,7 @@ class ConvEncoder1(BaseEncoder):
         with torch.no_grad():
             input = torch.zeros(1, self.channels, image_size, image_size)
             output = self.conv_block(input)
-            return int(numpy.prod(output.size()))
+            return int(numpy.prod(output.size())), output.size()
 
     def forward(self, x:torch.Tensor) -> tuple:
         x = x.to(device)
