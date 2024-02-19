@@ -26,7 +26,7 @@ class LV_VAE(gym.Env):
         for key in env_config:
             setattr(self, key, env_config[key]) 
 
-        #Actionspace
+        #Actionspace mapped to speed, inclination of velocity vector wrt x-axis and yaw rate
         self.action_space = gym.spaces.Box(
             low = np.array([-1,-1,-1], dtype=np.float32),
             high = np.array([1, 1, 1], dtype=np.float32),
@@ -220,7 +220,7 @@ class LV_VAE(gym.Env):
         self.total_t_steps += 1
         self.time.append(self.total_t_steps*self.step_size)
 
-        step_reward = self.step_reward()
+        step_reward = self.reward()
 
         info = {}
 
@@ -236,7 +236,7 @@ class LV_VAE(gym.Env):
         return self.observation, step_reward, self.done, truncated, info
 
 
-    def step_reward(self):
+    def reward(self):
         """
         Calculates the reward function for one time step. Also checks if the episode should end. 
         """
@@ -267,6 +267,45 @@ class LV_VAE(gym.Env):
         # print('Reward Coll:', (1 - self.lambda_reward) * reward_collision_avoidance, '\n')
   
         return step_reward
+
+
+    def velocity_controller(self, action):
+        """
+        Controller for velocity control. Based on Kulkarni and Kostas paper.
+        
+        Parameters:
+        ----------
+        action : np.array
+        The action input from the RL agent.
+        
+        Returns:
+        -------
+        F : np.array
+        The thrust inputs requiered to follow path and avoid obstacles according to the action of the DRL agent.
+        """
+        #Using hyperparam of s_max, i_max, omega_max to clip the action to get the commanded velocity and yaw rate
+        cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(self.i_max * action[1])
+        cmd_v_y = 0
+        cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(self.i_max * action[1])
+        cmd_omega_z = self.omega_max * action[2]
+
+        #Calculate the thrust inputs using the commanded velocity and yaw rate and a PD controller
+        v_error = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.velocity
+        omega_z_error = cmd_omega_z - self.quadcopter.angular_velocity[2]
+
+        K_p = np.diag([1.0, 1.0, 1.0])
+        K_d = np.diag([0.5, 0.5, 0.5])
+
+        u = np.zeros(4)
+
+        u[0] = ss.m * (v_error[2] + ss.g) + ss.d_w*self.quadcopter.heave
+        u[1:] = K_p @ v_error + K_d @ omega_z_error
+
+        F = np.linalg.inv(ss.B()[2:]).dot(u)
+        F = np.clip(F, ss.thrust_min, ss.thrust_max)
+        
+        return F
+
 
 
     def path_following_controller(self, path : QPMI, action : np.array) -> np.array:

@@ -9,7 +9,7 @@ lv_vae_config = {
     "lambda_reward": 0.5,
     "reward_path_following_c": 5,
     "reward_path_following_max": 1,
-    "sensor_span": (360, 180), # the horizontal and vertical span of the sensors
+    "sensor_span": (85, 58), # the horizontal and vertical span of the sensors
     "sensor_suite": (15, 15), # the number of sensors covering the horizontal and vertical span
     "sensor_input_size": (8, 8), # the shape of FLS data passed to the neural network. Max pooling from raw data is used
     "sensor_frequency": 2,
@@ -26,6 +26,9 @@ lv_vae_config = {
     "fictive_waypoint_span": 10,
     "n_generated_waypoints": 1,
     "simulation_frequency": 10, # How many timesteps to simulate the quadcopter for each new path
+    "s_max": 0.5, # Maximum speed of the quadcopter
+    "i_max": 0.5, # Maximum inclination angle of commanded velocity wrt x-axis
+    "omega_max": 0.5, # Maximum commanded yaw rate
 }
 
 register(
