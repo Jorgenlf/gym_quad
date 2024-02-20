@@ -28,7 +28,7 @@ lv_vae_config = {
     "simulation_frequency": 10, # How many timesteps to simulate the quadcopter for each new path
     "s_max": 0.5, # Maximum speed of the quadcopter
     "i_max": 0.5, # Maximum inclination angle of commanded velocity wrt x-axis
-    "omega_max": 0.5, # Maximum commanded yaw rate
+    "r_max": 0.5, # Maximum commanded yaw rate
 }
 
 register(

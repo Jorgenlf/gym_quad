@@ -287,7 +287,7 @@ class LV_VAE(gym.Env):
         cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(self.i_max * action[1])
         cmd_v_y = 0
         cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(self.i_max * action[1])
-        cmd_omega_z = self.omega_max * action[2]
+        cmd_omega_z = self.r_max * action[2]
 
         #Calculate the thrust inputs using the commanded velocity and yaw rate and a PD controller
         v_error = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.velocity
