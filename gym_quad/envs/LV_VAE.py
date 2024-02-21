@@ -364,6 +364,7 @@ class LV_VAE(gym.Env):
         a_des_pos = K_p_pos @ e_p + K_i_pos @ self.total_position_error + K_d_pos @ e_p_dot
         if np.linalg.norm(a_des_pos) > 1.5:
             a_des_pos = 1.5 * a_des_pos / np.linalg.norm(a_des_pos)
+            
         a_des_vel = K_v @ e_v
         if np.linalg.norm(a_des_vel) > 1.0:
             a_des_vel = 1 * a_des_vel / np.linalg.norm(a_des_vel)

@@ -567,3 +567,35 @@ class LeeVelocityController:
         torque = - self.K_rot_tensor * rot_err - self.K_angvel_tensor * angvel_err + torch.cross(robot_state[:, 10:13],robot_state[:, 10:13], dim=1)
 
         return thrust_command, torque
+    
+# Example usage of the lee velocity controller from aerial gym environment
+        # clear actions for reset envs
+        self.forces[:] = 0.0
+        self.torques[:, :] = 0.0
+
+        output_thrusts_mass_normalized, output_torques_inertia_normalized = self.controller(self.root_states, self.action_input)
+        self.forces[:, 0, 2] = self.robot_mass * (-self.sim_params.gravity.z) * output_thrusts_mass_normalized
+        self.torques[:, 0] = output_torques_inertia_normalized
+        self.forces = torch.where(self.forces < 0, torch.zeros_like(self.forces), self.forces)
+
+        # apply actions
+        self.gym.apply_rigid_body_force_tensors(self.sim, gymtorch.unwrap_tensor(
+            self.forces), gymtorch.unwrap_tensor(self.torques), gymapi.LOCAL_SPACE)
+
+
+if __name__ == "__main__":
+    # Define the controller gains
+    K_vel = torch.tensor([1.0, 1.0, 1.0])
+    K_rot = torch.tensor([1.0, 1.0, 1.0])
+    K_angvel = torch.tensor([1.0, 1.0, 1.0])
+
+    # Create the controller
+    controller = LeeVelocityController(K_vel, K_rot, K_angvel)
+
+    # Create the robot state and the command actions
+    robot_state = torch.rand(1, 13)
+    command_actions = torch.rand(1, 4)
+
+    # Get the thrust and torque
+    thrust, torque = controller(robot_state, command_actions)
+    print(thrust, torque)
