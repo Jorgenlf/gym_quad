@@ -36,16 +36,18 @@ class TrainerVAE():
 
         # BCE = Binary cross entropy = reconstruction loss
         BCE_loss_ = F.binary_cross_entropy(x_hat, x, reduction='none') * valid_pixels # Masked pixel-wise loss only regarding valid pixels 
-        BCE_loss = torch.sum(BCE_loss_, dim=(1,2,3))/torch.sum(valid_pixels) #torch.mean(torch.sum(BCE_loss_, dim=(1,2,3)))#/torch.sum(valid_pixels)) # Sum over all pixels. Divide by the number of valid pixels to get the average loss per valid pixel to hinder bias in training. Mean to get scalar for backprop.
+        BCE_loss = torch.mean(torch.sum(BCE_loss_))#/torch.sum(valid_pixels))#, dim=(1,2,3)))#/torch.sum(valid_pixels) #torch.mean(torch.sum(BCE_loss_, dim=(1,2,3)))#/torch.sum(valid_pixels)) # Sum over all pixels. Divide by the number of valid pixels to get the average loss per valid pixel to hinder bias in training. Mean to get scalar for backprop.
             
-
+        
 
         # see Appendix B from VAE paper:
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
         # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-        KL_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1)
+        KL_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())#, dim=1)
 
-        return torch.sum(BCE_loss + beta*KL_divergence), torch.sum(BCE_loss), torch.sum(KL_divergence)
+        #print(BCE_loss.shape, KL_divergence.shape)
+
+        return BCE_loss + beta*KL_divergence, BCE_loss, KL_divergence
     
     def train_epoch(self):
         """Trains model for one epoch, returns the average loss (bce + beta*kl, bce and kl) for the epoch"""
@@ -99,8 +101,8 @@ class TrainerVAE():
     
     def train(self):
         """Trains the model for self.epochs epochs and updates self.training_loss and self.validation_loss with the loss for each epoch"""
-        print(f'Training VAE model\n Encoder: "{self.model.encoder.name}"\n Decoder: "{self.model.decoder.name}"\n β: {self.beta} | Epochs: {self.epochs} | Batch size: {self.batch_size} | Learning rate: {self.learning_rate}')
-        print('-----------------------------------')
+        print(f'Training VAE model\n Name: "{self.model.encoder.name}"\n Latent dim: {self.model.latent_dim} | β: {self.beta} | Epochs: {self.epochs} | Batch size: {self.batch_size} | Learning rate: {self.learning_rate}')
+        print('------------------------------------------------------------')
         
         for epoch in range(self.epochs):
             print(f'Epoch {epoch+1}/{self.epochs}')
@@ -116,7 +118,7 @@ class TrainerVAE():
             self.validation_loss['Reconstruction loss'].append(avg_bce_val_loss)
             self.validation_loss['KL divergence loss'].append(avg_kl_val_loss)
             
-            print(f'Training loss: {avg_tot_train_loss:.3f} | Validation loss: {avg_tot_val_loss:.3f}')
-            print(f'Reconstruction loss: {avg_bce_train_loss:.3f} | Validation loss: {avg_bce_val_loss:.3f}')
-            print(f'KL divergence loss: {avg_kl_train_loss:.3f} | Validation loss: {avg_kl_val_loss:.3f}')
-            print('-----------------------------------')
+            print(f'Training loss: {avg_tot_train_loss:.3f}           | Validation loss: {avg_tot_val_loss:.3f}')
+            print(f'Reconstruction loss: {avg_bce_train_loss:.3f}     | Validation loss recon: {avg_bce_val_loss:.3f}')
+            print(f'KL divergence loss: {avg_kl_train_loss:.3f}       | Validation loss KL: {avg_kl_val_loss:.3f}')
+            print('------------------------------------------------------------')

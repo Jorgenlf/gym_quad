@@ -60,13 +60,13 @@ class ConvEncoder1(BaseEncoder):
         # Convolutional block
         self.conv_block = nn.Sequential(
             nn.Conv2d(channels, 32, kernel_size=3, stride=2, padding=1),
-            activation,
+            self.activation,
             nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
-            activation,
+            self.activation,
             nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
-            activation,
+            self.activation,
             nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
-            activation,
+            self.activation,
             nn.Flatten()
         )
         
@@ -74,25 +74,40 @@ class ConvEncoder1(BaseEncoder):
         # Calculate the size of the flattened feature maps
         # Adjust the size calculations based on the number of convolution and pooling layers
         self.flattened_size, dim_before_flatten = self._get_conv_output(image_size)
-        print(f'Flattened size: {self.flattened_size}, dimension before flatten: {dim_before_flatten}')
+        print(f'Encoder flattened size: {self.flattened_size}; Dim before flatten: {dim_before_flatten}')
+
+        """Typically, the layers that output the mean (μ) and log variance (log(σ²)) of the latent space
+           distribution do not include an activation function. This is because these outputs directly 
+           parameterize the latent space distribution, and constraining them with an activation function 
+           (like ReLU) could limit the expressiveness of the latent representation."""
         
         # Fully connected layers for mu and logvar
         self.fc_mu = nn.Sequential(
             nn.Linear(self.flattened_size, latent_dim),
-            activation
+            #self.activation
         )
         
         self.fc_logvar = nn.Sequential(
             nn.Linear(self.flattened_size, latent_dim),
-            activation
+            #self.activation
         )
 
     def _get_conv_output(self, image_size:int) -> int:
-        # Helper function to calculate the size of the flattened features after conv layers
+        # Helper function to calculate size of the flattened feature maps as well as before the flatten layer
+        # Returns the size of the flattened feature maps and the output of the conv block before the flatten layer
         with torch.no_grad():
             input = torch.zeros(1, self.channels, image_size, image_size)
-            output = self.conv_block(input)
-            return int(numpy.prod(output.size())), output.size()
+            output1 = self.conv_block(input)
+            convblock_no_flat = nn.Sequential(nn.Conv2d(self.channels, 32, kernel_size=3, stride=2, padding=1),
+                                    self.activation,
+                                    nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+                                    self.activation,
+                                    nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+                                    self.activation,
+                                    nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
+                                    self.activation)
+            output2 = convblock_no_flat(input)
+            return int(numpy.prod(output1.size())), output2.size()
 
     def forward(self, x:torch.Tensor) -> tuple:
         x = x.to(device)

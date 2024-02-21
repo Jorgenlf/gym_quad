@@ -150,7 +150,7 @@ class DataReader:
                                   batch_size=self.batch_size, 
                                   shuffle=shuffle)
         test_loader  = DataLoader(test_data, 
-                                  batch_size=self.batch_size, 
+                                  batch_size=1, 
                                   shuffle=shuffle)
 
         return train_loader, val_loader, test_loader
