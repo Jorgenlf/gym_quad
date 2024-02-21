@@ -31,24 +31,36 @@ from gym_quad.objects.quad import Quad
 
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-import torch
-from torch import Tensor
-@torch.jit.script
+# import torch
+# from torch import Tensor
+# @torch.jit.script
+# def compute_vee_map(skew_matrix):
+#     # type: (Tensor) -> Tensor
+#     # return vee map of skew matrix
+#     vee_map = torch.stack(
+#         [-skew_matrix[:, 1, 2], skew_matrix[:, 0, 2], -skew_matrix[:, 0, 1]], dim=1)
+#     return vee_map
+
 def compute_vee_map(skew_matrix):
-    # type: (Tensor) -> Tensor
-    # return vee map of skew matrix
-    vee_map = torch.stack(
-        [-skew_matrix[:, 1, 2], skew_matrix[:, 0, 2], -skew_matrix[:, 0, 1]], dim=1)
-    return vee_map
+    # skew_matrix is assumed to be a numpy array
+    # Extract the elements of the skew matrix
+    m12 = skew_matrix[0, 2]
+    m20 = skew_matrix[1, 0]
+    m01 = skew_matrix[2, 1]
+    # Compute the vee map
+    vee_map = np.array([[-m12, m20, -m01]])
+    vee_map = np.reshape(vee_map, (3, 1))
+    
+    return vee_map    
 
 copter = Quad(0.01,np.zeros(6))
 state = copter.state
 
 class LeeVelocityController:
-    def __init__(self, K_vel_mtx, K_rot_mtx, K_angvel_mtx):
-        self.K_vel_tensor = K_vel_mtx
-        self.K_rot_tensor = K_rot_mtx
-        self.K_angvel_tensor = K_angvel_mtx
+    def __init__(self, k_vel, k_rot, k_angvel):
+        self.k_vel_ = k_vel
+        self.k_rot_ = k_rot
+        self.k_angvel = k_angvel
 
     def __call__(self, robot_state, command_actions):
         """
@@ -84,12 +96,12 @@ class LeeVelocityController:
 
         # Compute desired accelerations
         vel_error = desired_vehicle_velocity - vehicle_frame_velocity
-        accel_command = self.K_vel_tensor * vel_error
+        accel_command = self.k_vel_ * vel_error
         accel_command[2] += 1
 
         forces_command = accel_command
         # OLD thrust_command = torch.sum(forces_command * rotation_matrices[:, :, 2], dim=1)
-        thrust_command = np.dot(forces_command, rotation_matrix[:, 2])
+        thrust_command = np.dot(forces_command, rotation_matrix[2])
 
         c_phi_s_theta = forces_command[0]
         s_phi = -forces_command[1]
@@ -100,7 +112,6 @@ class LeeVelocityController:
         roll_setpoint = np.arctan2(s_phi, np.sqrt(c_phi_c_theta**2 + c_phi_s_theta**2))
         yaw_setpoint = euler_angles[2]
 
-
         euler_setpoints = np.zeros_like(euler_angles)
         euler_setpoints[0] = roll_setpoint
         euler_setpoints[1] = pitch_setpoint
@@ -109,7 +120,6 @@ class LeeVelocityController:
         # perform computation on calculated values
         # rotation_matrix_desired = p3d_transforms.euler_angles_to_matrix(euler_setpoints[:, [2, 1, 0]], "ZYX")
         rotation_matrix_desired = geom.Rzyx(euler_setpoints[0], euler_setpoints[1], euler_setpoints[2])
-
         rotation_matrix_desired_transpose = rotation_matrix_desired.T
         
         # OLD rot_err_mat = torch.bmm(rotation_matrix_desired_transpose, rotation_matrices) - \
@@ -147,16 +157,16 @@ class LeeVelocityController:
         # OLD desired_angvel_err = torch.bmm(rotation_matrix_transpose, torch.bmm(
         #     rotation_matrix_desired, omega_desired_body.unsqueeze(2))).squeeze(2)
         
-        desired_angvel_err = np.matmul(rotation_matrix_transpose, np.matmul(rotation_matrix_desired, omega_desired_body[:, np.newaxis])).squeeze()
+        desired_angvel_err = np.matmul(rotation_matrix_transpose, np.matmul(rotation_matrix_desired, omega_desired_body[:, np.newaxis]))
 
 
         #OLD actual_angvel_err = torch.bmm(rotation_matrix_transpose, robot_state[:, 10:13].unsqueeze(2)).squeeze(2)
-        actual_angvel_err = np.matmul(rotation_matrix_transpose, robot_state[10:13, np.newaxis]).squeeze()
+        actual_angvel_err = np.matmul(rotation_matrix_transpose, robot_state[9:12, np.newaxis])
 
         angvel_err = actual_angvel_err - desired_angvel_err
 
-        torque = - self.K_rot_tensor * rot_err - self.K_angvel_tensor * angvel_err + np.cross(robot_state[9:12],robot_state[9:12])
-
+        torque = - self.k_rot_ * rot_err - self.k_angvel * angvel_err #+ np.cross(robot_state[9:12],robot_state[9:12]) #TODO check if this makes sense turns it to 3x3 matrix and cross by itself is wrong?
+        
         return thrust_command, torque
 
 
@@ -195,11 +205,15 @@ class TestController(unittest.TestCase):
 
         cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r])
         state = self.quadcopter.state
+        
+        k_vel = 0.5
+        k_rot = 0.5
+        k_angvel = 0.5
 
-        LeeVelCtrl = LeeVelocityController(0.5, 0.5, 0.5)
+        LeeVelCtrl = LeeVelocityController(k_vel, k_rot, k_angvel)
         f, T = LeeVelCtrl(state, cmd)
 
-        u_des = np.array([f, T[0], T[1], T[2]])
+        u_des = np.array([f, T[0][0], T[1][0], T[2][0]])
 
         F = np.linalg.inv(ss.B()[2:]).dot(u_des)
         F = np.clip(F, ss.thrust_min, ss.thrust_max)
