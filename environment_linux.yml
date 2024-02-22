@@ -142,6 +142,7 @@ dependencies:
       - nvidia-nvjitlink-cu12==12.3.101
       - nvidia-nvtx-cu12==12.1.105
       - oauthlib==3.2.2
+      - opencv-python==4.9.0.80
       - protobuf==4.25.2
       - pyasn1==0.5.1
       - pyasn1-modules==0.3.0

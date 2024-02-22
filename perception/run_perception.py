@@ -65,6 +65,7 @@ def main(args):
     
     print(f'Loading data with image size = ({NUM_CHANNELS}, {IMG_SIZE}, {IMG_SIZE}), batch size = {BATCH_SIZE}, train-test split = {0.7} and train-val split = {0.3}')
     print(f'Additional transformations to training data:\n {train_additional_transform}')
+    
     dataloader_sun = DataReader(path_img_depth="data/sunrgbd_images_depth",
                             path_img_rgb="data/sunrgbd_images_rgb",
                             batch_size=BATCH_SIZE,
@@ -77,35 +78,7 @@ def main(args):
     # Load data and create dataloaders
     train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, shuffle=True)
 
-    """
-    # Load a vae for testing
-    enc = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS)
-    enc.load("models/encoders/encoder_conv1_experiment_1_seed1.json")
-    dec = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=enc.flattened_size)
-    dec.load("models/decoders/decoder_conv1_experiment_1_seed1.json")
-    vae = VAE(encoder=enc, 
-              decoder=dec, 
-              latent_dim=LATENT_DIMS, 
-              beta=BETA).to(device)
-    for i, x in enumerate(test_loader):
-        img = x.to(device)
-        plotting.reconstruct_and_plot(img, vae, "conv1", 1, "results/plots/reconstructions", i, cmap='magma', save=True)
-        if i > 0: break"""
-
-    print('Data loaded')
-    print(f'Size train: {len(train_loader.dataset)} | Size validation: {len(val_loader.dataset)} | Size test: {len(test_loader.dataset)}\n')
-    
-    #print(train_loader.dataset[0].shape)
-    #print(train_loader.dataset[0][0].shape)
-    #dislay an image
-    #import matplotlib.pyplot as plt
-    #import numpy as np
-    # Iterate through first 9 images and create a figure with a 9x9 grid, save the figure to a file
-    #for i in range(9):
-    #    plt.subplot(330 + 1 + i)
-    #    plt.imshow(train_loader.dataset[i][0].numpy())
-    #plt.show()
-    
+    print(f'Data loaded\nSize train: {len(train_loader.dataset)} | Size validation: {len(val_loader.dataset)} | Size test: {len(test_loader.dataset)}\n')
 
     # Augment data
     #data_augmentation = DataAugmentation()
@@ -116,7 +89,6 @@ def main(args):
 
     if args.mode == 'train':
         print("Training...")
-
 
         # Containers for loss trajectories
         total_train_losses = np.zeros((NUM_SEEDS, N_EPOCH))
@@ -131,8 +103,6 @@ def main(args):
 
             # Load data with different seed
             train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, shuffle=True)
-            print(f'Size train: {len(train_loader.dataset)} | Size validation: {len(val_loader.dataset)} | Size test: {len(test_loader.dataset)}\n')
-
 
             # Create VAE based on args.model_name
             if model_name == 'conv1':
@@ -199,7 +169,6 @@ def main(args):
                                         path=savepath_loss_plot,
                                         save=True)
         
-
 
 
     if args.mode == 'test':

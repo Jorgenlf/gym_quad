@@ -87,3 +87,23 @@ def reconstruct_and_plot(input_img_as_tensor, vae: nn.Module, model_name: str, e
         plt.axis('off')
         save_path = os.path.join(path, f"{model_name}_experiment_{experiment_id}_{i}_reconstructed.pdf")
         plt.savefig(save_path, bbox_inches='tight')
+
+
+
+
+
+# TODO: Add functionality forplotting saved .npy loss trajectories for a given number of seeds and a given number of epochs:
+def plot_separated_lossed_from_file(n_epochs, seeds, path):
+    pass
+
+
+# TODO: Add latent space kde plot functionality for experimenting w/ betas
+
+
+
+
+
+
+
+
+# TODO: Visualizing latent space traversing..... mayyyybe
