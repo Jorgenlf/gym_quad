@@ -202,7 +202,6 @@ class TestController(unittest.TestCase):
         cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(self.i_max * action[1])
         cmd_r = self.r_max * action[2]
 
-        chi_p = self.quadcopter.chi
         self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r])
         ## LEE VELOCITY CONTROLLER
         # state = self.quadcopter.state
@@ -227,48 +226,57 @@ class TestController(unittest.TestCase):
         # return F
         ###
 
-        ## My own PD controller
-        #Calculate the thrust inputs using the commanded velocity and yaw rate and a PD controller
-        v_error = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - geom.Rzyx(*self.quadcopter.attitude) @ self.quadcopter.velocity
+        ## My own PID controller for velocity control and PD for attitude control
+        # Calculate the thrust inputs using the commanded velocity + PID control
+        # and yaw rate + PD control for attitude
 
-        #For the yaw rate, the natural frequency and damping ratio are set to 9 and 1 respectively    
+        #For the attitude the natural frequency and damping ratio are set to 9 and 1 respectively    
         omega_n = 9 # Natural frequency
         xi = 1      # Damping ratio, 1 -> critically damped
 
         K_p_att = np.diag([ss.I_x * omega_n**2, ss.I_y * omega_n**2, ss.I_z * omega_n**2])
         K_d_att = np.diag([2 * ss.I_x * xi * omega_n, 2 * ss.I_y * xi * omega_n, 2 * ss.I_z * xi * omega_n])
 
-        #Prop and damp gains for the linear velocity
-        K_p = np.diag([0.5, 0.5, 0.5])
+        #Prop, damp and integral gains for the linear velocity
+        K_p = np.diag([2, 1, 2])
         K_d = np.diag([0.5, 0.5, 0.5])
+        K_i = np.diag([2, 2, 2])
 
-        ref_acc = np.array([0, 0, 0]) # Want to move at a constant velocity or hover. May or may not include the Kd
-        a_des = K_p @ v_error + K_d @ (ref_acc - self.quadcopter.state_dot(self.quadcopter.state)[6:9])
+        #KP part
+        v_error = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - geom.Rzyx(*self.quadcopter.attitude) @ self.quadcopter.velocity
 
-        forces_command = a_des*ss.m
-        phi_des = np.arctan2(forces_command[1], forces_command[2])
-        theta_des = np.arctan2(-forces_command[0], np.sqrt(forces_command[1]**2 + forces_command[2]**2))
+        #KD part
+        v_error_dot = np.array([0.0, 0.0, 0.0])
+        if self.total_t_steps > 0:
+            v_error_dot = (v_error - self.prev_v_error) / self.step_size
+        else:
+            v_error_dot = np.array([0.0, 0.0, 0.0])
+        self.prev_v_error = v_error
 
-        e_att = geom.ssa(np.array([phi_des, theta_des, self.quadcopter.attitude[2]]) - self.quadcopter.attitude)
+        #KI part
+        total_v_error = np.zeros(3)
+        if self.total_t_steps > 0:
+            total_v_error += v_error * (np.absolute(self.prev_a_des) < 0.5).astype(int) * self.step_size # Anti-wind up
+        else:
+            total_v_error = np.zeros(3)
         
-        old_e_angvel = np.array([0.0, 0.0, cmd_r]) - self.quadcopter.angular_velocity
+        a_des = K_p @ v_error + K_d @ v_error_dot + K_i @ total_v_error
+        self.prev_a_des = a_des # Save the previous a_des for the next iteration to use in anti-wind up above
 
-        #NEW inspired by the Lee controller this seemingly blows up the error...
-        Rmat = geom.Rzyx(*self.quadcopter.attitude)
-        Rmat_desired = geom.Rzyx(phi_des, theta_des, self.quadcopter.attitude[2])
+        #V2desired angles inspired by Carlsen's thesis assumes small angles
+        #Assuming desired yaw aka heading is the same as the current yaw as the change of yaw is controlled by the yaw rate command
+        yaw_des = self.quadcopter.attitude[2]
+        term1 = (a_des[0]/(a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_u*self.quadcopter.surge)/ss.m))
+        term2 = (a_des[1]/(a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_v*self.quadcopter.sway)/ss.m))
+        phi_des = term1*np.sin(yaw_des) + term2*np.cos(yaw_des)
+        theta_des = term1*np.cos(yaw_des) + term2*np.sin(yaw_des)
 
-        Tmat = geom.Tzyx(*self.quadcopter.attitude)
-        omega_desired_body = Tmat.T @ np.array([0.0, 0.0, cmd_r])
+        e_att = geom.ssa(np.array([phi_des, theta_des, yaw_des]) - self.quadcopter.attitude)
         
-        desired_angvel = Rmat.T @ (Rmat_desired @ omega_desired_body)
-        actual_angvel = Rmat.T @ self.quadcopter.angular_velocity
+        e_angvel = np.array([0.0, 0.0, cmd_r]) - self.quadcopter.angular_velocity
 
-        e_angvel = actual_angvel - desired_angvel
-
-        torque = K_p_att @ e_att + K_d_att @ e_angvel + np.cross(self.quadcopter.angular_velocity,ss.Ig@self.quadcopter.angular_velocity)
-        
+        torque = K_p_att @ e_att + K_d_att @ e_angvel #+ np.cross(self.quadcopter.angular_velocity,ss.Ig@self.quadcopter.angular_velocity)
         u = np.zeros(4)
-        
         u[0] = ss.m * (a_des[2] + ss.g) + ss.d_w*self.quadcopter.heave #thurst force in z direction i.e. total thrust
         u[1:] = torque
 
@@ -296,20 +304,23 @@ if __name__ == '__main__':
     vel_ref = []
     incline_ref = []
     yaw_rate_ref = []
-    tot_time = 300
+    tot_time = 600
     for t in range(tot_time):
-        # if t < 200:
-        #     vel_ref.append(t*0.2)#(np.sin(0.1*t))
-        #     incline_ref.append(np.pi/6)
-        # else:
-        #     vel_ref.append(-t*0.2)
-        #     incline_ref.append(-np.pi/6)
-        vel_ref.append(2)
-        incline_ref.append(np.pi/9)
-        yaw_rate_ref.append(0)
+        if t < 100:
+            vel_ref.append(1)
+        else:
+            vel_ref.append(3)
+
+        if t > 200 and t < 400:
+            yaw_rate_ref.append(0.5)
+            incline_ref.append(np.pi/6)
+        else:
+            yaw_rate_ref.append(0)
+            incline_ref.append(0)
 
     actual_vel = []
     actual_yaw_rate = []
+    actual_incl_angle = []
     x_vel_cmd = []
     y_vel_cmd = []
     z_vel_cmd = []
@@ -334,6 +345,7 @@ if __name__ == '__main__':
         yaw_rate_cmd.append(Test.cmd[3])
         actual_vel.append(Test.quadcopter.velocity)
         actual_yaw_rate.append(Test.quadcopter.angular_velocity[2])
+        actual_incl_angle.append(Test.quadcopter.upsilon)
         statelog.append(Test.quadcopter.state)
 
     #Subplot the velocity commanded and the actual velocity
@@ -341,33 +353,49 @@ if __name__ == '__main__':
     plt.subplot(2, 2, 1)
     plt.plot(x_vel_cmd, label='x velocity command')
     plt.plot([v[0] for v in actual_vel], label='x velocity actual')
+    plt.ylabel('Velocity (m/s)')
+    plt.xlabel('Timesteps')
     plt.legend()
     plt.subplot(2, 2, 2)
     plt.plot(y_vel_cmd, label='y velocity command')
     plt.plot([v[1] for v in actual_vel], label='y velocity actual')
+    plt.ylabel('Velocity (m/s)')
+    plt.xlabel('Timesteps')
     plt.legend()
     plt.subplot(2, 2, 3)
     plt.plot(z_vel_cmd, label='z velocity command')
     plt.plot([v[2] for v in actual_vel], label='z velocity actual')
+    plt.ylabel('Velocity (m/s)')
+    plt.xlabel('Timesteps')
     plt.legend()
     plt.subplot(2, 2, 4)
     plt.plot(yaw_rate_cmd, label='yaw rate command')
     plt.plot(actual_yaw_rate, label='yaw rate actual')
+    plt.ylabel('Yaw rate (rad/s)')
+    plt.xlabel('Timesteps')
     plt.legend()
 
     #Plot the force of each motor in subplot 
     plt.figure(2)
     plt.subplot(2, 2, 1)
     plt.plot(timesteps, [f[0] for f in forces], label='motor 1')
+    plt.ylabel('Force (N)')
+    plt.xlabel('Timesteps')
     plt.legend()
     plt.subplot(2, 2, 2)
     plt.plot(timesteps, [f[1] for f in forces], label='motor 2')
+    plt.ylabel('Force (N)')
+    plt.xlabel('Timesteps')
     plt.legend()
     plt.subplot(2, 2, 3)
     plt.plot(timesteps, [f[2] for f in forces], label='motor 3')
+    plt.ylabel('Force (N)')
+    plt.xlabel('Timesteps')
     plt.legend()
     plt.subplot(2, 2, 4)
     plt.plot(timesteps, [f[3] for f in forces], label='motor 4')
+    plt.ylabel('Force (N)')
+    plt.xlabel('Timesteps')
     plt.legend()
 
     #Plot the position of the quadcopter in 3D
@@ -383,6 +411,21 @@ if __name__ == '__main__':
     #place a red dot at the start position and a blue dot at the end position
     ax.scatter3D(x[0], y[0], z[0], color='r')
     ax.scatter3D(x[-1], y[-1], z[-1], color='b')
+    #scale the axes such that theyre in the same scale
+    max_range = np.array([x, y, z]).max()
+    ax.set_xlim([-max_range, max_range])
+    ax.set_ylim([-max_range, max_range])
+    ax.set_zlim([0, max_range])
+
+
+    plt.figure(4)
+    actual_incl_angle=np.array(actual_incl_angle)*180/np.pi
+    incline_ref=np.array(incline_ref)*180/np.pi
+    plt.plot(timesteps, actual_incl_angle, label='actual incline angle')
+    plt.plot(timesteps, incline_ref, label='incline ref')
+    plt.ylabel('Incline angle (degrees)')
+    plt.xlabel('Timesteps')
+    plt.legend()
 
 
     plt.show()

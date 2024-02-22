@@ -156,7 +156,8 @@ class Quad():
     @property
     def chi(self):
         """
-        Returns the rate of rotation about the world frame.
+        Returns the angle between the velocity vector and the x-axis.
+        i.e heading angle. (?)
         """
         [x_dot, y_dot, z_dot] = self.position_dot
         return np.arctan2(y_dot, x_dot)
@@ -164,7 +165,8 @@ class Quad():
     @property
     def upsilon(self):
         """
-        Returns the rate of rotation about the world frame.
+        Returns the angle between the velocity vector and the x-y plane.
+        i.e the inclination angle. (?)
         """
         [x_dot, y_dot, z_dot] = self.position_dot
         return np.arctan2(z_dot, np.sqrt(x_dot**2 + y_dot**2))
