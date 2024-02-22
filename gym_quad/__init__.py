@@ -26,7 +26,7 @@ lv_vae_config = {
     "fictive_waypoint_span": 10,
     "n_generated_waypoints": 1,
     "simulation_frequency": 10, # How many timesteps to simulate the quadcopter for each new path
-    "s_max": 0.5, # Maximum speed of the quadcopter
+    "s_max": 0.5, # Maximum speed of the quadcopter #I THINK THIS IS SAME AS CRUISE SPEED
     "i_max": 0.5, # Maximum inclination angle of commanded velocity wrt x-axis
     "r_max": 0.5, # Maximum commanded yaw rate
 }
