@@ -15,18 +15,26 @@ class TrainerVAE():
                  dataloader_val:torch.utils.data.DataLoader,
                  optimizer:torch.optim.Optimizer,
                  beta:float=1,
-                 reconstruction_loss:str='BCE'
+                 reconstruction_loss:str='MSE',
+                 patience:int=5,                 
                  ) -> None:
-    
+
+        # General parameters
         self.model = model
-        self.epochs = epochs
-        self.learning_rate = learning_rate
-        self.batch_size = batch_size
-        self.dataloader_train = dataloader_train
-        self.dataloader_val = dataloader_val
-        self.optimizer = optimizer
-        self.beta = beta
-        self.reconstruction_loss = reconstruction_loss
+        self.epochs = epochs                            # Number of epochs to train the model
+        self.learning_rate = learning_rate              # Learning rate for the optimizer
+        self.batch_size = batch_size                    # Batch size for the dataloaders
+        self.dataloader_train = dataloader_train        # Dataloader for the training set
+        self.dataloader_val = dataloader_val            # Dataloader for the validation set
+        self.optimizer = optimizer                      # Optimizer to use for training, Adam at default
+        self.beta = beta                                # β (scaling-)parameter for the β-VAE
+        self.reconstruction_loss = reconstruction_loss  # Reconstruction loss to use, BCE or MSE
+        
+        # Early stopping parameters
+        self.patience = patience                        # Number of epochs to wait for improvement before stopping
+        self.min_delta = 1.0                            # Minimum change to qualify as an improvement
+        self.best_val_loss = np.inf                     # Temp to keep track of best validation loss
+        self.epochs_no_improve = 0                      # Counter
         
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.training_loss = {'Total loss':[], 'Reconstruction loss':[], 'KL divergence loss':[]}
@@ -127,3 +135,15 @@ class TrainerVAE():
             print(f'Reconstruction loss: {avg_bce_train_loss:.3f}     | Validation loss recon: {avg_bce_val_loss:.3f}')
             print(f'KL divergence loss: {avg_kl_train_loss:.3f}       | Validation loss KL: {avg_kl_val_loss:.3f}')
             print('------------------------------------------------------------')
+            
+            # Early stopping check
+            if self.validation_loss['Total loss'][-1] < self.best_val_loss - self.min_delta:
+                self.best_val_loss = self.validation_loss['Total loss'][-1]
+                self.epochs_no_improve = 0
+            else:
+                self.epochs_no_improve += 1
+            
+            if self.epochs_no_improve >= self.patience:
+                print(f'Early stopping triggered after {epoch+1} epochs.')
+                break
+            
