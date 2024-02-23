@@ -14,7 +14,8 @@ class TrainerVAE():
                  dataloader_train:torch.utils.data.DataLoader,
                  dataloader_val:torch.utils.data.DataLoader,
                  optimizer:torch.optim.Optimizer,
-                 beta:float=1
+                 beta:float=1,
+                 reconstruction_loss:str='BCE'
                  ) -> None:
     
         self.model = model
@@ -25,6 +26,7 @@ class TrainerVAE():
         self.dataloader_val = dataloader_val
         self.optimizer = optimizer
         self.beta = beta
+        self.reconstruction_loss = reconstruction_loss
         
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.training_loss = {'Total loss':[], 'Reconstruction loss':[], 'KL divergence loss':[]}
@@ -34,20 +36,23 @@ class TrainerVAE():
         # Create mask with ones for the valid pixels (> 0) to disregard invalid pixels in the loss
         valid_pixels = torch.where(x > 0, torch.ones_like(x), torch.zeros_like(x)) # Mask is defined for the whole batch (x)
 
-        # BCE = Binary cross entropy = reconstruction loss
-        BCE_loss_ = F.binary_cross_entropy(x_hat, x, reduction='none') * valid_pixels # Masked pixel-wise loss only regarding valid pixels 
-        BCE_loss = torch.mean(torch.sum(BCE_loss_))#/torch.sum(valid_pixels))#, dim=(1,2,3)))#/torch.sum(valid_pixels) #torch.mean(torch.sum(BCE_loss_, dim=(1,2,3)))#/torch.sum(valid_pixels)) # Sum over all pixels. Divide by the number of valid pixels to get the average loss per valid pixel to hinder bias in training. Mean to get scalar for backprop.
+        if self.reconstruction_loss == "BCE":
+            # BCE = Binary cross entropy = reconstruction loss
+            BCE_loss_ = F.binary_cross_entropy(x_hat, x, reduction='none') * valid_pixels # Masked pixel-wise loss only regarding valid pixels 
+            recon_loss = torch.mean(torch.sum(BCE_loss_))#/torch.sum(valid_pixels))#, dim=(1,2,3)))#/torch.sum(valid_pixels) #torch.mean(torch.sum(BCE_loss_, dim=(1,2,3)))#/torch.sum(valid_pixels)) # Sum over all pixels. Divide by the number of valid pixels to get the average loss per valid pixel to hinder bias in training. Mean to get scalar for backprop.
+                
+        if self.reconstruction_loss == "MSE":
+            # MSE = Mean squared error = reconstruction loss
+            MSE_loss_ = F.mse_loss(x_hat, x, reduction='none') * valid_pixels
+            recon_loss = torch.mean(torch.sum(MSE_loss_))#/torch.sum(valid_pixels))#, dim=(1,2,3)))#/torch.sum(valid_pixels) #torch.mean(torch.sum(BCE_loss_, dim=(1,2,3)))#/torch.sum(valid_pixels)) # Sum over all pixels. Divide by the number of valid pixels to get the average loss per valid pixel to hinder bias in training. Mean to get scalar for backprop.
             
-        
 
         # see Appendix B from VAE paper:
         # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
         # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-        KL_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())#, dim=1)
+        KLD_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())#, dim=1)
 
-        #print(BCE_loss.shape, KL_divergence.shape)
-
-        return BCE_loss + beta*KL_divergence, BCE_loss, KL_divergence
+        return recon_loss + beta*KLD_loss, recon_loss, KLD_loss
     
     def train_epoch(self):
         """Trains model for one epoch, returns the average loss (bce + beta*kl, bce and kl) for the epoch"""

@@ -119,7 +119,9 @@ def main(args):
                                 dataloader_train=train_loader, 
                                 dataloader_val=val_loader, 
                                 optimizer=optimizer, 
-                                beta=BETA)
+                                beta=BETA,
+                                reconstruction_loss="MSE")
+            
             trainer.train()
             
             total_train_losses[i,:] = trainer.training_loss['Total loss']
