@@ -98,11 +98,11 @@ def move_to_CO(A_CG, r_g):
 
 def vee_map(skew_matrix):
     #Maps a skew-symmetric matrix to a vector
-    m12 = skew_matrix[0, 2]
-    m20 = skew_matrix[1, 0]
-    m01 = skew_matrix[2, 1]
+    m20 = skew_matrix[2, 0]
+    m12 = skew_matrix[1, 2]
+    m01 = skew_matrix[0, 1]
     # Compute the vee map
-    vee_map = np.array([[-m12, m20, -m01]])
+    vee_map = np.array([[m20, m12 ,m01 ]])
     
     return vee_map    
 

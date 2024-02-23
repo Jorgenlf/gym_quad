@@ -32,18 +32,18 @@ class TestController(unittest.TestCase):
         self.total_t_steps = 0
         self.step_size = 0.01
 
-    def world_velocity_controller(self, action):
+    def velocity_controller(self, action):
         """
         The velocity controller for the quadcopter.
-        Based on Kulkarni and Kostas paper. And Ørjans thesis controller.
+        Based on small angle approximation linearizing the quadcopter dynamics about the hover point.
 
         Parameters:
         ----------
         action : np.array (3,)
         The action input from the RL agent. 
-        a1: reference speed in world frame, 
+        a1: reference speed in body frame, 
         a2: inclination of velocity vector wrt x-axis of body
-        a3: yaw rate of body frame relative to world frame
+        a3: yaw rate in body frame relative to world frame
         
         Returns:
         -------
@@ -67,7 +67,7 @@ class TestController(unittest.TestCase):
         K_d_att = np.diag([2 * ss.I_x * xi * omega_n, 2 * ss.I_y * xi * omega_n, 2 * ss.I_z * xi * omega_n])
 
         #Prop, damp and integral gains for the linear velocity
-        #OLD gains get fair tracking of x and z but not y
+        #OLD gains get fairish tracking of x and z but not y
         #TODO use e.g. pole placement to get better gains
         #These make the attitude reach angles of 30 deg where i think the small angle assumption begins to fail.
         # K_p = np.diag([6, 0.8, 4])
@@ -80,13 +80,11 @@ class TestController(unittest.TestCase):
         K_i = np.diag([2, 2, 2])
 
         #KP part
-        vel_world = geom.Rzyx(*self.quadcopter.attitude) @ self.quadcopter.velocity #Also given by self.quadcopter.position_dot
         vel_body = self.quadcopter.velocity
-        #The world frame velocity of the quadcopter may not be available when using an actual quadcopter with IMU meas?
-        #- no worries can get the world velocity by rotating the body velocity available by integrating linear accelerations from IMU
-        # with the attitude from integrating up the angular rates from the IMU
+        # body velocity available by integrating linear accelerations from IMU
+        # attitude available from integrating up the angular rates from the IMU after calibration ofc
         # Or try to do state estimation with a kalman filter or something as integrating up the IMU data is not very accurate #TODO
-        v_error = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - vel_world
+        v_error = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - vel_body
 
         #KD part
         # v_error_dot = np.array([0.0, 0.0, 0.0])
@@ -128,105 +126,106 @@ class TestController(unittest.TestCase):
         return F
 
     # SECOND ATTEMPT AT THE GEOMETRIC CONTROLLER ILL LEAVE IT HERE FOR SOME TIME AND USE THE ONE ABOVE PER NOW UNTIL A BETTER LV CONTROLLER IS FOUND    
-    # def body_velocity_controller(self, action):
-    #         """
-    #         The velocity controller for the quadcopter.
-    #         Based on Kulkarni and Kostas paper. And Ørjans thesis controller.
+    def geometric_velocity_controller(self, action):
+            """
+            The velocity controller for the quadcopter.
+            Based on multirotor paper https://ieeexplore.ieee.org/document/6289431 and geometric paper
 
-    #         Parameters:
-    #         ----------
-    #         action : np.array (3,)
-    #         The action input from the RL agent. 
-    #         a1: reference speed in BODY frame, 
-    #         a2: inclination of velocity vector wrt x-axis of body
-    #         a3: yaw rate of body frame relative to world frame
+            Parameters:
+            ----------
+            action : np.array (3,)
+            The action input from the RL agent. 
+            a1: reference speed in BODY frame, 
+            a2: inclination of velocity vector wrt x-axis of body
+            a3: yaw rate of body frame relative to world frame
             
-    #         Returns:
-    #         -------
-    #         F : np.array (4,)
-    #         The thrust inputs required to follow path and avoid obstacles according to the action of the DRL agent.
-    #         #TODO add an additional loop that converts desired thrust per rotor to angular velocity of the rotorblades.
-    #         """
-    #         #Using hyperparam of s_max, i_max, r_max to clip the action to get the commanded velocity and yaw rate
-    #         cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1])#*self.i_max)
-    #         cmd_v_y = 0
-    #         cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1])#*self.i_max)
-    #         cmd_r = self.r_max * action[2]
-    #         self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r])
+            Returns:
+            -------
+            F : np.array (4,)
+            The thrust inputs required to follow path and avoid obstacles according to the action of the DRL agent.
+            #TODO add an additional loop that converts desired thrust per rotor to angular velocity of the rotorblades.
+            """
+            #Using hyperparam of s_max, i_max, r_max to clip the action to get the commanded velocity and yaw rate
+            cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1])#*self.i_max)
+            cmd_v_y = 0
+            cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1])#*self.i_max)
+            cmd_r = self.r_max * action[2]
+            self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r])
 
-    #         #For the attitude the natural frequency and damping ratio are set to 9 and 1 respectively    
-    #         # omega_n = 9 # Natural frequency
-    #         # xi = 1      # Damping ratio, 1 -> critically damped
-    #         # K_p_att = np.diag([ss.I_x * omega_n**2, ss.I_y * omega_n**2, ss.I_z * omega_n**2])
-    #         # K_d_att = np.diag([2 * ss.I_x * xi * omega_n, 2 * ss.I_y * xi * omega_n, 2 * ss.I_z * xi * omega_n])
-    #         K_p_att = np.diag([1, 1, 1])
-    #         K_d_att = np.diag([0.5, 0.2, 0.5])
+            #For the attitude the natural frequency and damping ratio are set to 9 and 1 respectively    
+            # omega_n = 9 # Natural frequency
+            # xi = 1      # Damping ratio, 1 -> critically damped
+            # K_p_att = np.diag([ss.I_x * omega_n**2, ss.I_y * omega_n**2, ss.I_z * omega_n**2])
+            # K_d_att = np.diag([2 * ss.I_x * xi * omega_n, 2 * ss.I_y * xi * omega_n, 2 * ss.I_z * xi * omega_n])
+            # K_p_att = np.diag([1, 1, 1])
+            # K_d_att = np.diag([0.5, 0.2, 0.5])
+            kp_att = 1
+            kd_att = 0.5
 
-    #         #Prop, damp and integral gains for the linear velocity
-    #         K_p = np.diag([1,1,1])
-    #         K_d = np.diag([0.5, 0.2, 0.5])
-    #         K_i = np.diag([4, 0.3, 1.5])
+            #Prop, damp and integral gains for the linear velocity
+            K_p = np.diag([1,1,1])
+            K_d = np.diag([0.5, 0.2, 0.5])
+            K_i = np.diag([4, 0.3, 1.5])
 
-    #         #KP part
-    #         vel_body = self.quadcopter.velocity #Also given by self.quadcopter.position_dot
-    #         v_error = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - vel_body
+            #KP part
+            vel_body = self.quadcopter.velocity #Also given by self.quadcopter.position_dot
+            v_error = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - vel_body
 
-    #         #KD part
-    #         if self.total_t_steps > 0:
-    #             v_error_dot = (v_error - self.prev_v_error) / self.step_size
-    #         else:
-    #             v_error_dot = np.array([0.0, 0.0, 0.0])
-    #         self.prev_v_error = v_error
+            #KD part
+            if self.total_t_steps > 0:
+                v_error_dot = (v_error - self.prev_v_error) / self.step_size
+            else:
+                v_error_dot = np.array([0.0, 0.0, 0.0])
+            self.prev_v_error = v_error
             
-    #         #KI part
-    #         total_v_error = np.zeros(3)
-    #         if self.total_t_steps > 0:
-    #             total_v_error += v_error * (np.absolute(self.prev_a_des) < 0.5).astype(int) * self.step_size # Anti-wind up
+            #KI part
+            total_v_error = np.zeros(3)
+            if self.total_t_steps > 0:
+                total_v_error += v_error * (np.absolute(self.prev_a_des) < 0.5).astype(int) * self.step_size # Anti-wind up
 
-    #         a_des = K_p @ v_error + K_d @ v_error_dot + K_i @ total_v_error
-    #         self.prev_a_des = a_des 
-
-    #         yaw_des = self.quadcopter.attitude[2]
-
-    #         Rmat = geom.Rzyx(*self.quadcopter.attitude)
-
-    #         #THIS IS THE CRUX OF THIS CONTROLLER AS IT NEEDS A DESIRED X BODY AXIS AS INPUT IDK HOW TO GET THAT FROM THE DESIRED VELOCITY
-    #         b_x = np.array([1, 0, 0])
-    #         yaw_des = geom.ssa(cmd_r*self.step_size + self.quadcopter.attitude[2])
-    #         b1_d = geom.Rz(yaw_des)@b_x + np.array([cmd_v_x*self.step_size,0,0])
-
+            a_des = K_p @ v_error + K_d @ v_error_dot + K_i @ total_v_error
+            self.prev_a_des = a_des 
             
-    #         w_3 = np.array([0, 0, 1])
-    #         b3_d = (a_des + ss.W*w_3 + ss.d_w*self.quadcopter.heave*w_3)/np.linalg.norm(a_des + ss.W*w_3 + ss.d_w*self.quadcopter.heave*w_3)
+            a_3 = np.array([0, 0, 1])
+            u = np.zeros(4)
+            #old
+            fdz = ss.d_w*self.quadcopter.heave
+            u[0] = (ss.m * (a_des[2] + ss.g) + fdz) #thurst force in body z direction i.e. total thrust
 
-    #         b2_d = (np.cross(b3_d,b1_d))/np.linalg.norm(np.cross(b3_d,b1_d))
-
-    #         R_des = np.array([np.cross(b2_d,b3_d), b2_d, b3_d])
+            yaw_des = geom.ssa(cmd_r*self.step_size + self.quadcopter.attitude[2])
+            e_1 = np.array([np.cos(yaw_des), np.sin(yaw_des), 0])
             
-    #         des_angvel = np.array([0.0, 0.0, cmd_r])
+            v_dot = self.quadcopter.state_dot(self.quadcopter.state)[6:9] 
+            b3 = (v_dot - ss.g*a_3- fdz/ss.m) / np.linalg.norm(v_dot - ss.g*a_3 - fdz/ss.m)
+            b2 = (np.cross(b3, e_1))/np.linalg.norm(np.cross(b3, e_1))
+            b1 = np.cross(b2, b3)
 
-    #         e_att = 1/2 * geom.vee_map(R_des.T @ Rmat - Rmat.T @ R_des)
-    #         e_att = np.reshape(e_att, (3,))
+            R_des = np.array([b1, b2, b3])
+            Rmat = geom.Rzyx(*self.quadcopter.attitude)
+            print(R_des)
 
-    #         e_angvel = self.quadcopter.angular_velocity - Rmat.T @ R_des @ des_angvel
+            e_Rx = 1/2*(R_des.T @ Rmat - Rmat.T @ R_des)
+            e_att = geom.vee_map(e_Rx)
+            e_att = np.reshape(e_att, (3,))
 
-    #         torque = K_p_att @ e_att + K_d_att @ e_angvel + np.cross(self.quadcopter.angular_velocity,ss.Ig@self.quadcopter.angular_velocity)
+            des_angvel = np.array([0.0, 0.0, cmd_r])
+            e_angvel = self.quadcopter.angular_velocity - Rmat.T @ R_des @ des_angvel
+
+            torque = ss.Ig @ (kp_att * e_att + kd_att * e_angvel) + np.cross(self.quadcopter.angular_velocity,ss.Ig@self.quadcopter.angular_velocity)
             
-    #         u = np.zeros(4)
-    #         u[0] = (ss.m * (a_des[2] + ss.g) + ss.d_w*self.quadcopter.heave) #thurst force in body z direction i.e. total thrust
-    #         u[1:] = torque
+            u[1:] = torque
 
-    #         F = np.linalg.inv(ss.B()[2:]).dot(u)
-    #         F = np.clip(F, ss.thrust_min, ss.thrust_max)    
+            F = np.linalg.inv(ss.B()[2:]).dot(u)
+            F = np.clip(F, ss.thrust_min, ss.thrust_max)    
 
-    #         return F
+            return F
 
 
     def test_velocity_controller(self):
 
         action = np.array([0.5, 0.5, 0.5])
 
-        F = self.world_velocity_controller(action)
+        F = self.velocity_controller(action)
         
         self.assertEqual(F.shape, (4,))
 
@@ -243,26 +242,26 @@ if __name__ == '__main__':
     yaw_rate_ref = []
     tot_time = 900
     referencetype = "yaw_rate_xvel" # "hover", "x_velocity", "z_velocity" "yaw_rate_xvel", "velocity_step", "incline_step"
-    if referencetype == "hover":
-        # Creates reference for hovering at 1m height check initial state of the quadcopter in setUp
+
+    if referencetype == "hover": # Creates reference for hovering at 1m height check initial state of the quadcopter in setUp
         for t in range(tot_time):
             vel_ref.append(-1)
             yaw_rate_ref.append(0)
             incline_ref.append(0)
-    elif referencetype == "x_velocity":
-        # Creates reference for moving in the x direction
+    elif referencetype == "x_velocity": # Creates reference for moving in the x direction then stopping
         for t in range(tot_time):
-            vel_ref.append(1)
+            if t>0 and t<500:
+                vel_ref.append(0.2)
+            else:
+                vel_ref.append(-1)
             yaw_rate_ref.append(0)
             incline_ref.append(0)
-    elif  referencetype == "z_velocity":
-        #Creates reference for moving in the z direction
+    elif  referencetype == "z_velocity": #Creates reference for moving in the z direction
         for t in range(tot_time):
             vel_ref.append(1)
             incline_ref.append(np.pi/2)
             yaw_rate_ref.append(0)        
-    elif referencetype == "yaw_rate":
-        #Creates reference for a step in yaw rate
+    elif referencetype == "yaw_rate": #Creates reference for a step in yaw rate
         for t in range(tot_time):
             vel_ref.append(-1)
             incline_ref.append(0)
@@ -270,17 +269,15 @@ if __name__ == '__main__':
                 yaw_rate_ref.append(np.pi/12) #15 degrees per second
             else:
                 yaw_rate_ref.append(0)
-    elif referencetype == "yaw_rate_xvel":
-        #Creates reference for moving in the x direction with a yaw rate
+    elif referencetype == "yaw_rate_xvel": #Creates reference for moving in the x direction with a yaw rate
         for t in range(tot_time):
             vel_ref.append(0.5)
             incline_ref.append(0)
-            if t > 200 and t < 400:
+            if t > 200 and t < 220:
                 yaw_rate_ref.append(np.pi/12) #15 degrees per second
             else:
                 yaw_rate_ref.append(0)
-    elif referencetype == "velocity_step":    
-        #Creates reference for moving in the x and z direction with a step in velocity
+    elif referencetype == "velocity_step": #Creates reference for moving in the x and z direction with a step in velocity
         for t in range(tot_time):
             if t < 200:
                 vel_ref.append(0.25)
@@ -290,8 +287,7 @@ if __name__ == '__main__':
                 vel_ref.append(1)
                 incline_ref.append(np.pi/4)
                 yaw_rate_ref.append(0)
-    elif referencetype == "incline_step":
-        #Creates reference for moving in the x and z direction with a step in incline
+    elif referencetype == "incline_step": #Creates reference for moving in the x and z direction with a step in incline
         for t in range(tot_time):
             if t < 200:
                 vel_ref.append(0.5)
@@ -317,7 +313,7 @@ if __name__ == '__main__':
     statelog = []
     for t in range(tot_time):
         action = vel_ref[t], incline_ref[t], yaw_rate_ref[t]
-        F = Test.world_velocity_controller(action)
+        F = Test.geometric_velocity_controller(action)
         Test.quadcopter.step(F)
         Test.total_t_steps += 1
 
@@ -529,7 +525,7 @@ if __name__ == '__main__':
 #         # Compute desired accelerations
 #         vel_error = desired_vehicle_velocity - vehicle_frame_velocity
 #         accel_command = self.k_vel_ * vel_error
-#         accel_command[2] += 1 # Copilot thinks: compensate for gravity as normalized g = 1. I think: IS THIS CORRECT?
+#         accel_command[2] += 1 
 
 #         #From paper Thrust_cmd = -(-kx*ex - kv*ev - m*g*e_3 + m*x_dot_dot_desired) dot R.T @ e_3
 #         # e_3 is [0,0,1] R@e_3 is the third column of R
@@ -554,13 +550,6 @@ if __name__ == '__main__':
 #         # roll_setpoint = np.arctan2(forces_command[1], forces_command[2])
 #         # pitch_setpoint = np.arctan2(-forces_command[0], np.sqrt(forces_command[1]**2 + forces_command[2]**2))
 #         # yaw_setpoint = euler_angles[2]
-
-#         #NEW NEW using quad and statespace:
-#         # b_x = accel_command[0] / (accel_command[2] + (ss.d_w*robot_state[8] - ss.d_u*robot_state[6]))
-#         # b_y = accel_command[1] / (accel_command[2] + (ss.d_w*robot_state[8] - ss.d_v*robot_state[7]))
-#         # roll_setpoint   = geom.ssa(b_x * np.sin(chi_p) - b_y * np.cos(chi_p))
-#         # pitch_setpoint = geom.ssa(b_x * np.cos(chi_p) + b_y * np.sin(chi_p))
-#         ##
 
 #         euler_setpoints = np.zeros_like(euler_angles)
 #         euler_setpoints[0] = roll_setpoint
