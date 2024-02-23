@@ -165,11 +165,21 @@ class Quad():
     @property
     def upsilon(self):
         """
-        Returns the angle between the velocity vector and the x-y plane.
+        Returns the angle between the world velocity vector and the x-y plane.
         i.e the inclination angle. (?)
         """
         [x_dot, y_dot, z_dot] = self.position_dot
         return np.arctan2(z_dot, np.sqrt(x_dot**2 + y_dot**2))
+    
+    @property
+    def aoa(self):
+        """
+        Returns the angle between the velocity vector and the body x-axis.
+        i.e the angle of attack.
+        """
+        [u, v, w] = self.velocity
+        return np.arctan(w/u) 
+        
 
 def _thrust(force):
     force = np.clip(force, -1, 1)

@@ -95,3 +95,20 @@ def move_to_CO(A_CG, r_g):
     Ht = np.transpose(H)
     A_CO = Ht.dot(A_CG).dot(H)
     return A_CO
+
+def vee_map(skew_matrix):
+    #Maps a skew-symmetric matrix to a vector
+    m12 = skew_matrix[0, 2]
+    m20 = skew_matrix[1, 0]
+    m01 = skew_matrix[2, 1]
+    # Compute the vee map
+    vee_map = np.array([[-m12, m20, -m01]])
+    
+    return vee_map    
+
+def Rz(psi):
+    cpsi = np.cos(psi)
+    spsi = np.sin(psi)
+    return np.array([[cpsi, -spsi, 0],
+                     [spsi, cpsi, 0],
+                     [0, 0, 1]])
