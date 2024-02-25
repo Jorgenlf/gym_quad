@@ -15,11 +15,13 @@ sys.path.append(grand_parent_dir)
 import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
 from gym_quad.objects.quad import Quad
-
+from gym_quad.objects.controllers import LeeVelocityController
 
     # "s_max": 0.5, # Maximum speed of the quadcopter
     # "i_max": 0.5, # Maximum inclination angle of commanded velocity wrt x-axis
     # "omega_max": 0.5, # Maximum commanded yaw rate
+
+
 
 class TestController(unittest.TestCase):
 
@@ -84,6 +86,16 @@ class TestController(unittest.TestCase):
         # body velocity available by integrating linear accelerations from IMU
         # attitude available from integrating up the angular rates from the IMU after calibration ofc
         # Or try to do state estimation with a kalman filter or something as integrating up the IMU data is not very accurate #TODO
+
+        # Try vehicle frame velcoity control!
+        # euler_angles = self.quadcopter.attitude
+        # vehicle_frame_euler = np.zeros_like(euler_angles)
+        # vehicle_frame_euler[2] = euler_angles[2]
+        # vehicle_vels = self.quadcopter.velocity
+        # vehicle_frame_transforms = geom.Rzyx(vehicle_frame_euler[0], vehicle_frame_euler[1], vehicle_frame_euler[2])
+        # vehicle_frame_transforms_transpose = vehicle_frame_transforms.T
+        # vehicle_frame_velocity = vehicle_frame_transforms_transpose @ vehicle_vels
+        #Seemingly no change....        
         v_error = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - vel_body
 
         #KD part
@@ -108,6 +120,8 @@ class TestController(unittest.TestCase):
         term2 = (a_des[1]/(a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_v*self.quadcopter.sway)/ss.m))
         phi_des = geom.ssa(term1*np.sin(yaw_des) + term2*np.cos(yaw_des))
         theta_des = geom.ssa(term1*np.cos(yaw_des) + term2*np.sin(yaw_des))
+
+        self.att_des = np.array([phi_des, theta_des, yaw_des]) # Save the desired attitude for plotting
 
         e_att = geom.ssa(np.array([phi_des, theta_des, yaw_des]) - self.quadcopter.attitude)
         
@@ -187,23 +201,36 @@ class TestController(unittest.TestCase):
             a_des = K_p @ v_error + K_d @ v_error_dot + K_i @ total_v_error
             self.prev_a_des = a_des 
             
-            a_3 = np.array([0, 0, 1])
             u = np.zeros(4)
-            #old
-            fdz = ss.d_w*self.quadcopter.heave
+            fdz = ss.d_w*self.quadcopter.heave #Drag force in z direction
             u[0] = (ss.m * (a_des[2] + ss.g) + fdz) #thurst force in body z direction i.e. total thrust
 
-            yaw_des = geom.ssa(cmd_r*self.step_size + self.quadcopter.attitude[2])
-            e_1 = np.array([np.cos(yaw_des), np.sin(yaw_des), 0])
+            #Take 1
+            # a_3 = np.array([0, 0, 1])
+            # yaw_des = geom.ssa(cmd_r*self.step_size + self.quadcopter.attitude[2])
+            # e_1 = np.array([np.cos(yaw_des), np.sin(yaw_des), 0])
             
-            v_dot = self.quadcopter.state_dot(self.quadcopter.state)[6:9] 
-            b3 = (v_dot - ss.g*a_3- fdz/ss.m) / np.linalg.norm(v_dot - ss.g*a_3 - fdz/ss.m)
-            b2 = (np.cross(b3, e_1))/np.linalg.norm(np.cross(b3, e_1))
-            b1 = np.cross(b2, b3)
+            # v_dot = self.quadcopter.state_dot(self.quadcopter.state)[6:9] 
+            # b3 = (v_dot - ss.g*a_3- fdz/ss.m) / np.linalg.norm(v_dot - ss.g*a_3 - fdz/ss.m)
+            # b2 = (np.cross(b3, e_1))/np.linalg.norm(np.cross(b3, e_1))
+            # b1 = np.cross(b2, b3)
+            # R_des = np.array([b1, b2, b3])
 
-            R_des = np.array([b1, b2, b3])
+            forces_command = a_des*ss.m +ss.m*ss.g*np.array([0, 0, 1]) + np.array([0, 0, fdz])
+            
+            # Calculate euler setpoints
+            #Take 2
+            c_phi_s_theta = forces_command[0]
+            s_phi = -forces_command[1]
+            c_phi_c_theta = forces_command[2]
+            pitch_setpoint = np.arctan2(c_phi_s_theta, c_phi_c_theta)
+            roll_setpoint = np.arctan2(s_phi, np.sqrt(c_phi_c_theta**2 + c_phi_s_theta**2))
+            yaw_setpoint = self.quadcopter.attitude[2]
+
+            self.att_des = np.array([roll_setpoint, pitch_setpoint, yaw_setpoint]) # Save the desired attitude for plotting
+            
+            R_des = geom.Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint)
             Rmat = geom.Rzyx(*self.quadcopter.attitude)
-            print(R_des)
 
             e_Rx = 1/2*(R_des.T @ Rmat - Rmat.T @ R_des)
             e_att = geom.vee_map(e_Rx)
@@ -220,15 +247,45 @@ class TestController(unittest.TestCase):
             F = np.clip(F, ss.thrust_min, ss.thrust_max)    
 
             return F
+    
+    def leectrl(self, action):
+            """
+            Lee velocity controller
+            :param robot_state: array of shape (12) with state of the robot
+            :param command_actions: array of shape (4) with desired velocity setpoint in vehicle frame and yaw_rate command in vehicle frame
+            :return: m*g normalized thrust and inertial normalized torques
+            """
+            #Using hyperparam of s_max, i_max, r_max to clip the action to get the commanded velocity and yaw rate
+            cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1])#*self.i_max)
+            cmd_v_y = 0
+            cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1])#*self.i_max)
+            cmd_r = self.r_max * action[2]
 
+            self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r])
+            # LEE VELOCITY CONTROLLER
+            state = self.quadcopter.state
+            
+            k_vel = 0.5
+            k_rot = 0.5
+            k_angvel = 0.5
 
-    def test_velocity_controller(self):
+            LeeVelCtrl = LeeVelocityController(k_vel, k_rot, k_angvel)
+            
+            output_thrust_mass_normalized, output_torques_inertia_normalized = LeeVelCtrl(state, self.cmd)
 
-        action = np.array([0.5, 0.5, 0.5])
+            self.att_des = LeeVelCtrl.des_att
+            fdz = ss.d_w*self.quadcopter.heave #Drag force in z direction
+            f = output_thrust_mass_normalized * (ss.W) + fdz
+            T = output_torques_inertia_normalized #* ss.Ig.trace()
+            #* ss.W * ss.l
 
-        F = self.velocity_controller(action)
-        
-        self.assertEqual(F.shape, (4,))
+            u_des = np.array([f, T[0][0], T[1][0], T[2][0]])
+
+            F = np.linalg.inv(ss.B()[2:]).dot(u_des)
+            F = np.clip(F, ss.thrust_min, ss.thrust_max)
+
+            return F
+            ##
 
 
 if __name__ == '__main__':
@@ -242,7 +299,7 @@ if __name__ == '__main__':
     incline_ref = []
     yaw_rate_ref = []
     tot_time = 900
-    referencetype = "yaw_rate_xvel" # "hover", "x_velocity", "z_velocity" "yaw_rate_xvel", "velocity_step", "incline_step"
+    referencetype = "x_velocity" # "hover", "x_velocity", "z_velocity", "yaw_rate", "yaw_rate_xvel", "velocity_step", "incline_step"
 
     if referencetype == "hover": # Creates reference for hovering at 1m height check initial state of the quadcopter in setUp
         for t in range(tot_time):
@@ -312,9 +369,12 @@ if __name__ == '__main__':
     forces = []
     timesteps = []
     statelog = []
-    for t in range(tot_time):
+    att_des = []
+    for t in range(tot_time): 
         action = vel_ref[t], incline_ref[t], yaw_rate_ref[t]
-        F = Test.velocity_controller(action)
+        # F = Test.velocity_controller(action)
+        # F = Test.geometric_velocity_controller(action)
+        F = Test.leectrl(action)
         Test.quadcopter.step(F)
         Test.total_t_steps += 1
 
@@ -327,6 +387,7 @@ if __name__ == '__main__':
         y_vel_cmd.append(Test.cmd[1])
         z_vel_cmd.append(Test.cmd[2])
         yaw_rate_cmd.append(Test.cmd[3])
+        att_des.append(Test.att_des)
         actual_vel_world.append(Test.quadcopter.position_dot)
         actual_vel_body.append(Test.quadcopter.velocity)
         actual_yaw_rate.append(Test.quadcopter.angular_velocity[2])
@@ -350,7 +411,9 @@ if __name__ == '__main__':
     velxlim = (min(0, min(x_vel_cmd),np.min(actual_vel_world[:,0]), np.min(actual_vel_body[:,0]))-0.1, max(max(x_vel_cmd), np.max(actual_vel_world[:,0]), np.max(actual_vel_body[:,0])) +0.1)
     velylim = (min(0, min(y_vel_cmd),np.min(actual_vel_world[:,1]),np.min(actual_vel_body[:,1]))-0.1, max(max(y_vel_cmd),np.max(actual_vel_world[:,1]),np.max(actual_vel_body[:,1]))+0.1)
     velzlim = (min(0, min(z_vel_cmd),np.min(actual_vel_world[:,2]), np.min(actual_vel_body[:,2]))-0.1, max(max(z_vel_cmd),np.max(actual_vel_world[:,2]), np.max(actual_vel_body[:,2]))+0.1)
+    #Make the reference name the title of the plot
     plt.figure(1)
+    plt.suptitle(referencetype)
     plt.subplot(2, 2, 1)
     plt.plot(x_vel_cmd, label='x velocity command')
     plt.plot([v[0] for v in actual_vel_world], label='actual x velocity in world')
@@ -388,6 +451,7 @@ if __name__ == '__main__':
 
     #Plot the force of each motor in subplot 
     plt.figure(2)
+    plt.suptitle(referencetype)
     plt.subplot(2, 2, 1)
     plt.plot(timesteps, [f[0] for f in forces], label='motor 1')
     plt.ylabel('Force (N)')
@@ -414,6 +478,7 @@ if __name__ == '__main__':
     y = [s[1] for s in statelog]
     z = [s[2] for s in statelog]
     plt.figure(3)
+    plt.suptitle(referencetype)
     ax = plt.axes(projection='3d')
     ax.plot3D(pos_ref[:,0], pos_ref[:,1], pos_ref[:,2], 'g', label='reference path')
     ax.plot3D(x, y, z, 'gray', label='actual path')
@@ -437,6 +502,7 @@ if __name__ == '__main__':
     aoa=np.array(aoa)*180/np.pi
     incline_ref=np.array(incline_ref)*180/np.pi
     plt.plot(timesteps, actual_incl_angle_world, label='actual incline angle world')
+    plt.suptitle(referencetype)
     # plt.plot(timesteps, actual_incl_angle_body, label='actual incline angle body')
     plt.plot(timesteps,aoa, label='angle of attack')
     plt.plot(timesteps, incline_ref, label='incline ref')
@@ -448,27 +514,31 @@ if __name__ == '__main__':
     roll = np.array([s[3] for s in statelog])*180/np.pi
     pitch = np.array([s[4] for s in statelog])*180/np.pi
     yaw = np.array([s[5] for s in statelog])*180/np.pi
+    des_roll = np.array([a[0] for a in att_des])*180/np.pi
+    des_pitch = np.array([a[1] for a in att_des])*180/np.pi
+    des_yaw = np.array([a[2] for a in att_des])*180/np.pi
     plt.figure(5)
+    plt.suptitle(referencetype)
     plt.subplot(2, 2, 1)
-    plt.plot(timesteps, roll, label='roll')
+    plt.plot(timesteps, roll, label='roll actual')
+    plt.plot(timesteps, des_roll, label='roll desired')
     plt.ylabel('Attitude (degrees)')
     plt.xlabel('Timesteps')
     plt.legend()
     plt.subplot(2, 2, 2)
-    plt.plot(timesteps, pitch, label='pitch')
+    plt.plot(timesteps, pitch, label='pitch actual')
+    plt.plot(timesteps, des_pitch, label='pitch desired')
     plt.ylabel('Attitude (degrees)')
     plt.xlabel('Timesteps')
     plt.legend()
     plt.subplot(2, 2, 3)
-    plt.plot(timesteps, yaw, label='yaw')
+    plt.plot(timesteps, yaw, label='yaw actual')
+    plt.plot(timesteps, des_yaw, label='yaw desired')
     plt.ylabel('Attitude (degrees)')
     plt.xlabel('Timesteps')
     plt.legend()
 
     plt.show()
-    # Run the tests
-    # unittest.main()
-
 
 #OLD code that I want to keep around for a little while
 # Lee velocity controller inspired by the dorne lab ntnu
@@ -479,26 +549,6 @@ if __name__ == '__main__':
 
 # # This source code is licensed under the BSD-style license found in the
 # # LICENSE file in the root directory of this source tree.
-# import torch
-# from torch import Tensor
-# # def compute_vee_map(skew_matrix):
-# #     # type: (Tensor) -> Tensor
-# #     # return vee map of skew matrix
-# #     vee_map = torch.stack(
-# #         [-skew_matrix[:, 1, 2], skew_matrix[:, 0, 2], -skew_matrix[:, 0, 1]], dim=1)
-# #     return vee_map
-
-# def compute_vee_map(skew_matrix):
-#     # skew_matrix is assumed to be a numpy array
-#     # Extract the elements of the skew matrix
-#     m12 = skew_matrix[0, 2]
-#     m20 = skew_matrix[1, 0]
-#     m01 = skew_matrix[2, 1]
-#     # Compute the vee map
-#     vee_map = np.array([[-m12, m20, -m01]])
-#     vee_map = np.reshape(vee_map, (3, 1))
-    
-#     return vee_map    
 
 # copter = Quad(0.01,np.zeros(6))
 # state = copter.state
@@ -572,7 +622,7 @@ if __name__ == '__main__':
 #         rotation_matrix_desired_transpose = rotation_matrix_desired.T
 
 #         rot_err_mat = np.matmul(rotation_matrix_desired_transpose, rotation_matrix) - np.matmul(rotation_matrix_transpose, rotation_matrix_desired)
-#         rot_err = 0.5 * compute_vee_map(rot_err_mat)
+#         rot_err = 0.5 * geom.vee_map(rot_err_mat)
 
 #         rotmat_euler_to_body_rates = np.zeros_like(rotation_matrix)
 

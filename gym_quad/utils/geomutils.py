@@ -102,8 +102,7 @@ def vee_map(skew_matrix):
     m12 = skew_matrix[1, 2]
     m01 = skew_matrix[0, 1]
     # Compute the vee map
-    vee_map = np.array([[m20, m12 ,m01 ]])
-    
+    vee_map = np.array([[m20, m12 ,m01]])
     return vee_map    
 
 def Rz(psi):
@@ -112,3 +111,8 @@ def Rz(psi):
     return np.array([[cpsi, -spsi, 0],
                      [spsi, cpsi, 0],
                      [0, 0, 1]])
+
+def vee_map2(skew_matrix):
+    #Maps a skew-symmetric matrix to a vector Kulkarni version
+    vm = np.array([[-skew_matrix[1, 2], skew_matrix[0, 2], -skew_matrix[0, 1]]])
+    return vm
