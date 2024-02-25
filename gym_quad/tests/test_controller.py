@@ -125,11 +125,12 @@ class TestController(unittest.TestCase):
 
         return F
 
-    # SECOND ATTEMPT AT THE GEOMETRIC CONTROLLER ILL LEAVE IT HERE FOR SOME TIME AND USE THE ONE ABOVE PER NOW UNTIL A BETTER LV CONTROLLER IS FOUND    
+    # THIRD ATTEMPT AT THE GEOMETRIC CONTROLLER ILL LEAVE IT HERE FOR SOME TIME AND USE THE ONE ABOVE PER NOW UNTIL A BETTER LV CONTROLLER IS FOUND    
     def geometric_velocity_controller(self, action):
             """
             The velocity controller for the quadcopter.
             Based on multirotor paper https://ieeexplore.ieee.org/document/6289431 and geometric paper
+            Nonlinear control that tackles the quadcopter dynamics directly without linearization.
 
             Parameters:
             ----------
@@ -296,8 +297,8 @@ if __name__ == '__main__':
             else:
                 vel_ref.append(0.5)
                 incline_ref.append(np.pi/4)
-                yaw_rate_ref.append(0)
-
+                yaw_rate_ref.append(0)  
+           
     actual_vel_world = []
     actual_vel_body = []
     actual_yaw_rate = []
@@ -313,7 +314,7 @@ if __name__ == '__main__':
     statelog = []
     for t in range(tot_time):
         action = vel_ref[t], incline_ref[t], yaw_rate_ref[t]
-        F = Test.geometric_velocity_controller(action)
+        F = Test.velocity_controller(action)
         Test.quadcopter.step(F)
         Test.total_t_steps += 1
 
@@ -333,6 +334,15 @@ if __name__ == '__main__':
         actual_incl_angle_body.append(geom.ssa(Test.quadcopter.upsilon-Test.quadcopter.pitch))
         aoa.append(Test.quadcopter.aoa)
         statelog.append(Test.quadcopter.state)
+    
+    # integrate the commanded velocity and commanded yaw rate commands to get the reference path
+    pos_ref = np.zeros((tot_time, 3))
+    pos_ref[0][2] = 1
+    for t in range(tot_time):
+        yaw = yaw_rate_cmd[t]
+        if t > 0:
+            pos_ref[t] = pos_ref[t-1] + np.array([x_vel_cmd[t]*np.cos(yaw), y_vel_cmd[t]*np.sin(yaw), z_vel_cmd[t]])*0.01
+        
 
     #Subplot the velocity commanded and the actual velocity
     actual_vel_world = np.array(actual_vel_world)    
@@ -405,7 +415,8 @@ if __name__ == '__main__':
     z = [s[2] for s in statelog]
     plt.figure(3)
     ax = plt.axes(projection='3d')
-    ax.plot3D(x, y, z, 'gray', label='path')
+    ax.plot3D(pos_ref[:,0], pos_ref[:,1], pos_ref[:,2], 'g', label='reference path')
+    ax.plot3D(x, y, z, 'gray', label='actual path')
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_zlabel('z')
