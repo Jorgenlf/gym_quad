@@ -5,10 +5,11 @@ import matplotlib.pyplot as plt
 import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
 from gym_quad.objects.quad import Quad
+from gym_quad.objects.IMU import IMU
 from gym_quad.objects.current3d import Current
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.obstacle3d import Obstacle
- 
+
 
 #TODO decide the abstraction level between PPO agent and quadcopter controller and implement new controller
 #TODO Implement the reward fcn from the specialization project step by step
@@ -16,24 +17,25 @@ from gym_quad.objects.obstacle3d import Obstacle
 
 
 class LV_VAE(gym.Env):
-    '''Creates an environment where the actionspace consists of Linear velocity and yaw rate which will be passed to a PD or PID controller, 
+    '''Creates an environment where the actionspace consists of Linear velocity and yaw rate which will be passed to a PD or PID controller,
     while the observationspace uses a Varial AutoEncoder "plus more" for observations of environment.'''
 
     def __init__(self, env_config, scenario="line", seed=None):
-        np.random.seed(0) 
+        np.random.seed(0)
 
         # Set all the parameters from GYM_QUAD/qym_quad/__init__.py as attributes of the class
         for key in env_config:
-            setattr(self, key, env_config[key]) 
+            setattr(self, key, env_config[key])
 
-        #Actionspace mapped to speed, inclination of velocity vector wrt x-axis and yaw rate
+    #Actionspace mapped to speed, inclination of velocity vector wrt x-axis and yaw rate
         self.action_space = gym.spaces.Box(
             low = np.array([-1,-1,-1], dtype=np.float32),
             high = np.array([1, 1, 1], dtype=np.float32),
             dtype = np.float32
         )
 
-        #Observationspace
+    #Observationspace
+        #LIDAR or Depth camera observation space
         self.perception_space = gym.spaces.Box(
             low = 0,
             high = 1,
@@ -41,12 +43,18 @@ class LV_VAE(gym.Env):
             dtype = np.float64
         )
 
-        #Maybe add IMU observation space here
+        #IMU observation space
+        self.IMU_space = gym.spaces.Box(
+            low = -1,
+            high = 1,
+            shape = (6,),
+            dtype = np.float64
+        )
 
         self.observation_space = gym.spaces.Dict({
-        'perception': self.perception_space
+        'perception': self.perception_space,
+        'IMU': self.IMU_space
         })
-        #
 
         #Init values for sensor
         self.n_sensor_readings = self.sensor_suite[0]*self.sensor_suite[1]
@@ -54,13 +62,13 @@ class LV_VAE(gym.Env):
         max_vertical_angle = self.sensor_span[1]/2
         self.sectors_horizontal = np.linspace(-max_horizontal_angle*np.pi/180, max_horizontal_angle*np.pi/180, self.sensor_suite[0])
         self.sectors_vertical =  np.linspace(-max_vertical_angle*np.pi/180, max_vertical_angle*np.pi/180, self.sensor_suite[1])
-        
+
         #Scenario set up
         self.scenario = scenario
         self.scenario_switch = {
             # Training scenarios, all functions defined at the bottom of this file
-            "line": self.scenario_line, 
-            "line_new": self.scenario_line_new, 
+            "line": self.scenario_line,
+            "line_new": self.scenario_line_new,
             "horizontal": self.scenario_horizontal,
             "horizontal_new": self.scenario_horizontal_new,
             "3d": self.scenario_3d,
@@ -80,25 +88,24 @@ class LV_VAE(gym.Env):
         }
         #Reset environment to init state
         self.reset()
-    
+
 
     def reset(self,**kwargs):
         """
-        Resets environment to initial state. 
+        Resets environment to initial state.
         """
         seed = kwargs.get('seed', None)
         # print("PRINTING SEED WHEN RESETTING:", seed)
         self.quadcopter = None
         self.path = None
         self.path_generated = None
-        self.u_error = None
         self.e = None
         self.h = None
         self.chi_error = None
         self.upsilon_error = None
         self.waypoint_index = 0
         self.prog = 0
-        self.path_prog = []
+        # self.path_prog = []
         self.success = False
         self.done = False
 
@@ -106,98 +113,79 @@ class LV_VAE(gym.Env):
         self.nearby_obstacles = []
         self.sensor_readings = np.zeros(shape=self.sensor_suite, dtype=float)
         self.collided = False
-        self.penalize_control = 0.0
 
         # self.a_des = np.array([0.0, 0.0, 0.0])
         self.a_des = np.array([np.inf, np.inf, np.inf])
         self.prev_position_error = [0, 0, 0]
         self.total_position_error = [0, 0, 0]
-        self.fictive_waypoints = None
 
         self.passed_waypoints = np.zeros((1, 3), dtype=np.float32)
-        self.fictive_waypoint_at_end = [False]*self.n_fictive_waypoints
-        self.generated_waypoint_at_end = [False]*self.n_generated_waypoints
-        self.tangent_vector = np.array([0,0,0])
-        self.normal_vector = np.array([0,0,0])
-        self.binormal_vector = np.array([0,0,0])
 
         self.observation = {
-            'perception': np.zeros((1, self.sensor_suite[0], self.sensor_suite[1]))
+            'perception': np.zeros((1, self.sensor_suite[0], self.sensor_suite[1])),
+            'IMU': np.zeros((6,))
         }
+        # self.observation = self.observe() #OLD I think the stuff above should be good enough #TODO
+        #Or maybe its actually smart to call the observe function here to get the first observation? 
 
-        self.past_states = []
-        self.past_actions = []
-        self.past_errors = []
-        self.past_obs = []
-        self.time = []
         self.total_t_steps = 0
-        self.reward = 0
-        self.reward_path_following_sum=0
-        self.reward_collision_avoidance_sum=0
-        self.reward_collision=0
-        self.progression=[]
-        
+        self.ex_reward = 0
+
         ### Path and obstacle generation based on scenario
         scenario = self.scenario_switch.get(self.scenario, lambda: print("Invalid scenario"))
         init_state = scenario()
         # Generate Quadcopter
         self.quadcopter = Quad(self.step_size, init_state)
         ###
+        self.update_errors()
+        self.info = {}
+        return (self.observation,self.info)
 
-        self.update_control_errors()
-        self.observation = self.observe()
-
-        ##dummy info for debugging might actually be smart to keep info empty when resetting anyways
-        info = {}
-        return (self.observation,info)
-    
 
     def observe(self):
         """
-        Returns observations of the environment. 
+        Returns observations of the environment.
         """
 
-        #MIGHT MAKE AN IMU OBSERVATION SPACE WHICH WILL BE UPDATED HERE #TODO ?
+        imu = IMU()
+        imu_measurement = imu.measure(self.quadcopter)
 
         # Update nearby obstacles and calculate distances PER NOW THESE FCN CALLED ONCE SO DONT NEED TO BE FCNS
-        self.update_nearby_obstacles()      
+        self.update_nearby_obstacles()
         self.update_sensor_readings()
-            
+
         sensor_readings = self.sensor_readings.reshape(1, self.sensor_suite[0], self.sensor_suite[1])
-        return {'perception':sensor_readings}
+
+        return {'perception':sensor_readings,
+                'IMU':imu_measurement}
 
 
     def step(self, action):
         """
-        Simulates the environment one time-step. 
+        Simulates the environment one time-step.
         """
-        self.update_control_errors()
+        self.update_errors()
 
-        F = self.path_following_controller(self.path, action)
+        F = self.geom_ctrlv2(action)
         self.quadcopter.step(F)
 
-        self.progression.append(self.prog/self.path.length)
-        self.past_states.append(np.copy(self.quadcopter.state))
-        # self.past_errors.append(np.array([self.e,self.h]))
-        self.past_errors.append(np.array([self.u_error, self.chi_error, self.e, self.upsilon_error, self.h]))
-        self.past_actions.append(self.quadcopter.input)
 
         if self.path:
             self.prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
-            self.path_prog.append(self.prog)
-            
+            # self.path_prog.append(self.prog)
+
             # Check if a waypoint is passed
             k = self.path.get_u_index(self.prog)
             if k > self.waypoint_index:
                 print("Passed waypoint {:d}".format(k+1), self.path.waypoints[k], "\tquad position:", self.quadcopter.position)
                 self.passed_waypoints = np.vstack((self.passed_waypoints, self.path.waypoints[k]))
                 self.waypoint_index = k
-        
+
         # Check collision
         for obstacle in self.nearby_obstacles:
             if np.linalg.norm(obstacle.position - self.quadcopter.position) <= obstacle.radius + self.quadcopter.safety_radius:
                 self.collided = True
-        
+
         end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad and self.waypoint_index == self.n_waypoints-2
         end_cond_2 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
         end_cond_3 = self.total_t_steps >= self.max_t_steps
@@ -210,202 +198,222 @@ class LV_VAE(gym.Env):
             elif self.collided:
                 print("Quadcopter collided!")
                 self.success = False
-            elif end_cond_2:
+            elif end_cond_2: #I think this Should be removed such that the quadcopter can fly past the endpoint and come back #TODO
                 print("Passed endpoint without hitting")
             elif end_cond_3:
                 print("Exceeded time limit")
             self.done = True
-        
+
         # Save sim time info
         self.total_t_steps += 1
-        self.time.append(self.total_t_steps*self.step_size)
+        
+        #Save interesting info
+        self.info['env_steps'] = self.total_t_steps
+        #These below were lists before as visible in the get_stats fcn commented out below MIGHT HAVE TO DO SOME TRICKS TO MAKE THIS WORK WITH THE OLD LOGGER
+        self.info['time'] = self.total_t_steps*self.step_size
+        self.info['progression'] = self.prog/self.path.length
+        self.info['state'] = np.copy(self.quadcopter.state)
+        self.info['errors'] = np.array([self.chi_error, self.e, self.upsilon_error, self.h])
+        self.info['action'] = self.quadcopter.input
 
+        # Calculate reward
         step_reward = self.reward()
-
-        info = {}
-
+        
         # Make next observation
         self.observation = self.observe()
-        # self.past_obs.append(self.observation['navigation'])
-
-        # prof.disable()
-        # prof.sort_stats(pstats.SortKey.CUMULATIVE).print_stats()
 
         #dummy truncated for debugging See stack overflow QnA or Sb3 documentation for how to use truncated
         truncated = False
-        return self.observation, step_reward, self.done, truncated, info
+        return self.observation, step_reward, self.done, truncated, self.info
 
 
     def reward(self):
         """
-        Calculates the reward function for one time step. Also checks if the episode should end. 
+        Calculates the reward function for one time step. 
         """
+        tot_reward = 0
+        lambda_PA = 1
+        lambda_CA = 1
 
-        step_reward = 0
-
+        #Path adherence reward
         dist_from_path = np.linalg.norm(self.path(self.prog) - self.quadcopter.position)
+        # reward_path_adherence = np.clip(- np.log(dist_from_path), - np.inf, - np.log(0.1)) / (- np.log(0.1)) #OLD
+        reward_path_adherence = -(2*(np.clip(dist_from_path, 0, self.PA_band_edge) / self.PA_band_edge) - 1)*self.PA_scale 
 
-        # print(reward_path_following)
+        #Path progression reward #TODO double check if upsilon should be used here and if yes if cos is correct
+        #TODO lock the lookahead point to the end goal when it first reaches the end goal
+        reward_path_progression = np.cos(self.chi_error*np.pi)*np.cos(self.upsilon_error*np.pi)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
+        reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max)
 
-        reward_path_following = np.clip(- np.log(dist_from_path), - np.inf, - np.log(0.1)) / (- np.log(0.1))
+        ####Collision avoidance reward####
+        #Find the closest obstacle
+        drone_closest_obs_dist = np.inf
+        self.sensor_readings
+        for i in range(self.sensor_suite[0]):
+            for j in range(self.sensor_suite[1]):
+                if self.sensor_readings[j,i] < drone_closest_obs_dist:
+                    drone_closest_obs_dist = self.sensor_readings[j,i]
+                    print("drone_closest_obs_dist", drone_closest_obs_dist)
+
+        inv_abs_min_rew = self.abs_inv_CA_min_rew 
+        danger_range = self.danger_range
+        danger_angle = self.danger_angle            
+        
+        #Determine lambda reward for path following and path adherence based on the distance to the closest obstacle
+        if (drone_closest_obs_dist < danger_range):
+            lambda_PA = (drone_closest_obs_dist/danger_range)/2
+            if lambda_PA < 0.10 : lambda_PA = 0.10
+            lambda_CA = 1-lambda_PA
+        
+        #Determine the angle difference between the velocity vector and the vector to the closest obstacle
+        velocity_vec = self.quadcopter.velocity
+        drone_to_obstacle_vec = self.nearby_obstacles[0].position - self.quadcopter.position #This wil require state estimation and preferably a GPS too hmm
+        angle_diff = np.arccos(np.dot(drone_to_obstacle_vec, velocity_vec)/(np.linalg.norm(drone_to_obstacle_vec)*np.linalg.norm(velocity_vec)))
+
+        reward_collision_avoidance = 0
+        if (drone_closest_obs_dist < danger_range) and (angle_diff < danger_angle):
+            range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1) #same fcn in if and elif, but need this structure to color red and orange correctly
+            angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
+            if angle_rew > 0: angle_rew = 0 
+            if range_rew > 0: range_rew = 0
+            reward_collision_avoidance = range_rew + angle_rew
+
+            self.draw_red_velocity = True
+            self.draw_orange_obst_vec = True
+        elif drone_closest_obs_dist <danger_range:
+            range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1)
+            angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
+            if angle_rew > 0: angle_rew = 0 #In this case the angle reward may become positive as anglediff may !< danger_angle
+            if range_rew > 0: range_rew = 0
+            reward_collision_avoidance = range_rew + angle_rew
             
-        col_rew = self.penalize_obstacle_closeness()
-        # print(col_rew)
-        # reward_collision_avoidance = np.clip(col_rew, -5, 0)
-        reward_collision_avoidance = - 2 * np.log(1 - col_rew)
-        # self.reward_collision -= 0 if not self.collided else 1000
+            self.draw_red_velocity = False
+            self.draw_orange_obst_vec = True
+        else:
+            reward_collision_avoidance = 0
+            self.draw_red_velocity = False
+            self.draw_orange_obst_vec = False
+        # print('reward_collision_avoidance', reward_collision_avoidance)
+
+
+        #OLD
+        # collision_avoidance_rew = self.penalize_obstacle_closeness()
+        # reward_collision_avoidance = - 2 * np.log(1 - collision_avoidance_rew)
+        ####Collision avoidance reward done####
+
+        #Collision reward
         if self.collided:
-            self.reward_collision = - 1000
+            reward_collision = self.rew_collision
             # print("Reward:", self.reward_collision)
-        step_reward = self.lambda_reward * reward_path_following + (1 - self.lambda_reward) * reward_collision_avoidance + self.reward_collision
 
-        self.reward_path_following_sum += self.lambda_reward * reward_path_following
-        self.reward_collision_avoidance_sum += (1 - self.lambda_reward) * reward_collision_avoidance
-        self.reward += step_reward
+        #Reach end reward
+        reach_end_reward = 0
+        if self.success:
+            reach_end_reward = self.rew_reach_end
 
-        # print('Reward Path:', self.lambda_reward * reward_path_following)
-        # print('Reward Coll:', (1 - self.lambda_reward) * reward_collision_avoidance, '\n')
-  
-        return step_reward
+        #Existencial reward (penalty for being alive)
+        self.ex_reward += self.existence_reward
+
+        tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression + reach_end_reward + self.ex_reward
+
+        # self.reward_path_following_sum += self.lambda_reward * reward_path_adherence #OLD logging of info
+        # self.reward_collision_avoidance_sum += (1 - self.lambda_reward) * reward_collision_avoidance
+        # self.reward += tot_reward
+
+        self.info['reward'] = tot_reward
+        self.info['collision_avoidance_reward'] = reward_collision_avoidance*lambda_CA
+        self.info['path_adherence'] = reward_path_adherence*lambda_PA
+        self.info["path_progression"] = reward_path_progression
+        self.info['collision_reward'] = reward_collision
+        self.info['reach_end_reward'] = reach_end_reward
+        self.info['existence_reward'] = self.ex_reward
+
+        return tot_reward
 
 
-    def velocity_controller(self, action):
-        """
-        Controller for velocity control. Based on Kulkarni and Kostas paper.
-        
-        Parameters:
-        ----------
-        action : np.array
-        The action input from the RL agent.
-        
-        Returns:
-        -------
-        F : np.array
-        The thrust inputs requiered to follow path and avoid obstacles according to the action of the DRL agent.
-        """
-        #Using hyperparam of s_max, i_max, omega_max to clip the action to get the commanded velocity and yaw rate
-        cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(self.i_max * action[1])
+    def geom_ctrlv2(self, action):
+        #Translate the action to the desired velocity and yaw rate
+        cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1])*self.i_max
         cmd_v_y = 0
-        cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(self.i_max * action[1])
-        cmd_omega_z = self.r_max * action[2]
+        cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1])*self.i_max
+        cmd_r = self.r_max * action[2]
+        self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r]) #For plotting
 
-        #Calculate the thrust inputs using the commanded velocity and yaw rate and a PD controller
-        v_error = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.velocity
-        omega_z_error = cmd_omega_z - self.quadcopter.angular_velocity[2]
+        #Gains, z-axis-basis=e3 and rotation matrix
+        kv = 2.5
+        kR = 0.8
+        kangvel = 0.8
 
-        K_p = np.diag([1.0, 1.0, 1.0])
-        K_d = np.diag([0.5, 0.5, 0.5])
+        e3 = np.array([0, 0, 1])
+        R = geom.Rzyx(*self.quadcopter.attitude)
+
+        #Essentially three different velocities that one can choose to track:
+        #Think body or wolrd frame velocity control is the best choice
+        ###---###
+        ##Vehicle frame velocity control i.e. intermediary frame between body and world frame
+        # vehicleR = geom.Rzyx(0, 0, self.quadcopter.attitude[2])
+        # vehicle_vels = vehicleR.T @ self.quadcopter.velocity
+        # ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - vehicle_vels
+        ###---###
+        #World frame velocity control
+        # ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.position_dot
+
+        #Body frame velocity control
+        ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.velocity
+        #Which one to use? vehicle_vels or self.quadcopter.velocity
+
+        #Thrust command (along body z axis)
+        f = kv*ev + ss.m*ss.g*e3 + ss.d_w*self.quadcopter.heave*e3
+        thrust_command = np.dot(f, R[2])
+
+        #Rd calculation as in Kulkarni aerial gym (works fairly well)
+        c_phi_s_theta = f[0]
+        s_phi = -f[1]
+        c_phi_c_theta = f[2]
+
+        pitch_setpoint = np.arctan2(c_phi_s_theta, c_phi_c_theta)
+        roll_setpoint = np.arctan2(s_phi, np.sqrt(c_phi_c_theta**2 + c_phi_s_theta**2))
+        yaw_setpoint = self.quadcopter.attitude[2]
+        Rd = geom.Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint)
+        self.att_des = np.array([roll_setpoint, pitch_setpoint, yaw_setpoint]) # Save the desired attitude for plotting
+
+        eR = 1/2*(Rd.T @ R - R.T @ Rd)
+        eatt = geom.vee_map(eR)
+        eatt = np.reshape(eatt, (3,))
+
+        des_angvel = np.array([0.0, 0.0, cmd_r])
+
+        #Kulkarni approach desired angular rate in body frame:
+        s_pitch = np.sin(self.quadcopter.attitude[1])
+        c_pitch = np.cos(self.quadcopter.attitude[1])
+        s_roll = np.sin(self.quadcopter.attitude[0])
+        c_roll = np.cos(self.quadcopter.attitude[0])
+        R_euler_to_body = np.array([[1, 0, -s_pitch],
+                                    [0, c_roll, s_roll*c_pitch],
+                                    [0, -s_roll, c_roll*c_pitch]]) #Uncertain about how this came to be
+
+        des_angvel_body = R_euler_to_body @ des_angvel
+
+        eangvel = self.quadcopter.angular_velocity - R.T @ (Rd @ des_angvel_body) #Kulkarni approach
+
+        torque = -kR*eatt - kangvel*eangvel + np.cross(self.quadcopter.angular_velocity,ss.Ig@self.quadcopter.angular_velocity)
 
         u = np.zeros(4)
-
-        u[0] = ss.m * (v_error[2] + ss.g) + ss.d_w*self.quadcopter.heave
-        u[1:] = K_p @ v_error + K_d @ omega_z_error
+        u[0] = thrust_command
+        u[1:] = torque
 
         F = np.linalg.inv(ss.B()[2:]).dot(u)
         F = np.clip(F, ss.thrust_min, ss.thrust_max)
-        
-        return F
-
-
-
-    def path_following_controller(self, path : QPMI, action : np.array) -> np.array:
-        """
-        Path following controller.
-        Calculate desired acceleration for position control: PID-controller + velocity-control along the tangent + feedforward acceleration of path.
-        Attitude control: PD-controller.
-
-        Parameters:
-        ----------
-        path : QPMI
-        The path to follow.
-        
-        action: np.array
-        The action input from the RL agent per now it is the desired angular rates of the quadcopter.
-
-        Returns:
-        -------
-        F : np.array
-            Thrust inputs needed to follow the path.
-        """
-
-        #!!!!!!!!!!!!!!!!
-        # Need to figure out what the action input is and how to use it. If it is not the desired collective thrust and body rates:
-        #TODO Reformulate this to take in desired collective thrust and body rates as input and output the actual thrust inputs
-        #!!!!!!!!!!!!!!!!
-
-        prog = path.get_closest_u(self.quadcopter.position, self.waypoint_index, margin=self.la_dist)
-        self.chi_p, self.upsilon_p = path.get_direction_angles(prog)
-
-        # Define control weights for position and attitude
-        K_p_pos = np.diag([3.0, 3.0, 6.0])
-        K_d_pos = np.diag([1.0, 1.0, 1.0])
-        K_i_pos = np.diag([0.01, 0.01, 0.01])
-        K_v = np.diag([0.5, 0.5, 0.5])
-
-        omega_n = 9 # Natural frequency
-        xi = 1      # Damping ratio, 1 -> critically damped
-
-        K_p_att = np.diag([ss.I_x * omega_n**2, ss.I_y * omega_n**2, ss.I_z * omega_n**2])
-        K_d_att = np.diag([2 * ss.I_x * xi * omega_n, 2 * ss.I_y * xi * omega_n, 2 * ss.I_z * xi * omega_n])
-
-        # Calculate tracking errors
-        v = path.calculate_gradient(prog)
-        a = path.calculate_acceleration(prog)
-        e_p = path(prog) - self.quadcopter.position
-        self.total_position_error += e_p * (np.absolute(self.a_des) < 0.5).astype(int) * self.step_size # Anti-wind up
-        if self.total_t_steps > 0:
-            e_p_dot = (e_p - self.prev_position_error) / self.step_size
-        else:
-            e_p_dot = np.array([0.0, 0.0, 0.0])
-        self.prev_position_error = e_p
-        e_v = self.cruise_speed * v / np.linalg.norm(v) - geom.Rzyx(*self.quadcopter.attitude) @ self.quadcopter.velocity
-
-        # Calculate desired accelerations and attitudes
-        a_des_pos = K_p_pos @ e_p + K_i_pos @ self.total_position_error + K_d_pos @ e_p_dot
-        if np.linalg.norm(a_des_pos) > 1.5:
-            a_des_pos = 1.5 * a_des_pos / np.linalg.norm(a_des_pos)
-            
-        a_des_vel = K_v @ e_v
-        if np.linalg.norm(a_des_vel) > 1.0:
-            a_des_vel = 1 * a_des_vel / np.linalg.norm(a_des_vel)
-        
-        self.a_des = a_des_pos + a_des_vel + a + geom.Rzyx(*self.quadcopter.attitude) @ action 
-        b_x = self.a_des[0] / (self.a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_u*self.quadcopter.surge)/ss.m)
-        b_y = self.a_des[1] / (self.a_des[2] + ss.g + (ss.d_w*self.quadcopter.heave - ss.d_v*self.quadcopter.sway)/ss.m)
-        phi_des   = geom.ssa(b_x * np.sin(self.chi_p) - b_y * np.cos(self.chi_p))
-        theta_des = geom.ssa(b_x * np.cos(self.chi_p) + b_y * np.sin(self.chi_p))
-        e_att = geom.ssa(np.array([phi_des, theta_des, self.chi_p]) - self.quadcopter.attitude)
-        e_angvel = np.array([0.0, 0.0, 0.0]) - self.quadcopter.angular_velocity
-
-        # Calculate desired inputs
-        u_des = np.array([0.0, 0.0, 0.0, 0.0])
-        u_des[0] = ss.m * (self.a_des[2] + ss.g) + ss.d_w*self.quadcopter.heave
-        u_des[1:] = K_p_att @ e_att + K_d_att @ e_angvel
-
-        F = np.linalg.inv(ss.B()[2:]).dot(u_des)
-        F = np.clip(F, ss.thrust_min, ss.thrust_max)
-
         return F
 
 
     #### UTILS ####
     def get_stats(self):
-        # print("Stats: ", self.reward_collision)
-        return {"reward_path_following":self.reward_path_following_sum, 
-                "reward_collision_avoidance":self.reward_collision_avoidance_sum, 
-                "reward_collision":self.reward_collision}
-                #,"obs":self.past_obs,"states":self.past_states,"errors":self.past_errors}
-
-    def get_chi_upsilon(self,la_dist): #TODO Probs doesnt need to be a fcn as called once
-        chi_r = np.arctan2(self.e, la_dist)
-        upsilon_r = np.arctan2(self.h, np.sqrt(self.e**2 + la_dist**2))
-        chi_d = self.chi_p + chi_r
-        upsilon_d =self.upsilon_p + upsilon_r
-        chi_error = np.clip(geom.ssa(self.quadcopter.chi - chi_d)/np.pi, -1, 1)
-        # chi_error = geom.ssa(self.quadcopter.chi - chi_d)
-        upsilon_error = np.clip(geom.ssa(self.quadcopter.upsilon - upsilon_d)/np.pi, -1, 1)
-        # upsilon_error = geom.ssa(self.quadcopter.upsilon - upsilon_d)
-        return chi_error,upsilon_error
+        return self.info
+        # return {"reward_path_following":self.reward_path_following_sum, #OLD
+        #         "reward_collision_avoidance":self.reward_collision_avoidance_sum,
+        #         "reward_collision":self.reward_collision}
+        #         #,"obs":self.past_obs,"states":self.past_states,"errors":self.past_errors}
 
     def calculate_object_distance(self, alpha, beta, obstacle):
         """
@@ -422,7 +430,7 @@ class LV_VAE(gym.Env):
                 s += 1
         closeness = np.clip(1-(s/self.sonar_range), 0, 1)
         return s, closeness
-    
+
 
     def penalize_obstacle_closeness(self): #TODO Probs doesnt need to be a fcn as called once
         """
@@ -443,36 +451,38 @@ class LV_VAE(gym.Env):
                 beta = vertical_factor * horizontal_factor + epsilon
                 sensor_suite_correction += beta
                 reward_colav += (beta * (1 / (gamma_c * max(1 - self.sensor_readings[j,i], epsilon_closeness)**2)))**2
+
         return - 20 * reward_colav / sensor_suite_correction
-    
 
 
     #### UPDATE FUNCTIONS ####
-    def update_control_errors(self):
-        # Update cruise speed error
-        self.u_error = np.clip((self.cruise_speed - self.quadcopter.velocity[0])/2, -1, 1)
-        self.chi_error = 0.0
+    def update_errors(self): #TODO these dont need to be self.variables and should rather be returned
         self.e = 0.0
-        self.upsilon_error = 0.0
         self.h = 0.0
+        self.chi_error = 0.0
+        self.upsilon_error = 0.0
 
         # Get path course and elevation
         # s = self.prog + self.la_dist
         # if s > self.path.us[-1]:
         #     s = self.path.us[-1]
         s = self.prog
-        self.chi_p, self.upsilon_p = self.path.get_direction_angles(s)
+        chi_p, upsilon_p = self.path.get_direction_angles(s)
 
         # Calculate tracking errors
-        SF_rotation = geom.Rzyx(0, self.upsilon_p, self.chi_p)
+        SF_rotation = geom.Rzyx(0, upsilon_p, chi_p)
 
         epsilon = np.transpose(SF_rotation).dot(self.quadcopter.position - self.path(s))
-        self.e = epsilon[1]
-        self.h = epsilon[2]
+        self.e = epsilon[1] #Cross track error
+        self.h = epsilon[2] #Vertical track error 
 
         # Calculate course and elevation errors from tracking errors
-        self.chi_error, self.upsilon_error = self.get_chi_upsilon(self.la_dist)
-
+        chi_r = np.arctan2(self.e, self.la_dist)
+        upsilon_r = np.arctan2(self.h, np.sqrt(self.e**2 + self.la_dist**2))
+        chi_d = chi_p + chi_r
+        upsilon_d =upsilon_p + upsilon_r
+        self.chi_error = np.clip(geom.ssa(self.quadcopter.chi - chi_d)/np.pi, -1, 1) #Course angle error
+        self.upsilon_error = np.clip(geom.ssa(self.quadcopter.upsilon - upsilon_d)/np.pi, -1, 1) #Elevation angle error
 
     def update_nearby_obstacles(self):
         """
@@ -492,7 +502,8 @@ class LV_VAE(gym.Env):
                 self.nearby_obstacles.append(obstacle)
             elif distance <= obstacle.radius + self.quadcopter.safety_radius:
                 self.nearby_obstacles.append(obstacle)
-
+        # Sort the obstacles by lowest to largest distance
+        self.nearby_obstacles.sort(key=lambda x: np.linalg.norm(x.position - self.quadcopter.position)) #TODO check if this works
 
     def update_sensor_readings(self):
         """
@@ -505,8 +516,7 @@ class LV_VAE(gym.Env):
                 for j in range(self.sensor_suite[1]):
                     beta = self.quadcopter.pitch + self.sectors_vertical[j]
                     _, closeness = self.calculate_object_distance(alpha, beta, obstacle)
-                    self.sensor_readings[j,i] = max(closeness, self.sensor_readings[j,i]) 
-
+                    self.sensor_readings[j,i] = max(closeness, self.sensor_readings[j,i])
 
     def update_sensor_readings_with_plots(self):
         """
@@ -523,14 +533,14 @@ class LV_VAE(gym.Env):
                 beta = self.quadcopter.pitch + self.sectors_vertical[j]
                 #s, closeness = self.calculate_object_distance(alpha, beta, obstacle)
                 s=25
-                #self.sensor_readings[j,i] = max(closeness, self.sensor_readings[j,i])              
+                #self.sensor_readings[j,i] = max(closeness, self.sensor_readings[j,i])
                 color = "#05f07a"# if s >= self.sonar_range else "#a61717"
                 s = np.linspace(0, s, 100)
                 x = self.quadcopter.position[0] + s*np.cos(alpha)*np.cos(beta)
                 y = self.quadcopter.position[1] + s*np.sin(alpha)*np.cos(beta)
                 z = self.quadcopter.position[2] - s*np.sin(beta)
                 ax.plot3D(x, y, z, color=color)
-                #if color == "#a61717": 
+                #if color == "#a61717":
                 ax2.plot3D(x, y, z, color=color)
             plt.rc('lines', linewidth=3)
         ax.set_xlabel(xlabel="North [m]", fontsize=14)
@@ -558,11 +568,11 @@ class LV_VAE(gym.Env):
     def axis_equal3d(self, ax):
         """
         Shifts axis in 3D plots to be equal. Especially useful when plotting obstacles, so they appear spherical.
-        
+
         Parameters:
         ----------
         ax : matplotlib.axes
-            The axes to be shifted. 
+            The axes to be shifted.
         """
         extents = np.array([getattr(ax, 'get_{}lim'.format(dim))() for dim in 'xyz'])
         sz = extents[:,1] - extents[:,0]
@@ -572,14 +582,14 @@ class LV_VAE(gym.Env):
         for ctr, dim in zip(centers, 'xyz'):
             getattr(ax, 'set_{}lim'.format(dim))(ctr - r, ctr + r)
         # plt.show()
-        return ax        
+        return ax
 
     def plot3D(self, wps_on=True):
         """
         Returns 3D plot of path and obstacles.
         """
         ax = self.path.plot_path(wps_on)
-        for obstacle in self.obstacles:    
+        for obstacle in self.obstacles:
             ax.plot_surface(*obstacle.return_plot_variables(), color='r', zorder=1)
 
         return self.axis_equal3d(ax)
@@ -623,7 +633,7 @@ class LV_VAE(gym.Env):
             if np.linalg.norm(obstacle.position - new_obstacle.position) < new_obstacle.radius + obstacle.radius + 5:
                 overlaps = True
         return overlaps
-        
+
 
     def scenario_line(self):
         initial_state = np.zeros(6)
@@ -635,7 +645,7 @@ class LV_VAE(gym.Env):
         init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
-    
+
 
     def scenario_line_new(self):
         initial_state = np.zeros(6)
@@ -647,7 +657,7 @@ class LV_VAE(gym.Env):
         init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
-    
+
 
     def scenario_horizontal(self):
         initial_state = np.zeros(6)
@@ -659,7 +669,7 @@ class LV_VAE(gym.Env):
         init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
-    
+
     def scenario_horizontal_new(self):
         initial_state = np.zeros(6)
         waypoints = generate_random_waypoints(self.n_waypoints,'horizontal_new')
@@ -680,7 +690,7 @@ class LV_VAE(gym.Env):
         init_attitude=np.array([0, 0, self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
-    
+
     def scenario_3d_new(self):
         initial_state = np.zeros(6)
         waypoints = generate_random_waypoints(self.n_waypoints,'3d_new')
@@ -691,7 +701,7 @@ class LV_VAE(gym.Env):
         init_attitude=np.array([0, 0, self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
-    
+
 
     def scenario_intermediate(self):
         initial_state = self.scenario_3d_new()
@@ -754,7 +764,7 @@ class LV_VAE(gym.Env):
                 continue
             else:
                 self.obstacles.append(obstacle)
-        
+
         return initial_state
 
 
@@ -829,7 +839,7 @@ class LV_VAE(gym.Env):
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos[0], init_attitude])
         return initial_state
-    
+
 
     def scenario_helix(self):
         initial_state = np.zeros(6)
