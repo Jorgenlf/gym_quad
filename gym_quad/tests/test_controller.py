@@ -405,7 +405,8 @@ if __name__ == '__main__':
     tot_time = 1500 # 1500*0.01 = 150 seconds
     # referencetype = "z_velocity" # "hover", "x_velocity", "z_velocity", "yaw_rate", "yaw_rate_xvel", "velocity_step", "incline_step", "velx_yaw_rate_velx"
     # referencetype = "yaw_rate_xvel"
-    referencetype = "velx_yaw_rate_velx"
+    # referencetype = "velx_yaw_rate_velx"
+    referencetype = "complex"
 
     if referencetype == "hover": # Creates reference for hovering at 1m height check initial state of the quadcopter in setUp
         for t in range(tot_time):
@@ -475,6 +476,16 @@ if __name__ == '__main__':
                 vel_ref.append(0.5)
                 incline_ref.append(0)
                 yaw_rate_ref.append(0)
+    elif referencetype == "sin_xvel_sin_zvel":
+        for t in range(tot_time):
+            vel_ref.append(0.1*np.sin(0.1*t))
+            incline_ref.append(0)
+            yaw_rate_ref.append(0)
+    elif referencetype == "complex":
+        for t in range(tot_time):
+            vel_ref.append(0.1*np.sin(0.1*t))
+            incline_ref.append(0.1*np.sin(0.1*t))
+            yaw_rate_ref.append(0.1*np.sin(0.1*t))
 
            
     actual_vel_world = []
