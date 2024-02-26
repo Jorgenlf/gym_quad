@@ -217,10 +217,7 @@ class LeeVelocityController:
         rotation_matrix_desired_transpose = rotation_matrix_desired.T
 
         rot_err_mat = np.matmul(rotation_matrix_desired_transpose, rotation_matrix) - np.matmul(rotation_matrix_transpose, rotation_matrix_desired)
-        rot_err = -0.5 * geom.vee_map(rot_err_mat)
-        rot_errKulk = 0.5 *geom.vee_map2(rot_err_mat)
-
-        print(rot_errKulk, rot_err)
+        rot_err = 0.5 * geom.vee_map(rot_err_mat)
 
         rotmat_euler_to_body_rates = np.zeros_like(rotation_matrix)
 
@@ -253,7 +250,7 @@ class LeeVelocityController:
 
         angvel_err = actual_angvel_err - desired_angvel_err
 
-        torque = - self.k_rot_ * rot_err - self.k_angvel * angvel_err #+ np.reshape(np.cross(robot_state[9:12],ss.Ig@robot_state[9:12]),(3,1))
+        torque = - self.k_rot_ * rot_err - self.k_angvel * angvel_err + np.reshape(np.cross(robot_state[9:12],ss.Ig@robot_state[9:12]),(3,1))
         
         return thrust_command, torque         
 

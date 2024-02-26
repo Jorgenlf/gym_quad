@@ -43,6 +43,12 @@ def Rzyx(phi, theta, psi):
         np.hstack([spsi*cth, cpsi*cphi+sphi*sth*spsi, -cpsi*sphi+sth*spsi*cphi]),
         np.hstack([-sth, cth*sphi, cth*cphi])])
 
+def R2Euler(R):
+    phi = np.arctan2(R[2, 1], R[2, 2])
+    theta = -np.arctan(R[2, 0] / np.sqrt(1 - R[2, 0]**2))
+    psi = np.arctan2(R[1, 0], R[0, 0])
+
+    return np.array([phi, theta, psi])
 
 def Tzyx(phi, theta, psi):
     sphi = np.sin(phi)
@@ -98,11 +104,11 @@ def move_to_CO(A_CG, r_g):
 
 def vee_map(skew_matrix):
     #Maps a skew-symmetric matrix to a vector
-    m20 = skew_matrix[2, 0]
-    m12 = skew_matrix[1, 2]
-    m01 = skew_matrix[0, 1]
+    m21 = skew_matrix[2, 1]
+    m10 = skew_matrix[1, 0]
+    m02 = skew_matrix[0, 2]
     # Compute the vee map
-    vee_map = np.array([[m20, m12 ,m01]])
+    vee_map = np.array([[m21, m02, m10]])
     return vee_map    
 
 def Rz(psi):
@@ -112,7 +118,7 @@ def Rz(psi):
                      [spsi, cpsi, 0],
                      [0, 0, 1]])
 
-def vee_map2(skew_matrix):
-    #Maps a skew-symmetric matrix to a vector Kulkarni version
-    vm = np.array([[-skew_matrix[1, 2], skew_matrix[0, 2], -skew_matrix[0, 1]]])
-    return vm
+# def vee_map2(skew_matrix):
+#     #Maps a skew-symmetric matrix to a vector Kulkarni version
+#     vm = np.array([[-skew_matrix[1, 2], skew_matrix[0, 2], -skew_matrix[0, 1]]])
+#     return vm

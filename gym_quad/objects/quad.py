@@ -166,7 +166,6 @@ class Quad():
     def upsilon(self):
         """
         Returns the angle between the world velocity vector and the x-y plane.
-        i.e the inclination angle. (?)
         """
         [x_dot, y_dot, z_dot] = self.position_dot
         return np.arctan2(z_dot, np.sqrt(x_dot**2 + y_dot**2))
@@ -178,7 +177,10 @@ class Quad():
         i.e the angle of attack.
         """
         [u, v, w] = self.velocity
-        return np.arctan(w/u) 
+        if u == 0:
+            return np.pi/2
+        else:
+            return np.arctan(w/u) 
         
 
 def _thrust(force):
