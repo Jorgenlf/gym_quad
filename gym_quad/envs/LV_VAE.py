@@ -11,10 +11,11 @@ from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.obstacle3d import Obstacle
 
 
-#TODO decide the abstraction level between PPO agent and quadcopter controller and implement new controller
 #TODO Implement the reward fcn from the specialization project step by step
+#TODO Decide on observation space
+#TODO Fix logger
+#TODO TEST EVERYTHING should make manual debug for this tbh
 #TODO Set up curriculum learning
-
 
 class LV_VAE(gym.Env):
     '''Creates an environment where the actionspace consists of Linear velocity and yaw rate which will be passed to a PD or PID controller,
