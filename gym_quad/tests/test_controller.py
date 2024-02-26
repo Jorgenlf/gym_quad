@@ -289,34 +289,43 @@ class TestController(unittest.TestCase):
     
     def geom_ctrlv2(self, action):
         #Translate the action to the desired velocity and yaw rate
+        #Try without limiting for easier debugging
         cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1])*self.i_max
         cmd_v_y = 0
         cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1])*self.i_max
         cmd_r = self.r_max * action[2]
-        self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r])
+        self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r]) #For plotting
         
-        #Gains, z-axis basis=e3 and rotation matrix
-        kv = 2
+        #Gains, z-axis-basis=e3 and rotation matrix
+        kv = 2.5
         kR = 0.8
         kangvel = 0.8
+
         e3 = np.array([0, 0, 1])
         R = geom.Rzyx(*self.quadcopter.attitude)
 
-        #Vehicle frame velocity control i.e. intermediary frame between body and world frame
+        #Essentially three different velocities that one can choose to track:
+        #Think body or wolrd frame velocity control is the best choice
+        ###---###
+        ##Vehicle frame velocity control i.e. intermediary frame between body and world frame
         # vehicleR = geom.Rzyx(0, 0, self.quadcopter.attitude[2])
         # vehicle_vels = vehicleR.T @ self.quadcopter.velocity
         # ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - vehicle_vels 
+        ###---###
 
         #Body frame velocity control
         ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.velocity 
         #Which one to use? vehicle_vels or self.quadcopter.velocity
+
+        #World frame velocity control
+        # ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.position_dot
         
-        #Thrust command (along body z axis) calculation 
-        f = kv*ev + ss.m*ss.g*e3 + ss.m*ss.d_w*self.quadcopter.heave*e3 
+        #Thrust command (along body z axis)  
+        f = kv*ev + ss.m*ss.g*e3 + ss.d_w*self.quadcopter.heave*e3
         thrust_command = np.dot(f, R[2])
 
         ###---###
-        #Rd calculation as in Kulkarni aerial gym
+        #Rd calculation as in Kulkarni aerial gym (works fairly well)
         c_phi_s_theta = f[0]
         s_phi = -f[1]
         c_phi_c_theta = f[2]
@@ -325,29 +334,32 @@ class TestController(unittest.TestCase):
         roll_setpoint = np.arctan2(s_phi, np.sqrt(c_phi_c_theta**2 + c_phi_s_theta**2))
         yaw_setpoint = self.quadcopter.attitude[2]
         Rd = geom.Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint)
+        self.att_des = np.array([roll_setpoint, pitch_setpoint, yaw_setpoint]) # Save the desired attitude for plotting
         ###---###
 
-        #-#-#Old way of calculating Rd from papers: 
-        #OG source:https://arxiv.org/abs/1003.2005v1 
-        #I prefer https://arxiv.org/pdf/2306.09651.pdf 
+        ##-#-#
+        ##Calculating Rd from papers(Does not work per now): 
+        ##OG source:https://arxiv.org/abs/1003.2005v1 
+        ##I prefer https://arxiv.org/pdf/2306.09651.pdf 
         # r3 = f/np.linalg.norm(f)
-        # yawdes = self.quadcopter.attitude[2] #+ cmd_r*self.step_size
+        # yawdes = self.quadcopter.attitude[2]
         # headingdes = np.array([np.cos(yawdes), np.sin(yawdes), 0])
         # r2 = np.cross(r3, headingdes)/np.linalg.norm(np.cross(r3, headingdes))
         # r1 = np.cross(r2, r3)
         # Rd = np.array([r1,r2,r3])
-        #-#-#
+        # self.att_des = geom.R2Euler(Rd)
+        # self.att_des = np.array([self.att_des[0], self.att_des[1], self.att_des[2]]) #potentially -roll and -pitch
+        ##-#-#
 
-        self.att_des = geom.R2Euler(Rd)
-        self.att_des = np.array([self.att_des[0], self.att_des[1], self.att_des[2]]) #potentially -roll and -pitch
 
         eR = 1/2*(Rd.T @ R - R.T @ Rd)
         eatt = geom.vee_map(eR)
         eatt = np.reshape(eatt, (3,))
 
-        des_angvel = np.array([0.0, 0.0, cmd_r]) #My approach desired angular rate
+        des_angvel = np.array([0.0, 0.0, cmd_r])
 
-        #Kulkarni approach:
+        ###---###
+        #Kulkarni approach desired angular rate in body frame:
         s_pitch = np.sin(self.quadcopter.attitude[1])
         c_pitch = np.cos(self.quadcopter.attitude[1])
         s_roll = np.sin(self.quadcopter.attitude[0])
@@ -358,14 +370,17 @@ class TestController(unittest.TestCase):
         
         des_angvel_body = R_euler_to_body @ des_angvel
         
-        # if self.total_t_steps < 500: There is a difference in desired angular velocity between Kulkarni and my approach
+        #There is a difference in desired angular velocity between Kulkarnis and my direct approach
+        # if self.total_t_steps < 500: 
         #     print("timestep: ", self.total_t_steps)
         #     print(des_angvel_body,des_angvel,"\n")
 
         eangvel = self.quadcopter.angular_velocity - R.T @ (Rd @ des_angvel_body) #Kulkarni approach
-        # eangvel = self.quadcopter.angular_velocity - R.T @ Rd @ des_angvel #My approach
+        ###---###
 
-        torque = -kR*eatt - kangvel*eangvel #+ np.cross(self.quadcopter.angular_velocity,ss.Ig@self.quadcopter.angular_velocity)
+        # eangvel = self.quadcopter.angular_velocity - R.T @ Rd @ des_angvel #My approach use des_angvel directly
+
+        torque = -kR*eatt - kangvel*eangvel + np.cross(self.quadcopter.angular_velocity,ss.Ig@self.quadcopter.angular_velocity)
 
         u = np.zeros(4)
         u[0] = thrust_command
@@ -387,10 +402,10 @@ if __name__ == '__main__':
     vel_ref = []
     incline_ref = []
     yaw_rate_ref = []
-    tot_time = 1500
+    tot_time = 1500 # 1500*0.01 = 150 seconds
     # referencetype = "z_velocity" # "hover", "x_velocity", "z_velocity", "yaw_rate", "yaw_rate_xvel", "velocity_step", "incline_step", "velx_yaw_rate_velx"
-    referencetype = "yaw_rate_xvel"
-    # referencetype = "velx_yaw_rate_velx"
+    # referencetype = "yaw_rate_xvel"
+    referencetype = "velx_yaw_rate_velx"
 
     if referencetype == "hover": # Creates reference for hovering at 1m height check initial state of the quadcopter in setUp
         for t in range(tot_time):
