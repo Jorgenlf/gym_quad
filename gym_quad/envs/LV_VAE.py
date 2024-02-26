@@ -122,11 +122,11 @@ class LV_VAE(gym.Env):
 
         self.passed_waypoints = np.zeros((1, 3), dtype=np.float32)
 
-        self.observation = {
-            'perception': np.zeros((1, self.sensor_suite[0], self.sensor_suite[1])),
-            'IMU': np.zeros((6,))
-        }
-        # self.observation = self.observe() #OLD I think the stuff above should be good enough #TODO
+        # self.observation = {
+        #     'perception': np.zeros((1, self.sensor_suite[0], self.sensor_suite[1])),
+        #     'IMU': np.zeros((6,))
+        # }
+        #OLD I think the stuff above should be good enough #TODO
         #Or maybe its actually smart to call the observe function here to get the first observation? 
 
         self.total_t_steps = 0
@@ -139,6 +139,7 @@ class LV_VAE(gym.Env):
         self.quadcopter = Quad(self.step_size, init_state)
         ###
         self.update_errors()
+        self.observation = self.observe() 
         self.info = {}
         return (self.observation,self.info)
 
@@ -147,9 +148,10 @@ class LV_VAE(gym.Env):
         """
         Returns observations of the environment.
         """
-
         imu = IMU()
-        imu_measurement = imu.measure(self.quadcopter)
+        imu_measurement = np.zeros((6,))
+        if self.total_t_steps > 0:
+            imu_measurement = imu.measure(self.quadcopter)
 
         # Update nearby obstacles and calculate distances PER NOW THESE FCN CALLED ONCE SO DONT NEED TO BE FCNS
         self.update_nearby_obstacles()
@@ -248,61 +250,64 @@ class LV_VAE(gym.Env):
 
         ####Collision avoidance reward####
         #Find the closest obstacle
-        drone_closest_obs_dist = np.inf
-        self.sensor_readings
-        for i in range(self.sensor_suite[0]):
-            for j in range(self.sensor_suite[1]):
-                if self.sensor_readings[j,i] < drone_closest_obs_dist:
-                    drone_closest_obs_dist = self.sensor_readings[j,i]
-                    print("drone_closest_obs_dist", drone_closest_obs_dist)
-
-        inv_abs_min_rew = self.abs_inv_CA_min_rew 
-        danger_range = self.danger_range
-        danger_angle = self.danger_angle            
-        
-        #Determine lambda reward for path following and path adherence based on the distance to the closest obstacle
-        if (drone_closest_obs_dist < danger_range):
-            lambda_PA = (drone_closest_obs_dist/danger_range)/2
-            if lambda_PA < 0.10 : lambda_PA = 0.10
-            lambda_CA = 1-lambda_PA
-        
-        #Determine the angle difference between the velocity vector and the vector to the closest obstacle
-        velocity_vec = self.quadcopter.velocity
-        drone_to_obstacle_vec = self.nearby_obstacles[0].position - self.quadcopter.position #This wil require state estimation and preferably a GPS too hmm
-        angle_diff = np.arccos(np.dot(drone_to_obstacle_vec, velocity_vec)/(np.linalg.norm(drone_to_obstacle_vec)*np.linalg.norm(velocity_vec)))
-
         reward_collision_avoidance = 0
-        if (drone_closest_obs_dist < danger_range) and (angle_diff < danger_angle):
-            range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1) #same fcn in if and elif, but need this structure to color red and orange correctly
-            angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
-            if angle_rew > 0: angle_rew = 0 
-            if range_rew > 0: range_rew = 0
-            reward_collision_avoidance = range_rew + angle_rew
+        if self.nearby_obstacles != []: #If there are no obstacles, no need to calculate the reward #TODO decide if this nearby or all obstacles should be used
+            drone_closest_obs_dist = np.inf
+            self.sensor_readings
+            for i in range(self.sensor_suite[0]):
+                for j in range(self.sensor_suite[1]):
+                    if self.sensor_readings[j,i] < drone_closest_obs_dist:
+                        drone_closest_obs_dist = self.sensor_readings[j,i]
+                        print("drone_closest_obs_dist", drone_closest_obs_dist)
 
-            self.draw_red_velocity = True
-            self.draw_orange_obst_vec = True
-        elif drone_closest_obs_dist <danger_range:
-            range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1)
-            angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
-            if angle_rew > 0: angle_rew = 0 #In this case the angle reward may become positive as anglediff may !< danger_angle
-            if range_rew > 0: range_rew = 0
-            reward_collision_avoidance = range_rew + angle_rew
+            inv_abs_min_rew = self.abs_inv_CA_min_rew 
+            danger_range = self.danger_range
+            danger_angle = self.danger_angle            
             
-            self.draw_red_velocity = False
-            self.draw_orange_obst_vec = True
-        else:
+            #Determine lambda reward for path following and path adherence based on the distance to the closest obstacle
+            if (drone_closest_obs_dist < danger_range):
+                lambda_PA = (drone_closest_obs_dist/danger_range)/2
+                if lambda_PA < 0.10 : lambda_PA = 0.10
+                lambda_CA = 1-lambda_PA
+            
+            #Determine the angle difference between the velocity vector and the vector to the closest obstacle
+            velocity_vec = self.quadcopter.velocity
+            drone_to_obstacle_vec = self.nearby_obstacles[0].position - self.quadcopter.position #This wil require state estimation and preferably a GPS too hmm
+            angle_diff = np.arccos(np.dot(drone_to_obstacle_vec, velocity_vec)/(np.linalg.norm(drone_to_obstacle_vec)*np.linalg.norm(velocity_vec)))
+
             reward_collision_avoidance = 0
-            self.draw_red_velocity = False
-            self.draw_orange_obst_vec = False
-        # print('reward_collision_avoidance', reward_collision_avoidance)
+            if (drone_closest_obs_dist < danger_range) and (angle_diff < danger_angle):
+                range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1) #same fcn in if and elif, but need this structure to color red and orange correctly
+                angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
+                if angle_rew > 0: angle_rew = 0 
+                if range_rew > 0: range_rew = 0
+                reward_collision_avoidance = range_rew + angle_rew
+
+                self.draw_red_velocity = True
+                self.draw_orange_obst_vec = True
+            elif drone_closest_obs_dist <danger_range:
+                range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1)
+                angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
+                if angle_rew > 0: angle_rew = 0 #In this case the angle reward may become positive as anglediff may !< danger_angle
+                if range_rew > 0: range_rew = 0
+                reward_collision_avoidance = range_rew + angle_rew
+                
+                self.draw_red_velocity = False
+                self.draw_orange_obst_vec = True
+            else:
+                reward_collision_avoidance = 0
+                self.draw_red_velocity = False
+                self.draw_orange_obst_vec = False
+            # print('reward_collision_avoidance', reward_collision_avoidance)
 
 
-        #OLD
-        # collision_avoidance_rew = self.penalize_obstacle_closeness()
-        # reward_collision_avoidance = - 2 * np.log(1 - collision_avoidance_rew)
-        ####Collision avoidance reward done####
+            #OLD
+            # collision_avoidance_rew = self.penalize_obstacle_closeness()
+            # reward_collision_avoidance = - 2 * np.log(1 - collision_avoidance_rew)
+            ####Collision avoidance reward done####
 
         #Collision reward
+        reward_collision = 0
         if self.collided:
             reward_collision = self.rew_collision
             # print("Reward:", self.reward_collision)

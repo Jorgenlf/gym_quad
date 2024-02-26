@@ -25,10 +25,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # Tensflow logging level
 if __name__ == "__main__":
     experiment_dir, agent_path, args = parse_experiment_info()
 
-    # Uncomment and run in debug mode for debugging---------
-    # experiment_dir = "./log\WaypointPlanner-v0\Experiment 100"
-    # agent_path = "./log/WaypointPlanner-v0/Experiment 100/intermediate/agents/model_820000.pkl"
-    # args = Namespace(env='WaypointPlanner-v0', exp_id=100, scenario='3d', controller_scenario='intermediate', controller=820000, episodes=1)
+    # Uncomment and run in debug mode for debugging of code---------
+    # experiment_dir = "./log\LV_VAE-v0\Experiment 1"
+    # agent_path = "./log/LV_VAE-v0/Experiment 1/intermediate/agents/model_150000.pkl"
+    # args = Namespace(env='LV_VAE-v0', exp_id=1, scenario='3d', controller_scenario='intermediate', controller=150000, episodes=1)
     #------------------------------------------------------
     args = Namespace(manual_control=True)
     if args.manual_control == False:
@@ -78,23 +78,23 @@ if __name__ == "__main__":
 
             fig, ax = plt.subplots()
             canvas = fig.canvas
-            env.plot3D()
-            plt.axis('off')
+            env.plot_section3d()
 
             def on_key(event):
                 nonlocal input
-                if event.key == 'right':
+                if event.key == 'd': # Right
+                    print("Right")
                     input = [1, -1, 1]
-                elif event.key == 'left':
+                elif event.key == 'a': # Left
                     input = [-1, 1,1]
-                elif event.key == 'up':
+                elif event.key == 'w': # Up
                     input = [1, 1,1]
-                elif event.key == 'down':
+                elif event.key == 's': # Down
                     input = [-1, -1,1]
                 elif event.key == 'escape':
                     env.close()
                     plt.close()
-                elif event.key == 's':
+                elif event.key == 'p':
                     print("Saving screenshot")
                     plt.savefig("screenshots/screenshot.png")
                     image = Image.open("screenshots/screenshot.png")
@@ -105,8 +105,14 @@ if __name__ == "__main__":
                         index += 1
                         pdf_name = f"{base_name}{str(index)}.pdf"
                     image.save(pdf_name, format="PDF")
-
+            
+            def on_close(event):
+                print("Matplotlib window closed, exiting")
+                env.close()
+                plt.close()
+            
             canvas.mpl_connect('key_press_event', on_key)
+            fig.canvas.mpl_connect('close_event', on_close)
 
             while True:
                 obs, rew, done, info, _ = env.step(action=input)
@@ -114,15 +120,12 @@ if __name__ == "__main__":
                     done = False
                     env.reset()
 
-                if canvas.manager.window.closed:
-                    print("Matplotlib window closed, exiting")
-                    env.close()
-                    return
+                # if canvas.manager.window.closed:
+                #     print("Matplotlib window closed, exiting")
+                #     env.close()
+                #     return
+                plt.pause(0.01)  # Allow the plot to update
 
-        manual_control = True
-
-        if manual_control:
-            # env = gym.make(args.env, scenario=args.scenario)
-            env = gym.make("LV_VAE-v0")
-            _manual_control(env)
-            exit()
+        env = gym.make("LV_VAE-v0")
+        _manual_control(env)
+        exit()
