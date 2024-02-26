@@ -387,7 +387,7 @@ if __name__ == '__main__':
     vel_ref = []
     incline_ref = []
     yaw_rate_ref = []
-    tot_time = 900
+    tot_time = 1500
     # referencetype = "z_velocity" # "hover", "x_velocity", "z_velocity", "yaw_rate", "yaw_rate_xvel", "velocity_step", "incline_step", "velx_yaw_rate_velx"
     referencetype = "yaw_rate_xvel"
     # referencetype = "velx_yaw_rate_velx"
@@ -479,9 +479,9 @@ if __name__ == '__main__':
     for t in range(tot_time): 
         action = vel_ref[t], incline_ref[t], yaw_rate_ref[t]
         # F = Test.PID_PD_Lin_velocity_controller(action)
-        F = Test.geometric_velocity_controller(action)
+        # F = Test.geometric_velocity_controller(action)
         # F = Test.leectrl(action)
-        # F = Test.geom_ctrlv2(action)
+        F = Test.geom_ctrlv2(action)
         Test.quadcopter.step(F)
         Test.total_t_steps += 1
 
@@ -511,6 +511,8 @@ if __name__ == '__main__':
         if t > 0:
             pos_ref[t] = pos_ref[t-1] + np.array([x_vel_cmd[t]*np.cos(yaw), y_vel_cmd[t]*np.sin(yaw), z_vel_cmd[t]])*0.01
         
+    #Scale timestep to be in seconds
+    timesteps = np.array(timesteps)*0.01
 
     #Subplot the velocity commanded and the actual velocity
     actual_vel_world = np.array(actual_vel_world)    
@@ -522,38 +524,38 @@ if __name__ == '__main__':
     plt.figure(1)
     plt.suptitle(referencetype)
     plt.subplot(2, 2, 1)
-    plt.plot(x_vel_cmd, label='x velocity command')
-    plt.plot([v[0] for v in actual_vel_world], label='actual x velocity in world',linestyle='dashed')
-    plt.plot([v[0] for v in actual_vel_body], label='actual x velocity in body')
+    plt.plot(timesteps,x_vel_cmd, label='x velocity command')
+    plt.plot(timesteps,[v[0] for v in actual_vel_world], label='actual x velocity in world',linestyle='dashed')
+    plt.plot(timesteps,[v[0] for v in actual_vel_body], label='actual x velocity in body')
     plt.ylabel('Velocity (m/s)')
-    plt.xlabel('Timesteps')
+    plt.xlabel('Timesteps[s]')
     plt.ylim(velxlim[0], velxlim[1])
     plt.legend()
     plt.subplot(2, 2, 2)
-    plt.plot(y_vel_cmd, label='y velocity command')
-    plt.plot([v[1] for v in actual_vel_world], label='actual y velocity in world',linestyle='dashed')
-    plt.plot([v[1] for v in actual_vel_body], label='actual y velocity in body')
+    plt.plot(timesteps,y_vel_cmd, label='y velocity command')
+    plt.plot(timesteps,[v[1] for v in actual_vel_world], label='actual y velocity in world',linestyle='dashed')
+    plt.plot(timesteps,[v[1] for v in actual_vel_body], label='actual y velocity in body')
     plt.ylabel('Velocity (m/s)')
-    plt.xlabel('Timesteps')
+    plt.xlabel('Timesteps[s]')
     plt.ylim(velylim[0], velylim[1])
     plt.legend()
     plt.subplot(2, 2, 3)
-    plt.plot(z_vel_cmd, label='z velocity command')
-    plt.plot([v[2] for v in actual_vel_world], label='actual z velocity in world',linestyle='dashed')
-    plt.plot([v[2] for v in actual_vel_body], label='actual z velocity in body')
+    plt.plot(timesteps,z_vel_cmd, label='z velocity command')
+    plt.plot(timesteps,[v[2] for v in actual_vel_world], label='actual z velocity in world',linestyle='dashed')
+    plt.plot(timesteps,[v[2] for v in actual_vel_body], label='actual z velocity in body')
     plt.ylabel('Velocity (m/s)')
-    plt.xlabel('Timesteps')
+    plt.xlabel('Timesteps[s]')
     plt.ylim(velzlim[0], velzlim[1])
     plt.legend()
     plt.subplot(2, 2, 4)
     yaw_rate_cmd = np.array(yaw_rate_cmd)
     actual_yaw_rate = np.array(actual_yaw_rate)
-    plt.plot(yaw_rate_cmd*180/np.pi, label='yaw rate command')
-    plt.plot(actual_yaw_rate*180/np.pi, label='yaw rate actual')
+    plt.plot(timesteps,yaw_rate_cmd*180/np.pi, label='yaw rate command')
+    plt.plot(timesteps,actual_yaw_rate*180/np.pi, label='yaw rate actual')
     #scale so y axis displays 180 degrees
     plt.ylim(-90, 90)
     plt.ylabel('Yaw rate (deg/s)')
-    plt.xlabel('Timesteps')
+    plt.xlabel('Timesteps[s]')
     plt.legend()
 
     #Plot the force of each motor in subplot 
@@ -562,22 +564,22 @@ if __name__ == '__main__':
     plt.subplot(2, 2, 1)
     plt.plot(timesteps, [f[0] for f in forces], label='motor 1')
     plt.ylabel('Force (N)')
-    plt.xlabel('Timesteps')
+    plt.xlabel('Timesteps[s]')
     plt.legend()
     plt.subplot(2, 2, 2)
     plt.plot(timesteps, [f[1] for f in forces], label='motor 2')
     plt.ylabel('Force (N)')
-    plt.xlabel('Timesteps')
+    plt.xlabel('Timesteps[s]')
     plt.legend()
     plt.subplot(2, 2, 3)
     plt.plot(timesteps, [f[2] for f in forces], label='motor 3')
     plt.ylabel('Force (N)')
-    plt.xlabel('Timesteps')
+    plt.xlabel('Timesteps[s]')
     plt.legend()
     plt.subplot(2, 2, 4)
     plt.plot(timesteps, [f[3] for f in forces], label='motor 4')
     plt.ylabel('Force (N)')
-    plt.xlabel('Timesteps')
+    plt.xlabel('Timesteps[s]')
     plt.legend()
 
     #Plot the position of the quadcopter in 3D
@@ -614,7 +616,7 @@ if __name__ == '__main__':
     plt.plot(timesteps,aoa, label='angle of attack')
     plt.plot(timesteps, incline_ref, label='incline ref')
     plt.ylabel('Incline angle (degrees)')
-    plt.xlabel('Timesteps')
+    plt.xlabel('Timesteps[s]')
     plt.legend()
 
     #Plot the attitude of the quadcopter in subplot
@@ -630,19 +632,19 @@ if __name__ == '__main__':
     plt.plot(timesteps, roll, label='roll actual')
     plt.plot(timesteps, des_roll, label='roll desired')
     plt.ylabel('Attitude (degrees)')
-    plt.xlabel('Timesteps')
+    plt.xlabel('Timesteps[s]')
     plt.legend()
     plt.subplot(2, 2, 2)
     plt.plot(timesteps, pitch, label='pitch actual')
     plt.plot(timesteps, des_pitch, label='pitch desired')
     plt.ylabel('Attitude (degrees)')
-    plt.xlabel('Timesteps')
+    plt.xlabel('Timesteps[s]')
     plt.legend()
     plt.subplot(2, 2, 3)
     plt.plot(timesteps, yaw, label='yaw actual')
     plt.plot(timesteps, des_yaw, label='yaw desired')
     plt.ylabel('Attitude (degrees)')
-    plt.xlabel('Timesteps')
+    plt.xlabel('Timesteps[s]')
     plt.legend()
 
     plt.show()
