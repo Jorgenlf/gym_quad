@@ -145,5 +145,6 @@ class TrainerVAE():
             
             if self.epochs_no_improve >= self.patience:
                 print(f'Early stopping triggered after {epoch+1} epochs.')
-                break
+                return epoch+1
+                
             

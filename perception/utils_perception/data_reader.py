@@ -6,7 +6,7 @@ import shutil
 import torch
 import torchvision
 import torchvision.transforms as transforms
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, Subset
 from PIL import Image
 
 
@@ -70,7 +70,7 @@ class SunRGBD:
             shutil.copyfile(src, dst)
     
 
-    def split_train_validate_test(self, train_test_split:float, train_val_split:float, shuffle:bool = True) -> None:
+    def split_train_validate_test(self, train_test_split:float, train_val_split:float, shuffle:bool = True, seed:int=42) -> None:
         """Splits the data into train, validate and test sets"""
         data_size = len(os.listdir(self.data_path_depth))
         train_size = int(data_size * train_test_split)
@@ -89,6 +89,7 @@ class SunRGBD:
         # Shuffle the files and copy them to the train, validate and test folders
         files = os.listdir(self.data_path_depth)
         if shuffle:
+            np.random.seed(seed)
             np.random.shuffle(files)
         for i, file in enumerate(files):
             if i < train_size:
@@ -117,7 +118,7 @@ class DataReader:
         self.transforms_train = transforms_train
         self.transforms_validate = transforms_validate
 
-    def load_split_data_sunrgbd(self, sun:SunRGBD, shuffle:bool = True):
+    def load_split_data_sunrgbd(self, sun:SunRGBD, seed, shuffle:bool=True):
         
         orig_data_path = sun.orig_data_path
 
@@ -142,16 +143,43 @@ class DataReader:
                                         transform=self.transforms_validate)
         test_data  = CustomDepthDataset(root_dir=self.path_img_depth + "_test",
                                         transform=self.transforms_validate)
-    
+        
+        rng = torch.Generator()
+        if seed: rng.manual_seed(seed)
+        
+        #"""
         train_loader = DataLoader(train_data, 
                                   batch_size=self.batch_size, 
-                                  shuffle=shuffle)     
+                                  shuffle=shuffle,
+                                  generator=rng)     
         val_loader   = DataLoader(val_data, 
                                   batch_size=self.batch_size, 
-                                  shuffle=shuffle)
+                                  shuffle=shuffle,
+                                  generator=rng)
         test_loader  = DataLoader(test_data, 
                                   batch_size=1, 
-                                  shuffle=shuffle)
+                                  shuffle=shuffle,
+                                  generator=rng)
+        """
+        
+        # USED FOR FAST ITERATION ON PLOTTING CODE
+        indices_1 = list(range(300))
+        indices_2 = list(range(100))
+        train_loader = DataLoader(Subset(train_data, indices_1), 
+                                  batch_size=self.batch_size, 
+                                  shuffle=shuffle,
+                                  generator=rng)     
+        val_loader   = DataLoader(Subset(val_data, indices_2), 
+                                  batch_size=self.batch_size, 
+                                  shuffle=shuffle,
+                                  generator=rng)
+        test_loader  = DataLoader(test_data, 
+                                  batch_size=1, 
+                                  shuffle=shuffle,
+                                  generator=rng)
+        
+        #"""
+
 
         return train_loader, val_loader, test_loader
     
@@ -188,10 +216,6 @@ class CustomDepthDataset(Dataset):
 
         # Due to a bug, some pixels have values slightly larger than 1 (1,0000001 or 1.0000002), set these to 1
         img_np[img_np > 1] = 1.0
-        
-        # Pixels with value == 0 are invalid, set these to -1 as an invalid mask to be used in loss function
-        # img_np[img_np == 0] = -1
-        # This is done directly in the loss function instead
 
         # Convert to 1-channeled tensor
         img_tensor = torch.from_numpy(img_np).unsqueeze(0)  # Add channel dimension

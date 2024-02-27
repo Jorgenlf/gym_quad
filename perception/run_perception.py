@@ -76,7 +76,7 @@ def main(args):
     
 
     # Load data and create dataloaders
-    train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, shuffle=True)
+    train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=None, shuffle=True)
 
     print(f'Data loaded\nSize train: {len(train_loader.dataset)} | Size validation: {len(val_loader.dataset)} | Size test: {len(test_loader.dataset)}\n')
 
@@ -88,91 +88,223 @@ def main(args):
     experiment_id = args.exp_id
 
     if args.mode == 'train':
-        print("Training...")
-
-        # Containers for loss trajectories
-        total_train_losses = np.zeros((NUM_SEEDS, N_EPOCH))
-        total_val_losses = np.zeros((NUM_SEEDS, N_EPOCH))
-        bce_train_losses = np.zeros((NUM_SEEDS, N_EPOCH))
-        bce_val_losses = np.zeros((NUM_SEEDS, N_EPOCH))
-        kl_train_losses = np.zeros((NUM_SEEDS, N_EPOCH))
-        kl_val_losses = np.zeros((NUM_SEEDS, N_EPOCH))
-
-        for i in range(NUM_SEEDS):
-            print(f'[Seed {i+1}/{NUM_SEEDS}]')
-
-            # Load data with different seed
-            train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, shuffle=True)
-
-            # Create VAE based on args.model_name
-            if model_name == 'conv1':
-                encoder = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS)
-                decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=encoder.flattened_size)
-                vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)
-
-            # Train model
-            optimizer = Adam(vae.parameters(), lr=LEARNING_RATE)
-            trainer = TrainerVAE(model=vae, 
-                                epochs=N_EPOCH, 
-                                learning_rate=LEARNING_RATE, 
-                                batch_size=BATCH_SIZE, 
-                                dataloader_train=train_loader, 
-                                dataloader_val=val_loader, 
-                                optimizer=optimizer, 
-                                beta=BETA,
-                                reconstruction_loss="MSE")
+        if any(mode in args.plot for mode in ['losses']):
+            print("Training...\nPlotting mode = {args.plot}")
             
-            trainer.train()
+            # Containers for loss trajectories
+            total_train_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+            total_val_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+            bce_train_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+            bce_val_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+            kl_train_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+            kl_val_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+
+            for i in range(NUM_SEEDS):
+                print(f'[Seed {i+1}/{NUM_SEEDS}]')
+
+                # Load data with different seed
+                train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=None, shuffle=True)
+
+                # Create VAE based on args.model_name
+                if model_name == 'conv1':
+                    encoder = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS)
+                    decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=encoder.flattened_size)
+                    vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)
+
+                # Train model
+                optimizer = Adam(vae.parameters(), lr=LEARNING_RATE)
+                trainer = TrainerVAE(model=vae, 
+                                    epochs=N_EPOCH, 
+                                    learning_rate=LEARNING_RATE, 
+                                    batch_size=BATCH_SIZE, 
+                                    dataloader_train=train_loader, 
+                                    dataloader_val=val_loader, 
+                                    optimizer=optimizer, 
+                                    beta=BETA,
+                                    reconstruction_loss="MSE")
+                
+                trained_epochs = trainer.train()
+                    
+                # Only insert to the first trained_epochs elements if early stopping has been triggered
+                total_train_losses[i,:trained_epochs] = trainer.training_loss['Total loss']
+                total_val_losses[i,:trained_epochs] = trainer.validation_loss['Total loss']
+                bce_train_losses[i,:trained_epochs] = trainer.training_loss['Reconstruction loss']
+                bce_val_losses[i,:trained_epochs] = trainer.validation_loss['Reconstruction loss']
+                kl_train_losses[i,:trained_epochs] = trainer.training_loss['KL divergence loss']
+                kl_val_losses[i,:trained_epochs] = trainer.validation_loss['KL divergence loss']
+
+                # Save encoder and decoder parameters to file
+                savepath_encoder = f'models/encoders'
+                savepath_decoder = f'models/decoders'
+                os.makedirs(savepath_encoder, exist_ok=True)
+                os.makedirs(savepath_decoder, exist_ok=True)
+
+                if args.save_model:
+                    vae.encoder.save(path=os.path.join(savepath_encoder, f'encoder_{model_name}_experiment_{experiment_id}_seed{i+1}.json'))
+                    vae.decoder.save(path=os.path.join(savepath_decoder, f'decoder_{model_name}_experiment_{experiment_id}_seed{i+1}.json'))
+
+                del train_loader, val_loader, encoder, decoder, vae, optimizer, trainer
+
+            # Save loss trajectories to file, so specific loss trajs can be plotted later on
+            savepath_loss_numerical = f'results/{model_name}/numerical/losses/exp{experiment_id}'
+            os.makedirs(savepath_loss_numerical, exist_ok=True)
+
+            np.save(os.path.join(savepath_loss_numerical, f'total_train_losses.npy'), total_train_losses)
+            np.save(os.path.join(savepath_loss_numerical, f'total_val_losses.npy'), total_val_losses)
+            np.save(os.path.join(savepath_loss_numerical, f'bce_train_losses.npy'), bce_train_losses)
+            np.save(os.path.join(savepath_loss_numerical, f'bce_val_losses.npy'), bce_val_losses)
+            np.save(os.path.join(savepath_loss_numerical, f'kl_train_losses.npy'), kl_train_losses)
+            np.save(os.path.join(savepath_loss_numerical, f'kl_val_losses.npy'), kl_val_losses)
             
-            total_train_losses[i,:] = trainer.training_loss['Total loss']
-            total_val_losses[i,:] = trainer.validation_loss['Total loss']
-            bce_train_losses[i,:] = trainer.training_loss['Reconstruction loss']
-            bce_val_losses[i,:] = trainer.validation_loss['Reconstruction loss']
-            kl_train_losses[i,:] = trainer.training_loss['KL divergence loss']
-            kl_val_losses[i,:] = trainer.validation_loss['KL divergence loss']
 
-            # Save encoder and decoder parameters to file
-            savepath_encoder = f'models/encoders'
-            savepath_decoder = f'models/decoders'
-            os.makedirs(savepath_encoder, exist_ok=True)
-            os.makedirs(savepath_decoder, exist_ok=True)
+            if "losses" in args.plot:
+                # Plot the aggregated loss trajectories at end of run
+                total_losses = [total_train_losses, total_val_losses]
+                bce_losses = [bce_train_losses, bce_val_losses]
+                kl_losses = [kl_train_losses, kl_val_losses]
+                labels = ['Training loss', 'Validation loss']
 
-            if args.save_model:
-                vae.encoder.save(path=os.path.join(savepath_encoder, f'encoder_{model_name}_experiment_{experiment_id}_seed{i+1}.json'))
-                vae.decoder.save(path=os.path.join(savepath_decoder, f'decoder_{model_name}_experiment_{experiment_id}_seed{i+1}.json'))
+                savepath_loss_plot = f'results/{model_name}/plots/losses/exp{experiment_id}'
+                os.makedirs(savepath_loss_plot, exist_ok=True)
+                plotting.plot_separated_losses(total_losses=total_losses,
+                                            BCE_losses=bce_losses,
+                                            KL_losses=kl_losses,
+                                            labels=labels,
+                                            path=savepath_loss_plot,
+                                            save=True)
+                
+            # Potential other plottinfg modes for training trajectories....
+            
+            
+            
+        if 'kde' in args.plot:
+            pass
+            
+        if "latent_dims_sweep" in args.plot:
+            print('Latent dimension sweep test...')
+            # Made for 1 seed only as per 27.02 due to computational resources.
+            
+            latent_dims = [2, 4, 8, 16, 32, 64, 128]
+            
+            #latent_dims = [2, 16, 64]
+            
+            # Containers w/ loss trajs for each latent dim
+            total_val_losses_for_latent_dims = [] 
+            bce_val_losses_for_latent_dims = []   
+            kl_val_losses_for_latent_dims = []
+            total_train_losses_for_latent_dims = []
+            bce_train_losses_for_latent_dims = []
+            kl_train_losses_for_latent_dims = []
+            
+            for l in latent_dims:
+                print(f'Latent dimension: {l}')
+                total_train_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+                total_val_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+                bce_train_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+                bce_val_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+                kl_train_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+                kl_val_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+                
+                for i in range(NUM_SEEDS):
+                    # Load data with different seed
+                    seed = 42 # Logic regarding seeding must be changed if many seeds used
+                    train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=seed, shuffle=True)
 
-            del train_loader, val_loader, encoder, decoder, vae, optimizer, trainer
+                    # Create VAE based on args.model_name
+                    if model_name == 'conv1':
+                        encoder = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=l)
+                        decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=l, flattened_size=encoder.flattened_size)
+                        vae = VAE(encoder, decoder, l, BETA).to(device)
 
-        # Save loss trajectories to file, so specific loss trajs can be plotted later on
-        savepath_loss_numerical = f'results/{model_name}/numerical/losses/exp{experiment_id}'
-        os.makedirs(savepath_loss_numerical, exist_ok=True)
+                    # Train model
+                    optimizer = Adam(vae.parameters(), lr=LEARNING_RATE)
+                    trainer = TrainerVAE(model=vae, 
+                                        epochs=N_EPOCH, 
+                                        learning_rate=LEARNING_RATE, 
+                                        batch_size=BATCH_SIZE, 
+                                        dataloader_train=train_loader, 
+                                        dataloader_val=val_loader, 
+                                        optimizer=optimizer, 
+                                        beta=BETA,
+                                        reconstruction_loss="MSE")
+                    
+                    trained_epochs = trainer.train()
+                    
+                    # Only insert to the first trained_epochs elemts if early stopping has been triggered
+                    total_train_losses[i,:trained_epochs] = trainer.training_loss['Total loss']
+                    total_val_losses[i,:trained_epochs] = trainer.validation_loss['Total loss']
+                    bce_train_losses[i,:trained_epochs] = trainer.training_loss['Reconstruction loss']
+                    bce_val_losses[i,:trained_epochs] = trainer.validation_loss['Reconstruction loss']
+                    kl_train_losses[i,:trained_epochs] = trainer.training_loss['KL divergence loss']
+                    kl_val_losses[i,:trained_epochs] = trainer.validation_loss['KL divergence loss']
+                    
+                    print(total_train_losses)
 
-        np.save(os.path.join(savepath_loss_numerical, f'total_train_losses.npy'), total_train_losses)
-        np.save(os.path.join(savepath_loss_numerical, f'total_val_losses.npy'), total_val_losses)
-        np.save(os.path.join(savepath_loss_numerical, f'bce_train_losses.npy'), bce_train_losses)
-        np.save(os.path.join(savepath_loss_numerical, f'bce_val_losses.npy'), bce_val_losses)
-        np.save(os.path.join(savepath_loss_numerical, f'kl_train_losses.npy'), kl_train_losses)
-        np.save(os.path.join(savepath_loss_numerical, f'kl_val_losses.npy'), kl_val_losses)
-        
+                    # Save encoder and decoder parameters to file
+                    savepath_encoder = f'models/encoders'
+                    savepath_decoder = f'models/decoders'
+                    os.makedirs(savepath_encoder, exist_ok=True)
+                    os.makedirs(savepath_decoder, exist_ok=True)
 
-        if "losses" in args.plot:
+                    if args.save_model:
+                        vae.encoder.save(path=os.path.join(savepath_encoder, f'encoder_{model_name}_experiment_{experiment_id}_seed{i+1}_dim{l}.json'))
+                        vae.decoder.save(path=os.path.join(savepath_decoder, f'decoder_{model_name}_experiment_{experiment_id}_seed{i+1}_dim{l}.json'))
+
+                    del train_loader, val_loader, encoder, decoder, vae, optimizer, trainer
+                
+                total_val_losses_for_latent_dims.append(total_val_losses)
+                bce_val_losses_for_latent_dims.append(bce_val_losses)
+                kl_val_losses_for_latent_dims.append(kl_val_losses)
+                total_train_losses_for_latent_dims.append(total_train_losses)
+                bce_train_losses_for_latent_dims.append(bce_train_losses)
+                kl_train_losses_for_latent_dims.append(kl_train_losses)
+                
+                # Save loss trajectories to file, so specific loss trajs can be plotted later on
+                savepath_loss_numerical = f'results/{model_name}/numerical/losses/exp{experiment_id}/latent_dim_{l}'
+                os.makedirs(savepath_loss_numerical, exist_ok=True)
+
+                np.save(os.path.join(savepath_loss_numerical, f'total_train_losses.npy'), total_train_losses)
+                np.save(os.path.join(savepath_loss_numerical, f'total_val_losses.npy'), total_val_losses)
+                np.save(os.path.join(savepath_loss_numerical, f'bce_train_losses.npy'), bce_train_losses)
+                np.save(os.path.join(savepath_loss_numerical, f'bce_val_losses.npy'), bce_val_losses)
+                np.save(os.path.join(savepath_loss_numerical, f'kl_train_losses.npy'), kl_train_losses)
+                np.save(os.path.join(savepath_loss_numerical, f'kl_val_losses.npy'), kl_val_losses)
+                
+                # Plot the aggregated loss trajectories at end of run
+                total_losses = [total_train_losses, total_val_losses]
+                bce_losses = [bce_train_losses, bce_val_losses]
+                kl_losses = [kl_train_losses, kl_val_losses]
+                labels = ['Training loss', 'Validation loss']
+
+                savepath_loss_plot = f'results/{model_name}/plots/losses/exp{experiment_id}/latent_dim_{l}'
+                os.makedirs(savepath_loss_plot, exist_ok=True)
+                plotting.plot_separated_losses(total_losses=total_losses,
+                                            BCE_losses=bce_losses,
+                                            KL_losses=kl_losses,
+                                            labels=labels,
+                                            path=savepath_loss_plot,
+                                            save=True)
+                    
+            
             # Plot the aggregated loss trajectories at end of run
-            total_losses = [total_train_losses, total_val_losses]
-            bce_losses = [bce_train_losses, bce_val_losses]
-            kl_losses = [kl_train_losses, kl_val_losses]
-            labels = ['Training loss', 'Validation loss']
-
-            savepath_loss_plot = f'results/{model_name}/plots/losses/exp{experiment_id}'
-            os.makedirs(savepath_loss_plot, exist_ok=True)
-            plotting.plot_separated_losses(total_losses=total_losses,
+            savepath_ldim_plot = f'results/{model_name}/plots/losses/exp{experiment_id}/ldim_sweep'
+            os.makedirs(savepath_ldim_plot, exist_ok=True)
+            labels = [f'Latent dim = {l}' for l in latent_dims]
+            total_losses = [total_train_losses_for_latent_dims, total_val_losses_for_latent_dims]
+            bce_losses = [bce_train_losses_for_latent_dims, bce_val_losses_for_latent_dims]
+            kl_losses = [kl_train_losses_for_latent_dims, kl_val_losses_for_latent_dims]
+            
+            plotting.plot_loss_ldim_sweep(total_losses=total_losses,
                                         BCE_losses=bce_losses,
                                         KL_losses=kl_losses,
                                         labels=labels,
-                                        path=savepath_loss_plot,
-                                        save=True)
-        
-
-
+                                        path=savepath_ldim_plot,
+                                        save=True,
+                                        include_train=False)
+            
+                        
+                    
+                
     if args.mode == 'test':
         seed = args.seed
         full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}'
@@ -185,13 +317,28 @@ def main(args):
         vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)
         
         if "reconstructions" in args.plot:
-
             savepath_recon = f'results/{model_name}/plots/reconstructions/exp{experiment_id}'
             os.makedirs(savepath_recon, exist_ok=True)
             for i, x in enumerate(test_loader):
                 if i == args.num_examples: break
                 img = x.to(device)
                 plotting.reconstruct_and_plot(img, vae, model_name, experiment_id, savepath_recon, i, cmap='magma', save=True)
+                
+        if "kde" in args.plot:
+            savepath_kde = f'results/{model_name}/plots/kde/exp{experiment_id}'
+            os.makedirs(savepath_kde, exist_ok=True)
+            
+            combos_to_test = [(0, 1), (1, 2), (0, 2), (0, 3), (1, 3), (2, 3), (0, 4), (1, 4), (2, 4), (3, 4)]
+            plotting.latent_space_kde(model=vae, 
+                                      dataloader=test_loader, 
+                                      latent_dim=LATENT_DIMS, 
+                                      name=model_name,
+                                      path = savepath_kde,
+                                      save=True, combos=combos_to_test)
+
+
+
+
 
 
 
@@ -209,7 +356,9 @@ if __name__ == '__main__':
                         help='Plotting mode: losses or reconstructions',
                         type=str,
                         choices=['losses', 
-                                 'reconstructions'],
+                                 'reconstructions',
+                                 'latent_dims_sweep',
+                                 'kde'],
                         nargs="+",
                         default=['losses'])
     
