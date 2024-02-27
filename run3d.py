@@ -24,7 +24,11 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # Tensflow logging level
 
 """
 To run a trained agent, run the following command in terminal exchange x for the experiment id you want to train:
+
 python run3d.py --env "" --exp_id x --run_scenario "" --trained_scenario "" --agent x --episodes x --manual_control False --RT_vis True
+
+--manual_control and --RT_vis are False by default
+--env "" is set to LV_VAE-v0 by default
 """
 
 if __name__ == "__main__":
