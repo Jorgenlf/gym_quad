@@ -1,11 +1,11 @@
 from gymnasium.envs.registration import register
+import numpy as np
 
 lv_vae_config = {
     "step_size": 0.01,
     "max_t_steps": 60000,
     "min_reward": -20000,
     "n_obs_states": 6,
-    "cruise_speed": 2.5,
     "reward_path_following_c": 5,
     "reward_path_following_max": 1,
     "sensor_span": (85, 58), # the horizontal and vertical span of the sensors
@@ -25,8 +25,8 @@ lv_vae_config = {
     "fictive_waypoint_span": 10,
     "n_generated_waypoints": 1,
     "simulation_frequency": 10, # How many timesteps to simulate the quadcopter for each new path
-    "s_max": 0.5, # Maximum speed of the quadcopter #I THINK THIS IS SAME AS CRUISE SPEED
-    "i_max": 0.5, # Maximum inclination angle of commanded velocity wrt x-axis
+    "s_max": 2.5, # Maximum speed of the quadcopter #I THINK THIS IS SAME AS CRUISE SPEED
+    "i_max": np.pi/2, # Maximum inclination angle of commanded velocity wrt x-axis
     "r_max": 0.5, # Maximum commanded yaw rate
     'PA_band_edge'          : 40, # edge of Path adherence band
     'PA_scale'              : 2,  # scale of Path adherence reward

@@ -9,6 +9,7 @@ import re
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.patches import Rectangle
 from PIL import Image
+from RTvisualizer import *
 
 from mpl_toolkits.mplot3d import Axes3D
 from stable_baselines3 import PPO
@@ -68,64 +69,69 @@ if __name__ == "__main__":
         def _manual_control(env):
             """ Manual control function.
                 Reads keyboard inputs and maps them to valid inputs to the environment.
+            
+            Infinite environment loop:
+            - Map keyboard inputs to valid actions
+            - Reset environment once done is True
+            - Exits upon closing the window or pressing ESCAPE.
             """
-            # Infinite environment loop:
-            # - Map keyboard inputs to valid actions
-            # - Reset environment once done is True
-            # - Exits upon closing the window or pressing ESCAPE.
-            state = env.reset()
-            input = [0, 0, 0]
+            obs,info = env.reset()
+            input = [0, 0, 0] #speed -1 = 0, inclination of velocity vector wrt x-axis and yaw rate 
 
-            fig, ax = plt.subplots()
-            canvas = fig.canvas
-            env.plot_section3d()
-
+            visualizer = EnvironmentVisualizer(env.obstacles, env.quadcopter.position, env.quadcopter.attitude)
+            visualizer.draw_path(env.path.waypoints)
+            @visualizer.scene.events.key_press.connect
             def on_key(event):
                 nonlocal input
-                if event.key == 'd': # Right
-                    print("Right")
-                    input = [1, -1, 1]
+                if event.key == 'd': # Right #TODO make these actually make the quadcopter move wrt to x axis
+                    input = [1, 0, -1]
                 elif event.key == 'a': # Left
-                    input = [-1, 1,1]
+                    input = [1, 0,1]
                 elif event.key == 'w': # Up
-                    input = [1, 1,1]
+                    input = [1, 1, -1]
                 elif event.key == 's': # Down
-                    input = [-1, -1,1]
+                    input = [-1, -1, -1]
                 elif event.key == 'escape':
                     env.close()
-                    plt.close()
-                elif event.key == 'p':
-                    print("Saving screenshot")
-                    plt.savefig("screenshots/screenshot.png")
-                    image = Image.open("screenshots/screenshot.png")
-                    base_name = "screenshots/pdfs/img_"
-                    index = 1
-                    pdf_name = f"{base_name}{index}.pdf"
-                    while os.path.exists(pdf_name):
-                        index += 1
-                        pdf_name = f"{base_name}{str(index)}.pdf"
-                    image.save(pdf_name, format="PDF")
             
-            def on_close(event):
-                print("Matplotlib window closed, exiting")
-                env.close()
-                plt.close()
-            
-            canvas.mpl_connect('key_press_event', on_key)
-            fig.canvas.mpl_connect('close_event', on_close)
-
             while True:
                 obs, rew, done, info, _ = env.step(action=input)
+                visualizer.update_quad_visual(env.quadcopter.position, env.quadcopter.attitude)           
+                app.process_events()
                 if done:
                     done = False
                     env.reset()
 
-                # if canvas.manager.window.closed:
-                #     print("Matplotlib window closed, exiting")
-                #     env.close()
-                #     return
-                plt.pause(0.01)  # Allow the plot to update
-
-        env = gym.make("LV_VAE-v0")
+        env = gym.make("LV_VAE-v0", scenario="intermediate")
         _manual_control(env)
         exit()
+
+''' To move around in the 3D plot from vispy:
+LMB: orbits the view around its center point.
+RMB or scroll: change scale_factor (i.e. zoom level)
+SHIFT + LMB: translate the center point
+SHIFT + RMB: change FOV
+'''
+
+'''Possible scenarios:
+Training scenarios
+    "line": 
+    "line_new": 
+    "horizontal": 
+    "horizontal_new": 
+    "3d": 
+    "3d_new": 
+    "helix": 
+    "intermediate": 
+    "proficient": 
+    # "advanced": 
+    "expert": 
+
+# Testing scenarios
+    "test_path": 
+    "test": 
+    "test_current": 
+    "horizontal": 
+    "vertical": 
+    "deadend": 
+'''        
