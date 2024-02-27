@@ -13,23 +13,29 @@ def parse_experiment_info():
     # parser.add_argument("--env", default="WaypointPlanner-v0", type=str, help="Which environment to run/train/test")
     parser.add_argument("--env", default="LV_VAE-v0", type=str, help="Which environment to run/train/test")
     parser.add_argument("--exp_id", type=int, help="Which experiment number to run/train/test")
-    parser.add_argument("--scenario", default="line", type=str, help="Which scenario to run")
-    parser.add_argument("--controller_scenario", default=None, type=str, help="Which scenario the agent was trained in")
-    parser.add_argument("--controller", default=None, type=int, help="Which model to load as main controller. Requires only integer")
+    parser.add_argument("--run_scenario", default="line", type=str, help="Which scenario to run")
+    parser.add_argument("--trained_scenario", default=None, type=str, help="Which scenario the agent was trained in")
+    parser.add_argument("--agent", default=None, type=int, help="Which agent/model to load as main controller. Requires only integer")
     parser.add_argument("--episodes", default=1, type=int, help="How many episodes to run when testing the quadcopter")
     parser.add_argument("--manual_control", default=False, type=bool, help="Whether to use manual control or not")
+    parser.add_argument("--RT_vis", default=False, type=bool, help="Whether to visualize in realtime training or not")
     args = parser.parse_args()
     
+    #Renaming: 
+    #controller_scenario -> trained_scenario  
+    #scenario -> run_scenario
+    #controller -> agent
+
     experiment_dir = os.path.join(r"./log", r"{}".format(args.env), r"Experiment {}".format(args.exp_id))
 
-    if args.controller_scenario is not None:
-        agent_path = os.path.join(experiment_dir, args.controller_scenario, "agents")
+    if args.run_scenario is not None:
+        agent_path = os.path.join(experiment_dir, args.run_scenario, "agents")
     else:
-        agent_path = os.path.join(experiment_dir, args.scenario, "agents")
-    if args.controller is not None:
-        agent_path = os.path.join(agent_path, "model_" + str(args.controller) + ".pkl")
+        agent_path = os.path.join(experiment_dir, args.trained_scenario, "agents")
+    if args.agent is not None:
+        agent_path = os.path.join(agent_path, "model_" + str(args.agent) + ".zip")
     else:
-        agent_path = os.path.join(agent_path,"last_model.pkl")
+        agent_path = os.path.join(agent_path,"last_model.zip")
     return experiment_dir, agent_path, args
 
 
@@ -45,21 +51,35 @@ def calculate_IAE(sim_df):
 def simulate_environment(episode, env, agent):
     global error_labels, current_labels, input_labels, state_labels
     state_labels = [r"$N$", r"$E$", r"$D$", r"$\phi$", r"$\theta$", r"$\psi$", r"$u$", r"$v$", r"$w$", r"$p$", r"$q$", r"$r$"]
-    input_labels = [r"$\eta$", r"$\delta_r$", r"$\delta_s$",r"$\F_4$"]
+    # input_labels = [r"$\eta$", r"$\delta_r$", r"$\delta_s$",r"$\F_4$"] #OLD
+    input_labels = [r"$\v_{cmd}$", r"$\incline_{cmd}$",r"$\r_{cmd}$"]
     error_labels = [r"$\tilde{u}$", r"$\tilde{\chi}$", r"e", r"$\tilde{\upsilon}$", r"h"]
     # error_labels = [r"e", r"h"]
     labels = np.hstack(["Episode", "Time", "Progression", state_labels, input_labels, error_labels])
     
     done = False
     env.reset()
+    progression = []
+    total_t_steps = 0
+    past_states = []
+    past_actions = []
+    errors = []
+    time = []
     while not done:
         action = agent.predict(env.observation, deterministic=True)[0]
-        _, _, done, _, _ = env.step(action)
-    errors = np.array(env.past_errors)
-    time = np.array(env.time).reshape((env.total_t_steps,1))
-    episode = np.full(((env.total_t_steps,1)), episode)
-    progression = np.array(env.progression).reshape((env.total_t_steps,1))
-    sim_data = np.hstack([episode, time, progression, env.past_states, env.past_actions, errors])
+        _, _, done, _, info = env.step(action)
+        progression.append(info['progression'])
+        total_t_steps = info['env_steps']
+        past_states.append(info['state'])
+        past_actions.append(info['action'])
+        errors.append(info['errors'])
+        time.append(info['time'])
+
+    errors = np.array(errors)
+    time = np.array(time).reshape((total_t_steps,1))
+    episode = np.full(((total_t_steps,1)), episode)
+    progression = np.array(progression).reshape((total_t_steps,1))
+    sim_data = np.hstack([episode, time, progression, past_states, past_actions, errors])
     df = pd.DataFrame(sim_data, columns=labels)
     return df, env
 

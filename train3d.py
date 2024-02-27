@@ -14,7 +14,8 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.callbacks import BaseCallback #Can remove if using tensorboard logger #TODO
+# from logger import TensorboardLogger #TODO uncomment when global n_steps is fixed
 
 from lidarCNN import *
 from utils import parse_experiment_info
@@ -43,56 +44,235 @@ policy_kwargs = dict(
     net_arch = [dict(pi=[128, 64, 32], vf=[128, 64, 32])]
 )
 
-class StatsCallback(BaseCallback):
-    def __init__(self):
+# class StatsCallback(BaseCallback): #OLD #TODO remove when ensured tensorboardlogger works
+#     def __init__(self):
+#         self.n_steps = 0
+#         self.n_calls=0
+#         self.prev_stats=None
+#         self.ob_names=["u","v","w","roll","pitch","yaw","p","q","r","nu_c0","nu_c1","nu_c2","chi_err","upsilon_err","chi_err_1","upsilon_err_1","chi_err_5","upsilon_err_5"]
+#         self.state_names=["x","y","z","roll","pitch","yaw","u","v","w","p","q","r"]
+#         self.error_names=["e", "h"]
+    
+#     def _on_step(self):
+#         done_array = np.array(self.locals.get("dones") if self.locals.get("dones") is not None else self.locals.get("dones"))
+#         stats = self.locals.get("self").get_env().env_method("get_stats") 
+#         global n_steps
+        
+#         for i in range(len(done_array)):
+#             if done_array[i]:
+#                 if self.prev_stats is not None:
+#                     for stat in self.prev_stats[i].keys():
+#                         self.logger.record('stats/' + stat, self.prev_stats[i][stat])
+#                 # for stat in stats[i].keys():
+#                 #     self.logger.record('stats/' + stat, stats[i][stat])
+        
+#         self.prev_stats = stats
+
+#         # print("\nstats:", stats)
+#         # print("prev_stats:", self.prev_stats)
+
+#         if (n_steps + 1) % 10000 == 0:
+#             _self = self.locals.get("self")
+#             _self.save(os.path.join(agents_dir, "model_" + str(n_steps+1) + ".zip"))
+#         n_steps += 1
+#         return True
+
+#-----#------#-----#Temp fix to make the global n_steps variable work pasting the tensorboardlogger class here#-----#------#-----#
+class TensorboardLogger(BaseCallback):
+    """
+     A custom callback for tensorboard logging.
+
+    :param verbose: Verbosity level: 0 for no output, 1 for info messages, 2 for debug messages
+    """
+
+    def __init__(self, agents_dir=None, verbose=0,):
+        super().__init__(verbose)
+        #From tensorboard logger
+        self.n_episodes = 0
+        self.ep_reward = 0
+        self.ep_length = 0
+        #from stats callback
+        self.agents_dir = agents_dir
         self.n_steps = 0
         self.n_calls=0
         self.prev_stats=None
         self.ob_names=["u","v","w","roll","pitch","yaw","p","q","r","nu_c0","nu_c1","nu_c2","chi_err","upsilon_err","chi_err_1","upsilon_err_1","chi_err_5","upsilon_err_5"]
         self.state_names=["x","y","z","roll","pitch","yaw","u","v","w","p","q","r"]
         self.error_names=["e", "h"]
-    
-    def _on_step(self):
-        done_array = np.array(self.locals.get("dones") if self.locals.get("dones") is not None else self.locals.get("dones"))
-        stats = self.locals.get("self").get_env().env_method("get_stats") #TODO use info dict from env which is returned by step rather than this??
-        global n_steps
-        
-        for i in range(len(done_array)):
-            if done_array[i]:
-                if self.prev_stats is not None:
-                    for stat in self.prev_stats[i].keys():
-                        self.logger.record('stats/' + stat, self.prev_stats[i][stat])
-                # for stat in stats[i].keys():
-                #     self.logger.record('stats/' + stat, stats[i][stat])
-        self.prev_stats = stats
 
-        # print("\nstats:", stats)
-        # print("prev_stats:", self.prev_stats)
+    # Those variables will be accessible in the callback
+    # (they are defined in the base class)
+    # The RL model
+    # self.model = None  # type: BaseAlgorithm
+        
+    # An alias for self.model.get_env(), the environment used for training
+    # self.training_env = None  # type: Union[gym.Env, VecEnv, None]
+        
+    # Number of time the callback was called
+    # self.n_calls = 0  # type: int
+        
+    # self.num_timesteps = 0  # type: int
+    # local and global variables
+    # self.locals = None  # type: Dict[str, Any]
+    # self.globals = None  # type: Dict[str, Any]
+        
+    # The logger object, used to report things in the terminal
+    # self.logger = None  # stable_baselines3.common.logger
+    # # Sometimes, for event callback, it is useful
+    # # to have access to the parent object
+    # self.parent = None  # type: Optional[BaseCallback]
+
+    def _on_training_start(self) -> None:
+        """
+        This method is called before the first rollout starts.
+        """
+        pass
+
+    def _on_rollout_start(self) -> None:
+        """
+        A rollout is the collection of environment interaction
+        using the current policy.
+        This event is triggered before collecting new samples.
+        """
+        pass
+
+    def _on_step(self) -> bool:
+        """
+        This method will be called by the model after each call to `env.step()`.
+
+        For child callback (of an `EventCallback`), this will be called
+        when the event is triggered.
+
+        :return: (bool) If the callback returns False, training is aborted early.
+        """
+        ###From tensorboard logger###
+        # Logging data at the end of an episode - must check if the environment is done
+        done_array = self.locals["dones"]
+        n_done = np.sum(done_array).item()
+    
+        # Only log if any workers are actually at the end of an episode
+        ###From tensorboard logger end###
+
+        ###From stats callbacks###
+        stats  = {"path_adherence": [],      #self.reward_path_following_sum, 
+                "collision_avoidance_reward": [],   #self.reward_collision_avoidance_sum,
+                "collision_reward": [],             #self.reward_collision,
+                "obs":[],                           #self.past_obs,
+                "states":[],                        #self.past_states,
+                "errors":[]}                        #self.past_errors
+        
+        for info in self.locals["infos"]:
+                stats["path_adherence"].append(info["path_adherence"])
+                stats["collision_avoidance_reward"].append(info["collision_avoidance_reward"])
+                stats["collision_reward"].append(info["collision_reward"])
+                # stats["obs"].append(info["obs"])
+                stats["states"].append(info["state"])
+                stats["errors"].append(info["errors"])
+
+        global n_steps
+        ###From stats callback end###
+
+        if n_done > 0:
+            # Record the cumulative number of finished episodes
+            self.n_episodes += n_done
+            self.logger.record('time/episodes', self.n_episodes)
+
+            # Fetch data from the info dictionary in the environment (convert tuple->np.ndarray for easy indexing)
+            infos = np.array(self.locals["infos"])[done_array]
+
+            avg_reward = 0
+            avg_length = 0
+            avg_collision_reward = 0
+            avg_collision_avoidance_reward = 0
+            avg_path_adherence = 0
+            avg_path_progression = 0
+            avg_reach_end_reward = 0
+            avg_agressive_alpha_reward = 0
+            for info in infos:
+                avg_reward += info["reward"]
+                avg_length += info["env_steps"]
+                avg_collision_reward += info["collision_reward"]
+                avg_collision_avoidance_reward += info["collision_avoidance_reward"]
+                avg_path_adherence += info["path_adherence"]
+                avg_path_progression += info["path_progression"]
+                avg_reach_end_reward += info['reach_end_reward'] 
+
+            avg_reward /= n_done
+            avg_length /= n_done
+            avg_collision_reward /= n_done
+            avg_collision_avoidance_reward /= n_done
+            avg_path_adherence /= n_done
+            avg_path_progression /= n_done
+            avg_reach_end_reward /= n_done
+
+            # Write to the tensorboard logger
+            self.logger.record("episodes/avg_reward", avg_reward)
+            self.logger.record("episodes/avg_length", avg_length)
+            self.logger.record("episodes/avg_collision_reward", avg_collision_reward)
+            self.logger.record("episodes/avg_collision_avoidance_reward", avg_collision_avoidance_reward)
+            self.logger.record("episodes/avg_path_adherence_reward", avg_path_adherence)
+            self.logger.record("episodes/avg_path_progression_reward", avg_path_progression)
+            self.logger.record("episodes/avg_reach_end_reward", avg_reach_end_reward)
+            self.logger.record("episodes/avg_agressive_alpha_reward", avg_agressive_alpha_reward)
+
+            #From stats callback
+
+            #Got this error when trying to use the stats callback code below
+            # File "C:\Users\jflin\Code\Drone3D\gym_quad\train3d.py", line 218, in _on_step
+            # for stat in self.prev_stats[i].keys():
+            # KeyError: 13
+
+            for i in range(len(done_array)): 
+                if done_array[i]:
+                    if self.prev_stats is not None:
+                        for stat in self.prev_stats[i].keys():
+                            self.logger.record('stats/' + stat, self.prev_stats[i][stat])
+                    # for stat in stats[i].keys():
+                    #     self.logger.record('stats/' + stat, stats[i][stat])
+        
+        #From stats callback
+        self.prev_stats = stats
 
         if (n_steps + 1) % 10000 == 0:
             _self = self.locals.get("self")
-            _self.save(os.path.join(agents_dir, "model_" + str(n_steps+1) + ".pkl"))
+            _self.save(os.path.join(self.agents_dir, "model_" + str(n_steps+1) + ".zip"))
         n_steps += 1
         return True
 
+    def _on_rollout_end(self) -> None:
+        """
+        This event is triggered before updating the policy.
+        """
+
+    def _on_training_end(self) -> None:
+        """
+        This event is triggered before exiting the `learn()` method.
+        """
+        pass
+#-----#------#-----#Temp fix to make the global n_steps variable work pasting the tensorboardlogger class above#-----#------#-----#
+#TODO make it work without a global variable please
+
+"""
+To train the agent, run the following command in terminal exchange x for the experiment id you want to train:
+python train3d.py --exp_id x
+"""
 
 if __name__ == '__main__':
     
     experiment_dir, _, args = parse_experiment_info()
         
-    seed=np.random.randint(0,10000)
-    with open('seed.txt', 'w') as file:
-        file.write(str(seed))
-    print("set seed"+" "+ experiment_dir) #TODO make seed save to log/experiment dir
-
     for i, scen in enumerate(scenarios):
+        seed=np.random.randint(0,10000)
+        with open(f'{experiment_dir}/{scen}/seed.txt', 'w') as file:
+            file.write(str(seed))
+        print("set seed"+" "+ experiment_dir) #TODO Ensure the integrity of seeds I think theyre overwritten now if start stop start again add check for seed file
         agents_dir = os.path.join(experiment_dir, scen, "agents")
         tensorboard_dir = os.path.join(experiment_dir, scen, "tensorboard")
         os.makedirs(agents_dir, exist_ok=True)
         os.makedirs(tensorboard_dir, exist_ok=True)
         hyperparams["tensorboard_log"] = tensorboard_dir
 
-        if os.path.exists(os.path.join(experiment_dir, scen, "agents", "last_model.pkl")):
+        if os.path.exists(os.path.join(experiment_dir, scen, "agents", "last_model.zip")):
             print(experiment_dir, "ALREADY FINISHED TRAINING IN,", scen.upper(), "SKIPPING TO THE NEXT STAGE")
             if scen!="intermediate":
                 continue
@@ -111,26 +291,26 @@ if __name__ == '__main__':
     print("DONE")
     print("INITIALIZING AGENT...", end="")
 
-    agents = glob.glob(os.path.join(experiment_dir, scen, "agents", "model_*.pkl"))
+    agents = glob.glob(os.path.join(experiment_dir, scen, "agents", "model_*.zip"))
     if agents == []:
         continual_step = 0
     else:
         continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
 
-    if scen == "intermediate" and continual_step == 0:
+    if scen == "line" and continual_step == 0:
         agent = PPO('MultiInputPolicy', env, **hyperparams,policy_kwargs=policy_kwargs,seed=seed)
     elif continual_step == 0:
-        continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.pkl")
+        continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.zip")
         agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
     else:
-        continual_model = os.path.join(experiment_dir, scen, "agents", f"model_{continual_step}.pkl")
+        continual_model = os.path.join(experiment_dir, scen, "agents", f"model_{continual_step}.zip")
         agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
     print("DONE")
 
     best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - num_envs*continual_step
     print("TRAINING FOR", timesteps, "TIMESTEPS")
-    agent.learn(total_timesteps=timesteps, tb_log_name="PPO2",callback=StatsCallback(),progress_bar=True)
+    agent.learn(total_timesteps=timesteps, tb_log_name="PPO2",callback=TensorboardLogger(agents_dir=agents_dir),progress_bar=True)
     print("FINISHED TRAINING AGENT IN", scen.upper())
-    save_path = os.path.join(agents_dir, "last_model.pkl")
+    save_path = os.path.join(agents_dir, "last_model.zip")
     agent.save(save_path)
     print("SAVE SUCCESSFUL")

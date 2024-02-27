@@ -115,20 +115,10 @@ class LV_VAE(gym.Env):
         self.sensor_readings = np.zeros(shape=self.sensor_suite, dtype=float)
         self.collided = False
 
-        # self.a_des = np.array([0.0, 0.0, 0.0])
-        self.a_des = np.array([np.inf, np.inf, np.inf])
         self.prev_position_error = [0, 0, 0]
         self.total_position_error = [0, 0, 0]
 
         self.passed_waypoints = np.zeros((1, 3), dtype=np.float32)
-
-        # self.observation = {
-        #     'perception': np.zeros((1, self.sensor_suite[0], self.sensor_suite[1])),
-        #     'IMU': np.zeros((6,))
-        # }
-        #OLD I think the stuff above should be good enough #TODO
-        #Or maybe its actually smart to call the observe function here to get the first observation? 
-
         self.total_t_steps = 0
         self.ex_reward = 0
 
@@ -228,6 +218,13 @@ class LV_VAE(gym.Env):
         #dummy truncated for debugging See stack overflow QnA or Sb3 documentation for how to use truncated
         truncated = False
         return self.observation, step_reward, self.done, truncated, self.info
+
+    def get_stats(self):
+        return self.info
+        # return {"reward_path_following":self.reward_path_following_sum, #OLD
+        #         "reward_collision_avoidance":self.reward_collision_avoidance_sum,
+        #         "reward_collision":self.reward_collision}
+        #         #,"obs":self.past_obs,"states":self.past_states,"errors":self.past_errors}
 
 
     def reward(self):
@@ -414,13 +411,6 @@ class LV_VAE(gym.Env):
 
 
     #### UTILS ####
-    def get_stats(self):
-        return self.info
-        # return {"reward_path_following":self.reward_path_following_sum, #OLD
-        #         "reward_collision_avoidance":self.reward_collision_avoidance_sum,
-        #         "reward_collision":self.reward_collision}
-        #         #,"obs":self.past_obs,"states":self.past_states,"errors":self.past_errors}
-
     def calculate_object_distance(self, alpha, beta, obstacle):
         """
         Searches along a sonar ray for an object
