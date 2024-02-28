@@ -44,39 +44,6 @@ policy_kwargs = dict(
     net_arch = [dict(pi=[128, 64, 32], vf=[128, 64, 32])]
 )
 
-# class StatsCallback(BaseCallback): #OLD #TODO remove when ensured tensorboardlogger works
-#     def __init__(self):
-#         self.n_steps = 0
-#         self.n_calls=0
-#         self.prev_stats=None
-#         self.ob_names=["u","v","w","roll","pitch","yaw","p","q","r","nu_c0","nu_c1","nu_c2","chi_err","upsilon_err","chi_err_1","upsilon_err_1","chi_err_5","upsilon_err_5"]
-#         self.state_names=["x","y","z","roll","pitch","yaw","u","v","w","p","q","r"]
-#         self.error_names=["e", "h"]
-    
-#     def _on_step(self):
-#         done_array = np.array(self.locals.get("dones") if self.locals.get("dones") is not None else self.locals.get("dones"))
-#         stats = self.locals.get("self").get_env().env_method("get_stats") 
-#         global n_steps
-        
-#         for i in range(len(done_array)):
-#             if done_array[i]:
-#                 if self.prev_stats is not None:
-#                     for stat in self.prev_stats[i].keys():
-#                         self.logger.record('stats/' + stat, self.prev_stats[i][stat])
-#                 # for stat in stats[i].keys():
-#                 #     self.logger.record('stats/' + stat, stats[i][stat])
-        
-#         self.prev_stats = stats
-
-#         # print("\nstats:", stats)
-#         # print("prev_stats:", self.prev_stats)
-
-#         if (n_steps + 1) % 10000 == 0:
-#             _self = self.locals.get("self")
-#             _self.save(os.path.join(agents_dir, "model_" + str(n_steps+1) + ".zip"))
-#         n_steps += 1
-#         return True
-
 #-----#------#-----#Temp fix to make the global n_steps variable work pasting the tensorboardlogger class here#-----#------#-----#
 class TensorboardLogger(BaseCallback):
     """

@@ -1,5 +1,3 @@
-# ##Merge these two loggers into one:
-# #TODO
 # from stable_baselines3.common.callbacks import BaseCallback, CallbackList, CheckpointCallback
 # import numpy as np
 # import os
@@ -172,7 +170,7 @@
 #         """
 #         pass
 
-# #LOGGER NUBMER 2 FROM TRAIN3D.PY HERE
+# #OLD LOGGER NUBMER 2 FROM TRAIN3D.PY HERE
 # # class StatsCallback(BaseCallback):
 # #     def __init__(self):
 # #         self.n_steps = 0

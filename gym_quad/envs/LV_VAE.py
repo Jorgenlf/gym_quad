@@ -13,7 +13,6 @@ from gym_quad.objects.obstacle3d import Obstacle
 
 #TODO Implement the reward fcn from the specialization project step by step
 #TODO Decide on observation space
-#TODO Fix logger
 #TODO TEST EVERYTHING should make manual debug for this tbh
 #TODO Set up curriculum learning
 
