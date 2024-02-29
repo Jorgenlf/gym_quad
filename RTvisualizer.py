@@ -11,6 +11,9 @@ class EnvironmentVisualizer(app.Canvas):
         self.quadcopter_attitude = quadcopter_attitude
         self.waypoints_visual = None
         self.create_visuals()
+        self.text_numbers = 0
+        self.text_pos = {}
+        self.text_visuals = []
 
     def create_visuals(self):
         self.scene = scene.SceneCanvas(keys='interactive', show=True)
@@ -125,6 +128,32 @@ class EnvironmentVisualizer(app.Canvas):
                               (i + 1) * len(x[0]) + j + 1,
                               (i + 1) * len(x[0]) + j])
         return scene.visuals.Mesh(vertices, faces, color='red', parent=self.view.scene)
+    
+    def add_text(self, text): 
+        #Must be used in tandem with update_text 
+        #little wonky as the added text and the values must line up room for user error
+        if self.text_numbers == 0: #First text
+            position = (2,0,10)
+            self.text_pos[text] = position
+            self.text_numbers += 1
+        elif text not in self.text_pos.keys(): #New text
+            position = (2,0,10 - self.text_numbers*1.1)
+            self.text_pos[text] = position
+            self.text_numbers += 1
+
+    def update_text(self,values_related_to_text):
+        #Must be used in tandem with add_text 
+        #little wonky as the added text and the values must line up room for user error
+        for text_visual in self.text_visuals:
+            text_visual.parent = None
+
+        i = 0
+        for txt, pos in self.text_pos.items(): #Display all added text
+            value = values_related_to_text[i]
+            display_text = txt + ": " + str(np.round(value,3))
+            self.text_visuals.append(scene.visuals.Text(display_text, pos=pos,bold=True, color='white', font_size=320, parent=self.view.scene))
+            i += 1
+
 
     def on_draw(self, event):
         gloo.clear(color='black', depth=True)

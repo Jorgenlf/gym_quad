@@ -27,6 +27,8 @@ To run a trained agent, run the following command in terminal exchange x for the
 
 python run3d.py --env "" --exp_id x --run_scenario "" --trained_scenario "" --agent x --episodes x --manual_control False --RT_vis True
 
+python run3d.py --exp_id 3 --run_scenario "line" --trained_scenario "line" --agent 60000 --episodes 1 --RT_vis True
+
 --manual_control and --RT_vis are False by default
 --env "" is set to LV_VAE-v0 by default
 """
@@ -39,7 +41,7 @@ if __name__ == "__main__":
     # agent_path = "./log/LV_VAE-v0/Experiment 1/intermediate/agents/model_150000.pkl"
     # args = Namespace(env='LV_VAE-v0', exp_id=1, scenario='3d', controller_scenario='intermediate', controller=150000, episodes=1) #OLD
     #------------------------------------------------------
-    # args = Namespace(manual_control=True)
+    args = Namespace(manual_control=True)
     if args.manual_control == False:
         tests = glob.glob(os.path.join(experiment_dir, "test*"))
         if tests == []:
@@ -103,12 +105,13 @@ if __name__ == "__main__":
             """
             obs,info = env.reset()
             input = [0, 0, 0] #speed -1 = 0, inclination of velocity vector wrt x-axis and yaw rate 
-
+            update_text = False
             visualizer = EnvironmentVisualizer(env.obstacles, env.quadcopter.position, env.quadcopter.attitude)
             visualizer.draw_path(env.path.waypoints)
             @visualizer.scene.events.key_press.connect
             def on_key(event):
                 nonlocal input
+                nonlocal update_text
                 if event.key == 'd': # Right #TODO make these actually make the quadcopter move wrt to x axis
                     input = [1, 0, -1]
                 elif event.key == 'a': # Left
@@ -119,16 +122,43 @@ if __name__ == "__main__":
                     input = [-1, -1, -1]
                 elif event.key == 'escape':
                     env.close()
+                elif event.key == 'u':
+                    update_text = True
+
+            visualizer.add_text("Distance to end") 
+            visualizer.add_text("x y z of closest point on path")
+            visualizer.add_text("Heading angle error deg")  
+            visualizer.add_text("elevation angle error deg")
+            visualizer.add_text("phi angle vec drone closest point on path deg")
+            visualizer.add_text("psi angle vec drone closest point on path deg")
             
             while True:
-                obs, rew, done, info, _ = env.step(action=input)
-                visualizer.update_quad_visual(env.quadcopter.position, env.quadcopter.attitude)           
+                obs, rew, done, _, info = env.step(action=input)
+                visualizer.update_quad_visual(env.quadcopter.position, env.quadcopter.attitude)
+
+                normalized_dist_to_end = info['domain_obs'][19]
+                x_y_z_closepath = info['domain_obs'][8:11] 
+                headingangleerr = np.arcsin(info['domain_obs'][0])*180/np.pi
+                elevationangleerr = np.arcsin(info['domain_obs'][1])*180/np.pi
+                anglesclosestppath_phi = np.arcsin(info['domain_obs'][11])*180/np.pi
+                agnleclosestppath_psi = np.arcsin(info['domain_obs'][13])*180/np.pi #TODO add more to verify seemingly stuffs good tho so ill train an agent now
+                if update_text:
+                    print("Updating values of text")  
+                    values_related_to_text = [normalized_dist_to_end,
+                                                x_y_z_closepath,
+                                                headingangleerr,
+                                                elevationangleerr,
+                                                anglesclosestppath_phi,
+                                                agnleclosestppath_psi]
+                    visualizer.update_text(values_related_to_text)
+                    update_text = False
+
                 app.process_events()
                 if done:
                     done = False
                     env.reset()
 
-        env = gym.make("LV_VAE-v0", scenario="intermediate")
+        env = gym.make("LV_VAE-v0", scenario="line")
         _manual_control(env)
         exit()
 

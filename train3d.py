@@ -189,7 +189,7 @@ class TensorboardLogger(BaseCallback):
             # for stat in self.prev_stats[i].keys():
             # KeyError: 13
 
-            for i in range(len(done_array)): 
+            for i in range(len(done_array)): #TODO this must be fixedurgh
                 if done_array[i]:
                     if self.prev_stats is not None:
                         for stat in self.prev_stats[i].keys():
@@ -229,15 +229,16 @@ if __name__ == '__main__':
     experiment_dir, _, args = parse_experiment_info()
         
     for i, scen in enumerate(scenarios):
-        seed=np.random.randint(0,10000)
-        with open(f'{experiment_dir}/{scen}/seed.txt', 'w') as file:
-            file.write(str(seed))
-        print("set seed"+" "+ experiment_dir) #TODO Ensure the integrity of seeds I think theyre overwritten now if start stop start again add check for seed file
         agents_dir = os.path.join(experiment_dir, scen, "agents")
         tensorboard_dir = os.path.join(experiment_dir, scen, "tensorboard")
+        seed=np.random.randint(0,10000)
+        os.makedirs(experiment_dir, exist_ok=True)
         os.makedirs(agents_dir, exist_ok=True)
         os.makedirs(tensorboard_dir, exist_ok=True)
         hyperparams["tensorboard_log"] = tensorboard_dir
+        with open(f'{experiment_dir}/{scen}/seed.txt', 'w') as file:
+            file.write(str(seed))
+        print("set seed"+" "+ experiment_dir) #TODO Ensure the integrity of seeds I think theyre overwritten now if start stop start again add check for seed file
 
         if os.path.exists(os.path.join(experiment_dir, scen, "agents", "last_model.zip")):
             print(experiment_dir, "ALREADY FINISHED TRAINING IN,", scen.upper(), "SKIPPING TO THE NEXT STAGE")
@@ -276,7 +277,7 @@ if __name__ == '__main__':
 
     best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - num_envs*continual_step
     print("TRAINING FOR", timesteps, "TIMESTEPS")
-    agent.learn(total_timesteps=timesteps, tb_log_name="PPO2",callback=TensorboardLogger(agents_dir=agents_dir),progress_bar=True)
+    agent.learn(total_timesteps=timesteps, tb_log_name="PPO",callback=TensorboardLogger(agents_dir=agents_dir),progress_bar=True)
     print("FINISHED TRAINING AGENT IN", scen.upper())
     save_path = os.path.join(agents_dir, "last_model.zip")
     agent.save(save_path)

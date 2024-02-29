@@ -55,7 +55,7 @@ class LV_VAE(gym.Env):
         self.domain_space = gym.spaces.Box(
             low = -1,
             high = 1,
-            shape = np.array(13,),
+            shape = (20,),
             dtype = np.float64
         )
 
@@ -117,6 +117,8 @@ class LV_VAE(gym.Env):
         # self.path_prog = []
         self.success = False
         self.done = False
+        self.LA_at_end = False
+
 
         self.obstacles = []
         self.nearby_obstacles = []
@@ -146,6 +148,8 @@ class LV_VAE(gym.Env):
         """
         Returns observations of the environment.
         """
+        self.update_nearby_obstacles()
+
         imu = IMU()
         imu_measurement = np.zeros((6,))
         if self.total_t_steps > 0:
@@ -153,32 +157,70 @@ class LV_VAE(gym.Env):
 
         # Update nearby obstacles and calculate distances PER NOW THESE FCN CALLED ONCE HERE SO DONT NEED TO BE FCNS
         # (LIDAR sensor readings)
-        self.update_nearby_obstacles()
         self.update_sensor_readings()
 
         sensor_readings = self.sensor_readings.reshape(1, self.sensor_suite[0], self.sensor_suite[1])
 
-        domain_obs = np.zeros(13)
-        # Heading error
+        domain_obs = np.zeros(20)
+        # Heading angle error wrt. the path
         domain_obs[0] = np.sin(self.chi_error*np.pi)
         domain_obs[1] = np.cos(self.chi_error*np.pi)
+        # Elevation angle error wrt. the path
+        domain_obs[2] = np.sin(self.upsilon_error*np.pi)
+        domain_obs[3] = np.cos(self.upsilon_error*np.pi)
         
-        # Angle to velocity vector might be chi_r
-        domain_obs[2] = np.sin(self.chi_r)
-        domain_obs[3] = np.cos(self.chi_r)
+        # Angle to velocity vector from body might be chi_r #TODO double check also decide if both the errors and these are needed
+        #Iguess one actually needs two angles to describe the velocity vector in body frame
+        # Then the other angle may be upsilon_r
+        domain_obs[4] = np.sin(self.chi_r)
+        domain_obs[5] = np.cos(self.chi_r)
+        domain_obs[6] = np.sin(self.upsilon_r)
+        domain_obs[7] = np.cos(self.upsilon_r)
         
         # x y z of closest point on path in body frame
         relevant_distance = 100 #For this value and lower the observation will be changing i.e. giving info if above or below its clipped to -1 or 1
+        #TODO make this a hypervariable or make it dependent on e.g. the scene
         x,y,z = self.quadcopter.position
-        closest_point = self.path.get_closest_point([x,y,z])
+        closest_point = self.path.get_closest_position([x,y,z], self.waypoint_index)
         closest_point_body = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(closest_point - self.quadcopter.position)
-        domain_obs[4] = self.m1to1(closest_point_body[0], -relevant_distance,relevant_distance)
-        domain_obs[5] = self.m1to1(closest_point_body[1], -relevant_distance, relevant_distance)
-        domain_obs[6] = self.m1to1(closest_point_body[2], -relevant_distance,relevant_distance)
+        domain_obs[8] = self.m1to1(closest_point_body[0], -relevant_distance,relevant_distance)
+        domain_obs[9] = self.m1to1(closest_point_body[1], -relevant_distance, relevant_distance)
+        domain_obs[10] = self.m1to1(closest_point_body[2], -relevant_distance,relevant_distance)
 
-        # Angle between drone and closeset point on path
-        
+        # Two angles to describe direction of the vector between the drone and the closeset point on path
+        phi_closest_p_point_vec = np.arcsin(closest_point_body[2]/np.linalg.norm(closest_point_body))
+        psi_closest_p_point_vec = np.arctan2(closest_point_body[1], closest_point_body[0])
+        domain_obs[11] = np.sin(phi_closest_p_point_vec)
+        domain_obs[12] = np.cos(phi_closest_p_point_vec)
+        domain_obs[13] = np.sin(psi_closest_p_point_vec)
+        domain_obs[14] = np.cos(psi_closest_p_point_vec)
 
+        # body coordinates of the look ahead point
+        lookahead_world = self.path.get_lookahead_point(self.quadcopter.position, self.la_dist, self.waypoint_index)
+        #If lookahead point is the end point lock it to the end point
+        if not self.LA_at_end and np.abs(lookahead_world[0] - self.path.get_endpoint()[0]) < 1 and np.abs(lookahead_world[1] - self.path.get_endpoint()[1]) < 1 and np.abs(lookahead_world[2] - self.path.get_endpoint()[2]) < 1:
+            self.LA_at_end = True
+        if self.LA_at_end:
+            lookahead_world = self.path.get_endpoint()    
+
+        lookahead_body = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(lookahead_world - self.quadcopter.position)
+        relevant_distance = self.la_dist*2 #TODO decide this value
+        domain_obs[15] = self.m1to1(lookahead_body[0], -relevant_distance,relevant_distance)
+        domain_obs[16] = self.m1to1(lookahead_body[1], -relevant_distance, relevant_distance)
+        domain_obs[17] = self.m1to1(lookahead_body[2], -relevant_distance,relevant_distance)
+
+        # euclidean norm of the distance from drone to next waypoint
+        relevant_distance = self.path.length / self.n_waypoints
+        try:
+            distance_to_next_wp = np.linalg.norm(self.path.waypoints[self.waypoint_index+1] - self.quadcopter.position)
+        except IndexError:
+            distance_to_next_wp = np.linalg.norm(self.path.waypoints[-1] - self.quadcopter.position)
+
+        domain_obs[18] = self.m1to1(distance_to_next_wp, -relevant_distance, relevant_distance)
+
+        #euclidean norm of the distance from drone to the final waypoint
+        distance_to_end = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position)
+        domain_obs[19] = self.m1to1(distance_to_end, -self.path.length*2, self.path.length*2)
 
         return {'perception':sensor_readings,
                 'IMU':imu_measurement,
@@ -246,6 +288,8 @@ class LV_VAE(gym.Env):
         
         # Make next observation
         self.observation = self.observe()
+        domain_obs = self.observation['domain']
+        self.info['domain_obs'] = domain_obs
 
         #dummy truncated for debugging See stack overflow QnA or Sb3 documentation for how to use truncated
         truncated = False
@@ -272,9 +316,10 @@ class LV_VAE(gym.Env):
         # reward_path_adherence = np.clip(- np.log(dist_from_path), - np.inf, - np.log(0.1)) / (- np.log(0.1)) #OLD
         reward_path_adherence = -(2*(np.clip(dist_from_path, 0, self.PA_band_edge) / self.PA_band_edge) - 1)*self.PA_scale 
 
-        #Path progression reward #TODO double check if upsilon should be used here and if yes if cos is correct
-        #TODO lock the lookahead point to the end goal when it first reaches the end goal
-        reward_path_progression = np.cos(self.chi_error*np.pi)*np.cos(self.upsilon_error*np.pi)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
+        #Path progression reward 
+        reward_path_progression1 = np.cos(self.chi_error*np.pi)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
+        reward_path_progression2 = np.cos(self.upsilon_error*np.pi)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
+        reward_path_progression = reward_path_progression1 + reward_path_progression2
         reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max)
 
         ####Collision avoidance reward####
@@ -523,9 +568,9 @@ class LV_VAE(gym.Env):
 
         # Calculate course and elevation errors from tracking errors
         self.chi_r = np.arctan2(self.e, self.la_dist)
-        upsilon_r = np.arctan2(self.h, np.sqrt(self.e**2 + self.la_dist**2))
+        self.upsilon_r = np.arctan2(self.h, np.sqrt(self.e**2 + self.la_dist**2))
         chi_d = chi_p + self.chi_r
-        upsilon_d =upsilon_p + upsilon_r
+        upsilon_d =upsilon_p + self.upsilon_r
         self.chi_error = np.clip(geom.ssa(self.quadcopter.chi - chi_d)/np.pi, -1, 1) #Course angle error
         self.upsilon_error = np.clip(geom.ssa(self.quadcopter.upsilon - upsilon_d)/np.pi, -1, 1) #Elevation angle error
 

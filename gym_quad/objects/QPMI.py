@@ -297,11 +297,22 @@ class QPMI():
 
 
     def get_closest_position(self, position, wp_idx):
-        return self(self.get_closest_u(position))
+        return self(self.get_closest_u(position,wp_idx))
 
 
     def get_endpoint(self):
         return self(self.length)
+
+    def get_lookahead_point(self, position, lookahead_distance,wp_idx):
+        '''
+        Calculate the position on the path that is lookahead_distance from the given position
+        '''
+        u = self.get_closest_u(position, wp_idx)
+        if u + lookahead_distance > self.length:
+            u_lookahead = self.length
+        else:
+            u_lookahead = u + lookahead_distance
+        return self(u_lookahead)
 
 
     def plot_path(self, wps_on=True):

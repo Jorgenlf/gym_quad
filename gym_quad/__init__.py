@@ -3,11 +3,8 @@ import numpy as np
 
 lv_vae_config = {
     "step_size": 0.01,
-    "max_t_steps": 60000,
-    "min_reward": -20000,
-    "n_obs_states": 6,
-    "reward_path_following_c": 5,
-    "reward_path_following_max": 1,
+    "max_t_steps": 40000,
+    "min_reward": -200,
     "sensor_span": (85, 58), # the horizontal and vertical span of the sensors
     "sensor_suite": (15, 15), # the number of sensors covering the horizontal and vertical span
     "sensor_input_size": (8, 8), # the shape of FLS data passed to the neural network. Max pooling from raw data is used
@@ -21,16 +18,13 @@ lv_vae_config = {
     "n_int_obstacles": 5,
     "n_pro_obstacles": 3,
     "n_adv_obstacles": 8,
-    "n_fictive_waypoints": 1,
-    "fictive_waypoint_span": 10,
-    "n_generated_waypoints": 1,
-    "simulation_frequency": 10, # How many timesteps to simulate the quadcopter for each new path
+    # "simulation_frequency": 10, # How many timesteps to simulate the quadcopter for each new path
     "s_max": 2.5, # Maximum speed of the quadcopter #I THINK THIS IS SAME AS CRUISE SPEED
     "i_max": np.pi/2, # Maximum inclination angle of commanded velocity wrt x-axis
     "r_max": 0.5, # Maximum commanded yaw rate
-    'PA_band_edge'          : 40, # edge of Path adherence band
+    'PA_band_edge'          : 4, # edge of Path adherence band
     'PA_scale'              : 2,  # scale of Path adherence reward
-    'PP_vel_scale'          : 0.08, # scale of velocity reward
+    'PP_vel_scale'          : 1, # scale of velocity reward
     'PP_rew_max'            : 2.5, # maximum reward for path progression
     'PP_rew_min'            : -1, # minimum reward for path progression
     'rew_collision'         : -50, # reward for collision
@@ -46,6 +40,11 @@ register(
     entry_point='gym_quad.envs:LV_VAE',
     kwargs={'env_config': lv_vae_config}
 )
+
+
+
+
+
 
 
 #OLD vv

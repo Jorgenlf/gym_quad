@@ -180,7 +180,7 @@ class Quad():
         if u == 0:
             return np.pi/2
         else:
-            return np.arctan(w/u) 
+            return np.arctan2(w, u)
         
 
 def _thrust(force):
