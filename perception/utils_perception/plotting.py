@@ -150,7 +150,7 @@ def plot_loss_ldim_sweep(total_losses:np.ndarray, BCE_losses:np.ndarray, KL_loss
     
     # Adding the legend to the last subplot for clarity
     ax[-1].legend(handles=legend_elements, loc='upper right')
-
+, thresh=0.01
     if save:
         path = os.path.join(path, f'beta_sweep_separated.pdf')
         fig.savefig(path, bbox_inches='tight')
@@ -166,7 +166,7 @@ def kde(zs, xlabel:str, ylabel:str, path:str, name:str, save=True):
     plt.rc('ytick', labelsize=12)
     plt.rc('axes', labelsize=12)
     
-    sns.kdeplot(x=zs[:,0], y=zs[:,1], fill=True, levels=20, bw_adjust=0.75, thresh=0.01)
+    sns.kdeplot(x=zs[:,0], y=zs[:,1], fill=True, levels=20, bw_adjust=0.9)
     
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
