@@ -51,9 +51,18 @@ class LV_VAE(gym.Env):
             dtype = np.float64
         )
 
+        #Domain observation space (Angles, distances and coordinates in body frame)
+        self.domain_space = gym.spaces.Box(
+            low = -1,
+            high = 1,
+            shape = np.array(13,),
+            dtype = np.float64
+        )
+
         self.observation_space = gym.spaces.Dict({
         'perception': self.perception_space,
-        'IMU': self.IMU_space
+        'IMU': self.IMU_space,
+        'domain': self.domain_space
         })
 
         #Init values for sensor
@@ -142,14 +151,38 @@ class LV_VAE(gym.Env):
         if self.total_t_steps > 0:
             imu_measurement = imu.measure(self.quadcopter)
 
-        # Update nearby obstacles and calculate distances PER NOW THESE FCN CALLED ONCE SO DONT NEED TO BE FCNS
+        # Update nearby obstacles and calculate distances PER NOW THESE FCN CALLED ONCE HERE SO DONT NEED TO BE FCNS
+        # (LIDAR sensor readings)
         self.update_nearby_obstacles()
         self.update_sensor_readings()
 
         sensor_readings = self.sensor_readings.reshape(1, self.sensor_suite[0], self.sensor_suite[1])
 
+        domain_obs = np.zeros(13)
+        # Heading error
+        domain_obs[0] = np.sin(self.chi_error*np.pi)
+        domain_obs[1] = np.cos(self.chi_error*np.pi)
+        
+        # Angle to velocity vector might be chi_r
+        domain_obs[2] = np.sin(self.chi_r)
+        domain_obs[3] = np.cos(self.chi_r)
+        
+        # x y z of closest point on path in body frame
+        relevant_distance = 100 #For this value and lower the observation will be changing i.e. giving info if above or below its clipped to -1 or 1
+        x,y,z = self.quadcopter.position
+        closest_point = self.path.get_closest_point([x,y,z])
+        closest_point_body = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(closest_point - self.quadcopter.position)
+        domain_obs[4] = self.m1to1(closest_point_body[0], -relevant_distance,relevant_distance)
+        domain_obs[5] = self.m1to1(closest_point_body[1], -relevant_distance, relevant_distance)
+        domain_obs[6] = self.m1to1(closest_point_body[2], -relevant_distance,relevant_distance)
+
+        # Angle between drone and closeset point on path
+        
+
+
         return {'perception':sensor_readings,
-                'IMU':imu_measurement}
+                'IMU':imu_measurement,
+                'domain':domain_obs}
 
 
     def step(self, action):
@@ -410,6 +443,8 @@ class LV_VAE(gym.Env):
 
 
     #### UTILS ####
+
+    
     def calculate_object_distance(self, alpha, beta, obstacle):
         """
         Searches along a sonar ray for an object
@@ -426,28 +461,43 @@ class LV_VAE(gym.Env):
         closeness = np.clip(1-(s/self.sonar_range), 0, 1)
         return s, closeness
 
+    def m1to1(self,value, min, max):
+        '''
+        Normalizes a value from the range [min,max] to the range [-1,1]
+        If value is outside the range, it will be clipped to the min or max value
+        '''
+        value_normalized = 2.0*(value-min)/(max-min) - 1
+        return np.clip(value_normalized, -1, 1)
 
-    def penalize_obstacle_closeness(self): #TODO Probs doesnt need to be a fcn as called once
-        """
-        Calculates the colav reward
-        """
-        reward_colav = 0
-        sensor_suite_correction = 0
-        gamma_c = self.sonar_range/2
-        epsilon = 0.05
-        epsilon_closeness = 0.05
+    def invm1to1(self, value, min, max):
+        '''
+        Inverse normalizes a value from the range [-1,1] to the range [min,max]
+        If value that got normalized was outside the min max range it may only be inverted to the min or max value
+        '''
+        return (value+1)*(max-min)/2.0 + min
 
-        horizontal_angles = np.linspace(- self.sensor_span[0]/2, self.sensor_span[0]/2, self.sensor_suite[0])
-        vertical_angles = np.linspace(- self.sensor_span[1]/2, self.sensor_span[1]/2, self.sensor_suite[1])
-        for i, horizontal_angle in enumerate(horizontal_angles):
-            horizontal_factor = 1 - abs(horizontal_angle) / horizontal_angles[-1]
-            for j, vertical_angle in enumerate(vertical_angles):
-                vertical_factor = 1 - abs(vertical_angle) / vertical_angles[-1]
-                beta = vertical_factor * horizontal_factor + epsilon
-                sensor_suite_correction += beta
-                reward_colav += (beta * (1 / (gamma_c * max(1 - self.sensor_readings[j,i], epsilon_closeness)**2)))**2
 
-        return - 20 * reward_colav / sensor_suite_correction
+    # def penalize_obstacle_closeness(self): #TODO Probs doesnt need to be a fcn as called once Unused per now might be used later
+    #     """
+    #     Calculates the colav reward
+    #     """
+    #     reward_colav = 0
+    #     sensor_suite_correction = 0
+    #     gamma_c = self.sonar_range/2
+    #     epsilon = 0.05
+    #     epsilon_closeness = 0.05
+
+    #     horizontal_angles = np.linspace(- self.sensor_span[0]/2, self.sensor_span[0]/2, self.sensor_suite[0])
+    #     vertical_angles = np.linspace(- self.sensor_span[1]/2, self.sensor_span[1]/2, self.sensor_suite[1])
+    #     for i, horizontal_angle in enumerate(horizontal_angles):
+    #         horizontal_factor = 1 - abs(horizontal_angle) / horizontal_angles[-1]
+    #         for j, vertical_angle in enumerate(vertical_angles):
+    #             vertical_factor = 1 - abs(vertical_angle) / vertical_angles[-1]
+    #             beta = vertical_factor * horizontal_factor + epsilon
+    #             sensor_suite_correction += beta
+    #             reward_colav += (beta * (1 / (gamma_c * max(1 - self.sensor_readings[j,i], epsilon_closeness)**2)))**2
+
+    #     return - 20 * reward_colav / sensor_suite_correction
 
 
     #### UPDATE FUNCTIONS ####
@@ -472,9 +522,9 @@ class LV_VAE(gym.Env):
         self.h = epsilon[2] #Vertical track error 
 
         # Calculate course and elevation errors from tracking errors
-        chi_r = np.arctan2(self.e, self.la_dist)
+        self.chi_r = np.arctan2(self.e, self.la_dist)
         upsilon_r = np.arctan2(self.h, np.sqrt(self.e**2 + self.la_dist**2))
-        chi_d = chi_p + chi_r
+        chi_d = chi_p + self.chi_r
         upsilon_d =upsilon_p + upsilon_r
         self.chi_error = np.clip(geom.ssa(self.quadcopter.chi - chi_d)/np.pi, -1, 1) #Course angle error
         self.upsilon_error = np.clip(geom.ssa(self.quadcopter.upsilon - upsilon_d)/np.pi, -1, 1) #Elevation angle error
