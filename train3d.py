@@ -25,15 +25,26 @@ print('CPU COUNT:', multiprocessing.cpu_count())
 # scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
 scenarios = ["line"]
 
+#From kulkarni paper:
+'''
+The neural network is trained with an adaptive learning rate initialized at lr = 10−4. 
+The discount factor is set to γ = 0.98. 
+The neural network is trained with 1024 environments simulated in parallel with an average time step of 0.1s 
+and rollout buffer size set to 32. 
+We train this policy for approximately 26 × 10^6 environment steps aggregated over all agents.
+'''
+#TODO implement the above hyperparameters
+
+
 hyperparams = {
     'n_steps': 1024, #TODO double check what is reasobale when considered against the time steps of the environment
-    'learning_rate': 2.5e-4, #TODO why this value? #Could use ADAM?
+    'learning_rate': 2.5e-4, #TODO why this value? #Could use ADAM? Kulkarni use adaptive lr
     'batch_size': 64,
     'gae_lambda': 0.95,
-    'gamma': 0.99,
+    'gamma': 0.98, #kulkarni:0.98 old:0.99
     'n_epochs': 4,
     'clip_range': 0.2,
-    'ent_coef': 0.01, #From old:0.001 to 0.01 Might be better? #TODO test
+    'ent_coef': 0.01, 
     'verbose': 2,
     # 'device':'cuda' #unsure if cuda wanted as default as dont have nvidia gpu
 }
