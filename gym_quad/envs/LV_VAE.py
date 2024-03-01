@@ -119,7 +119,10 @@ class LV_VAE(gym.Env):
         self.done = False
         self.LA_at_end = False
 
+        #Variables for real time plotting
+        self.LA_point_body = None
 
+        #Obstacle variables
         self.obstacles = []
         self.nearby_obstacles = []
         self.sensor_readings = np.zeros(shape=self.sensor_suite, dtype=float)
@@ -144,8 +147,7 @@ class LV_VAE(gym.Env):
         return (self.observation,self.info)
 
 
-    def observe(self): #TODO print the whole obs to find the reason for this warning
-        #: UserWarning: WARN: The obs returned by the `step()` method is not within the observation space.
+    def observe(self): 
         """
         Returns observations of the environment.
         """
@@ -155,6 +157,10 @@ class LV_VAE(gym.Env):
         imu_measurement = np.zeros((6,))
         if self.total_t_steps > 0:
             imu_measurement = imu.measure(self.quadcopter)
+        #The linear acceleration is not in [-1,1] clipping it using the max speed of the quadcopter
+        imu_measurement[0:3] = np.clip(imu_measurement[0:3], -self.s_max, self.s_max)
+        #The angular velocity is not in [-1,1] clipping it using the max yaw rate of the quadcopter
+        imu_measurement[3:6] = np.clip(imu_measurement[3:6], -self.r_max, self.r_max)
 
         # Update nearby obstacles and calculate distances PER NOW THESE FCN CALLED ONCE HERE SO DONT NEED TO BE FCNS
         # (LIDAR sensor readings)
@@ -179,7 +185,7 @@ class LV_VAE(gym.Env):
         domain_obs[7] = np.cos(self.upsilon_r)
         
         # x y z of closest point on path in body frame
-        relevant_distance = 100 #For this value and lower the observation will be changing i.e. giving info if above or below its clipped to -1 or 1
+        relevant_distance = 20 #For this value and lower the observation will be changing i.e. giving info if above or below its clipped to -1 or 1
         #TODO make this a hypervariable or make it dependent on e.g. the scene
         x,y,z = self.quadcopter.position
         closest_point = self.path.get_closest_position([x,y,z], self.waypoint_index)
@@ -205,6 +211,7 @@ class LV_VAE(gym.Env):
             lookahead_world = self.path.get_endpoint()    
 
         lookahead_body = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(lookahead_world - self.quadcopter.position)
+        self.LA_point_body = lookahead_body
         relevant_distance = self.la_dist*2 #TODO decide this value
         domain_obs[15] = self.m1to1(lookahead_body[0], -relevant_distance,relevant_distance)
         domain_obs[16] = self.m1to1(lookahead_body[1], -relevant_distance, relevant_distance)
@@ -296,12 +303,12 @@ class LV_VAE(gym.Env):
         truncated = False
         return self.observation, step_reward, self.done, truncated, self.info
 
-    def get_stats(self):
-        return self.info
-        # return {"reward_path_following":self.reward_path_following_sum, #OLD
-        #         "reward_collision_avoidance":self.reward_collision_avoidance_sum,
-        #         "reward_collision":self.reward_collision}
-        #         #,"obs":self.past_obs,"states":self.past_states,"errors":self.past_errors}
+    # def get_stats(self):
+    #     return self.info
+    #     # return {"reward_path_following":self.reward_path_following_sum, #OLD
+    #     #         "reward_collision_avoidance":self.reward_collision_avoidance_sum,
+    #     #         "reward_collision":self.reward_collision}
+    #     #         #,"obs":self.past_obs,"states":self.past_states,"errors":self.past_errors}
 
 
     def reward(self):
@@ -316,11 +323,11 @@ class LV_VAE(gym.Env):
         dist_from_path = np.linalg.norm(self.path(self.prog) - self.quadcopter.position)
         # reward_path_adherence = np.clip(- np.log(dist_from_path), - np.inf, - np.log(0.1)) / (- np.log(0.1)) #OLD
         reward_path_adherence = -(2*(np.clip(dist_from_path, 0, self.PA_band_edge) / self.PA_band_edge) - 1)*self.PA_scale 
-
+       
         #Path progression reward 
         reward_path_progression1 = np.cos(self.chi_error*np.pi)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
         reward_path_progression2 = np.cos(self.upsilon_error*np.pi)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
-        reward_path_progression = reward_path_progression1 + reward_path_progression2
+        reward_path_progression = reward_path_progression1/2 + reward_path_progression2/2
         reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max)
 
         ####Collision avoidance reward####
@@ -393,7 +400,7 @@ class LV_VAE(gym.Env):
             reach_end_reward = self.rew_reach_end
 
         #Existencial reward (penalty for being alive to encourage the quadcopter to reach the end of the path quickly)
-        self.ex_reward += self.existence_reward
+        # self.ex_reward += self.existence_reward #TODO include later when others are working
 
         tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression + reach_end_reward + self.ex_reward
 
@@ -414,9 +421,9 @@ class LV_VAE(gym.Env):
 
     def geom_ctrlv2(self, action):
         #Translate the action to the desired velocity and yaw rate
-        cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1])*self.i_max
+        cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1]*self.i_max)
         cmd_v_y = 0
-        cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1])*self.i_max
+        cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1]*self.i_max)
         cmd_r = self.r_max * action[2]
         self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r]) #For plotting
 
@@ -552,10 +559,12 @@ class LV_VAE(gym.Env):
         self.upsilon_error = 0.0
 
         # Get path course and elevation
-        # s = self.prog + self.la_dist
+        # s = self.prog + self.la_dist #TODO decide to use this for s or the one below
         # if s > self.path.us[-1]:
         #     s = self.path.us[-1]
+
         s = self.prog
+
         chi_p, upsilon_p = self.path.get_direction_angles(s)
 
         # Calculate tracking errors

@@ -34,14 +34,11 @@ python run3d.py --exp_id 3 --run_scenario "line" --trained_scenario "line" --age
 """
 
 if __name__ == "__main__":
+    
     experiment_dir, agent_path, args = parse_experiment_info()
 
-    # Uncomment and run in debug mode for debugging of code---------
-    # experiment_dir = "./log\LV_VAE-v0\Experiment 1"
-    # agent_path = "./log/LV_VAE-v0/Experiment 1/intermediate/agents/model_150000.pkl"
-    # args = Namespace(env='LV_VAE-v0', exp_id=1, scenario='3d', controller_scenario='intermediate', controller=150000, episodes=1) #OLD
-    #------------------------------------------------------
-    args = Namespace(manual_control=True)
+    args = Namespace(manual_control=True) #For running of file without the need of command line arguments
+
     if args.manual_control == False:
         tests = glob.glob(os.path.join(experiment_dir, "test*"))
         if tests == []:
@@ -112,14 +109,16 @@ if __name__ == "__main__":
             def on_key(event):
                 nonlocal input
                 nonlocal update_text
-                if event.key == 'd': # Right #TODO make these actually make the quadcopter move wrt to x axis
-                    input = [1, 0, -1]
-                elif event.key == 'a': # Left
-                    input = [1, 0,1]
-                elif event.key == 'w': # Up
-                    input = [1, 1, -1]
-                elif event.key == 's': # Down
-                    input = [-1, -1, -1]
+                if event.key == 'd': # Rotate right
+                    input = [-1, 0, -1]
+                elif event.key == 'a': # Rotate left
+                    input = [-1, 0,1]
+                elif event.key == 'w': # Forward
+                    input = [1, 0.3, 0]
+                elif event.key == 'Space': # Up 
+                    input = [1, 1, 0]
+                elif event.key == 's': # down (might not be possible as geometric ctrl holds quad hovering)
+                    input = [0, 0, 0]
                 elif event.key == 'escape':
                     env.close()
                 elif event.key == 'u':
@@ -134,16 +133,27 @@ if __name__ == "__main__":
             
             while True:
                 obs, rew, done, _, info = env.step(action=input)
-                visualizer.update_quad_visual(env.quadcopter.position, env.quadcopter.attitude)
+                quad_pos = env.quadcopter.position
+                quad_att = env.quadcopter.attitude
 
-                normalized_dist_to_end = info['domain_obs'][19]
-                x_y_z_closepath = info['domain_obs'][8:11] 
-                headingangleerr = np.arcsin(info['domain_obs'][0])*180/np.pi
-                elevationangleerr = np.arcsin(info['domain_obs'][1])*180/np.pi
-                anglesclosestppath_phi = np.arcsin(info['domain_obs'][11])*180/np.pi
-                agnleclosestppath_psi = np.arcsin(info['domain_obs'][13])*180/np.pi #TODO add more to verify seemingly stuffs good tho so ill train an agent now
-                if update_text:
+                body_LApoint = env.LA_point_body
+                world_LApoint = geom.Rzyx(*quad_att) @ body_LApoint
+
+                visualizer.update_quad_visual(quad_pos, quad_att)
+
+                #purple LA point and vector
+                visualizer.update_vector(quad_pos,body_LApoint, [160/255, 32/255, 240/255]) 
+                visualizer.update_point(world_LApoint, [160/255, 32/255, 240/255]) #TODO 2x check this either Rzyx faulty or the point is not in the right place
+
+                if update_text: #Relate values to the added text above
                     print("Updating values of text")  
+                    rad2deg = 180/np.pi
+                    normalized_dist_to_end = info['domain_obs'][19]
+                    x_y_z_closepath = info['domain_obs'][8:11] 
+                    headingangleerr = np.arcsin(info['domain_obs'][0])*rad2deg
+                    elevationangleerr = np.arcsin(info['domain_obs'][1])*rad2deg
+                    anglesclosestppath_phi = np.arcsin(info['domain_obs'][11])*rad2deg
+                    agnleclosestppath_psi = np.arcsin(info['domain_obs'][13])*rad2deg #TODO add more to verify seemingly stuffs good tho so ill train an agent now
                     values_related_to_text = [normalized_dist_to_end,
                                                 x_y_z_closepath,
                                                 headingangleerr,

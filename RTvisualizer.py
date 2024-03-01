@@ -1,6 +1,5 @@
 import numpy as np
 from vispy import app, gloo, scene
-
 import gym_quad.utils.geomutils as geom
 
 class EnvironmentVisualizer(app.Canvas):
@@ -14,6 +13,8 @@ class EnvironmentVisualizer(app.Canvas):
         self.text_numbers = 0
         self.text_pos = {}
         self.text_visuals = []
+        self.vector_visuals = []
+        self.point_visuals = []
 
     def create_visuals(self):
         self.scene = scene.SceneCanvas(keys='interactive', show=True)
@@ -98,9 +99,9 @@ class EnvironmentVisualizer(app.Canvas):
         self.quadcopter.transform = scene.transforms.MatrixTransform()
         self.quadcopter.transform.translate(position)
         #Rotate the quadcopter mesh to the new attitude
-        self.quadcopter.transform.rotate(np.degrees(attitude[0]), (1, 0, 0))  # Rotate around x-axis #might need to flip the sign
-        self.quadcopter.transform.rotate(np.degrees(attitude[1]), (0, 1, 0))  # Rotate around y-axis
-        self.quadcopter.transform.rotate(np.degrees(attitude[2]), (0, 0, 1))  # Rotate around z-axis
+        # self.quadcopter.transform.rotate(np.degrees(attitude[0]), (1, 0, 0))  # Rotate around body x-axis #might need to flip the sign
+        # self.quadcopter.transform.rotate(np.degrees(attitude[1]), (0, 1, 0))  # Rotate around body y-axis
+        # self.quadcopter.transform.rotate(np.degrees(attitude[2]), (0, 0, 1))  # Rotate around body z-axis
 
     def draw_path(self, waypoints):
         if self.waypoints_visual is not None:
@@ -109,7 +110,7 @@ class EnvironmentVisualizer(app.Canvas):
         self.waypoints = waypoints
         path = scene.visuals.Line(pos=np.array(waypoints), color='cyan', parent=self.view.scene)
         waypoints_markers = scene.visuals.Markers(parent=self.view.scene)
-        waypoints_markers.set_data(pos=np.array(waypoints), size=10, edge_color='green', face_color='green')
+        waypoints_markers.set_data(pos=np.array(waypoints), size=5, edge_color='green', face_color='green')
         self.waypoints_visual = waypoints_markers
 
     def create_obstacle_visual(self, position, radius):
@@ -154,6 +155,20 @@ class EnvironmentVisualizer(app.Canvas):
             self.text_visuals.append(scene.visuals.Text(display_text, pos=pos,bold=True, color='white', font_size=320, parent=self.view.scene))
             i += 1
 
+    def update_vector(self, point1, point2, color):
+        for vector_visual in self.vector_visuals:
+            vector_visual.parent = None
+
+        vector_visual = scene.visuals.Line(pos=np.array([point1, point1 + point2]), color=color, parent=self.view.scene)
+        self.vector_visuals.append(vector_visual)
+
+    def update_point(self, point, color):
+        for point_visual in self.point_visuals:
+            point_visual.parent = None
+
+        point_visual = scene.visuals.Markers(parent=self.view.scene)
+        point_visual.set_data(pos=np.array([point]), size=7, edge_color=color, face_color=color)
+        self.point_visuals.append(point_visual)
 
     def on_draw(self, event):
         gloo.clear(color='black', depth=True)

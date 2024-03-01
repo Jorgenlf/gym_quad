@@ -34,8 +34,8 @@ class IMU():
         worldaccl = quad.state_dot(quad.state)[0:3]
         R_b_to_w = geom.Rzyx(*quad.attitude)
 
-        self.measurement[0:3] = worldaccl @ R_b_to_w.T + np.random.normal(0, self.noiseLinAcc, 3)
-        self.measurement[3:6] = quad.angular_velocity + np.random.normal(0, self.noiseAngAcc, 3)
+        self.measurement[0:3] = worldaccl @ R_b_to_w.T + np.random.normal(0, self.noiseLinAcc, 3) #linear acceleration
+        self.measurement[3:6] = quad.angular_velocity + np.random.normal(0, self.noiseAngAcc, 3) #angular velocity aka angular rate
 
         return self.measurement
 

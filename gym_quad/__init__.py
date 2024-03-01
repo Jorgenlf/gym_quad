@@ -13,12 +13,12 @@ lv_vae_config = {
     "la_dist"               : 5, # Look ahead distance aka distance to the point on path to be followed
     "accept_rad"            : 1, # Acceptance radius for the quadcopter to consider the end as reached
     "n_waypoints"           : 7, # Number of waypoints to be generated
-    "s_max"                 : 2.5, # Maximum speed of the quadcopter 
+    "s_max"                 : 2.5, # Maximum speed of the quadcopter m/s
     "i_max"                 : np.pi/2, # Maximum inclination angle of commanded velocity wrt x-axis
-    "r_max"                 : 0.5, # Maximum commanded yaw rate
+    "r_max"                 : 0.5, # Maximum commanded yaw rate rad/s
     'PA_band_edge'          : 4, # edge of Path adherence band
-    'PA_scale'              : 2,  # scale of Path adherence reward
-    'PP_vel_scale'          : 1, # scale of velocity reward
+    'PA_scale'              : 2.5,  # scale of Path adherence reward [-PA_scale, PA_scale]
+    'PP_vel_scale'          : 1, # scaling of velocity reward e.g. 1-> make 2.5m/s
     'PP_rew_max'            : 2.5, # maximum reward for path progression
     'PP_rew_min'            : -1, # minimum reward for path progression
     'rew_collision'         : -50, # reward for collision
