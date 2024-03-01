@@ -54,9 +54,9 @@ class TestController(unittest.TestCase):
         #TODO add an additional loop that converts desired thrust per rotor to angular velocity of the rotorblades.
         """
         #Using hyperparam of s_max, i_max, r_max to clip the action to get the commanded velocity and yaw rate
-        cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1])#*self.i_max)
+        cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1]*self.i_max)#*self.i_max)
         cmd_v_y = 0
-        cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1])#*self.i_max)
+        cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1]*self.i_max)#*self.i_max)
         cmd_r = self.r_max * action[2]
 
         self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r])
@@ -161,9 +161,9 @@ class TestController(unittest.TestCase):
             #TODO add an additional loop that converts desired thrust per rotor to angular velocity of the rotorblades.
             """
             #Using hyperparam of s_max, i_max, r_max to clip the action to get the commanded velocity and yaw rate
-            cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1])#*self.i_max)
+            cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1]*self.i_max)#*self.i_max)
             cmd_v_y = 0
-            cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1])#*self.i_max)
+            cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1]*self.i_max)#*self.i_max)
             cmd_r = self.r_max * action[2]
             self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r])
 
@@ -256,9 +256,9 @@ class TestController(unittest.TestCase):
             :return: m*g normalized thrust and inertial normalized torques
             """
             #Using hyperparam of s_max, i_max, r_max to clip the action to get the commanded velocity and yaw rate
-            cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1])#*self.i_max)
+            cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1]*self.i_max)#*self.i_max)
             cmd_v_y = 0
-            cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1])#*self.i_max)
+            cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1]*self.i_max)#*self.i_max)
             cmd_r = self.r_max * action[2]
 
             self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r])
@@ -290,9 +290,9 @@ class TestController(unittest.TestCase):
     def geom_ctrlv2(self, action):
         #Translate the action to the desired velocity and yaw rate
         #Try without limiting for easier debugging
-        cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1])*self.i_max
+        cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1]*self.i_max)#*self.i_max
         cmd_v_y = 0
-        cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1])*self.i_max
+        cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1]*self.i_max)#*self.i_max
         cmd_r = self.r_max * action[2]
         self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r]) #For plotting
         
