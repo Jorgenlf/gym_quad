@@ -26,16 +26,16 @@ print('CPU COUNT:', multiprocessing.cpu_count())
 scenarios = ["line"]
 
 hyperparams = {
-    'n_steps': 1024,
-    'learning_rate': 2.5e-4,
+    'n_steps': 1024, #TODO double check what is reasobale when considered against the time steps of the environment
+    'learning_rate': 2.5e-4, #TODO why this value? #Could use ADAM?
     'batch_size': 64,
     'gae_lambda': 0.95,
     'gamma': 0.99,
     'n_epochs': 4,
     'clip_range': 0.2,
-    'ent_coef': 0.001,
+    'ent_coef': 0.01, #From old:0.001 to 0.01 Might be better? #TODO test
     'verbose': 2,
-    'device':'cuda'
+    # 'device':'cuda' #unsure if cuda wanted as default as dont have nvidia gpu
 }
 
 policy_kwargs = dict(
@@ -121,7 +121,7 @@ class TensorboardLogger(BaseCallback):
         ###From tensorboard logger end###
 
         ###From stats callbacks###
-        stats  = {"path_adherence": [],      #self.reward_path_following_sum, 
+        stats  = {"path_adherence": [],             #self.reward_path_following_sum, 
                 "collision_avoidance_reward": [],   #self.reward_collision_avoidance_sum,
                 "collision_reward": [],             #self.reward_collision,
                 "obs":[],                           #self.past_obs,
@@ -154,7 +154,7 @@ class TensorboardLogger(BaseCallback):
             avg_path_adherence = 0
             avg_path_progression = 0
             avg_reach_end_reward = 0
-            avg_agressive_alpha_reward = 0
+            avg_existence_reward = 0
             for info in infos:
                 avg_reward += info["reward"]
                 avg_length += info["env_steps"]
@@ -163,6 +163,7 @@ class TensorboardLogger(BaseCallback):
                 avg_path_adherence += info["path_adherence"]
                 avg_path_progression += info["path_progression"]
                 avg_reach_end_reward += info['reach_end_reward'] 
+                avg_existence_reward += info['existence_reward']
 
             avg_reward /= n_done
             avg_length /= n_done
@@ -171,6 +172,7 @@ class TensorboardLogger(BaseCallback):
             avg_path_adherence /= n_done
             avg_path_progression /= n_done
             avg_reach_end_reward /= n_done
+            avg_existence_reward /= n_done
 
             # Write to the tensorboard logger
             self.logger.record("episodes/avg_reward", avg_reward)
@@ -180,7 +182,7 @@ class TensorboardLogger(BaseCallback):
             self.logger.record("episodes/avg_path_adherence_reward", avg_path_adherence)
             self.logger.record("episodes/avg_path_progression_reward", avg_path_progression)
             self.logger.record("episodes/avg_reach_end_reward", avg_reach_end_reward)
-            self.logger.record("episodes/avg_agressive_alpha_reward", avg_agressive_alpha_reward)
+            self.logger.record("episodes/avg_existence_reward", avg_existence_reward)
 
             #From stats callback
 
@@ -189,11 +191,12 @@ class TensorboardLogger(BaseCallback):
             # for stat in self.prev_stats[i].keys():
             # KeyError: 13
 
-            for i in range(len(done_array)): #TODO this must be fixedurgh
-                if done_array[i]:
-                    if self.prev_stats is not None:
-                        for stat in self.prev_stats[i].keys():
-                            self.logger.record('stats/' + stat, self.prev_stats[i][stat])
+            # for i in range(len(done_array)): #TODO this must be fixedurgh
+            #     if done_array[i]:
+            if self.prev_stats is not None:
+                # for stat in self.prev_stats[i].keys():
+                for stat in self.prev_stats.keys():
+                    self.logger.record('stats/' + stat, self.prev_stats[stat])
                     # for stat in stats[i].keys():
                     #     self.logger.record('stats/' + stat, stats[i][stat])
         
@@ -231,14 +234,18 @@ if __name__ == '__main__':
     for i, scen in enumerate(scenarios):
         agents_dir = os.path.join(experiment_dir, scen, "agents")
         tensorboard_dir = os.path.join(experiment_dir, scen, "tensorboard")
-        seed=np.random.randint(0,10000)
         os.makedirs(experiment_dir, exist_ok=True)
         os.makedirs(agents_dir, exist_ok=True)
         os.makedirs(tensorboard_dir, exist_ok=True)
         hyperparams["tensorboard_log"] = tensorboard_dir
-        with open(f'{experiment_dir}/{scen}/seed.txt', 'w') as file:
-            file.write(str(seed))
-        print("set seed"+" "+ experiment_dir) #TODO Ensure the integrity of seeds I think theyre overwritten now if start stop start again add check for seed file
+        seed=np.random.randint(0,10000)
+        try:
+            with open(f'{experiment_dir}/{scen}/seed.txt', 'r') as file:
+                seed = int(file.read())
+        except FileNotFoundError: 
+            with open(f'{experiment_dir}/{scen}/seed.txt', 'w') as file:
+                file.write(str(seed))
+        print("set seed"+" "+ experiment_dir) 
 
         if os.path.exists(os.path.join(experiment_dir, scen, "agents", "last_model.zip")):
             print(experiment_dir, "ALREADY FINISHED TRAINING IN,", scen.upper(), "SKIPPING TO THE NEXT STAGE")

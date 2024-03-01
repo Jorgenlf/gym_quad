@@ -144,7 +144,8 @@ class LV_VAE(gym.Env):
         return (self.observation,self.info)
 
 
-    def observe(self):
+    def observe(self): #TODO print the whole obs to find the reason for this warning
+        #: UserWarning: WARN: The obs returned by the `step()` method is not within the observation space.
         """
         Returns observations of the environment.
         """
@@ -346,7 +347,8 @@ class LV_VAE(gym.Env):
             
             #Determine the angle difference between the velocity vector and the vector to the closest obstacle
             velocity_vec = self.quadcopter.velocity
-            drone_to_obstacle_vec = self.nearby_obstacles[0].position - self.quadcopter.position #This wil require state estimation and preferably a GPS too hmm
+            drone_to_obstacle_vec = self.nearby_obstacles[0].position - self.quadcopter.position #This wil require state estimation and preferably a GPS too hmm 
+            #No worries to use this in simulation to do reward calculations as long as the observations allow for correlation between this reward and the actual world
             angle_diff = np.arccos(np.dot(drone_to_obstacle_vec, velocity_vec)/(np.linalg.norm(drone_to_obstacle_vec)*np.linalg.norm(velocity_vec)))
 
             reward_collision_avoidance = 0
@@ -374,7 +376,6 @@ class LV_VAE(gym.Env):
                 self.draw_orange_obst_vec = False
             # print('reward_collision_avoidance', reward_collision_avoidance)
 
-
             #OLD
             # collision_avoidance_rew = self.penalize_obstacle_closeness()
             # reward_collision_avoidance = - 2 * np.log(1 - collision_avoidance_rew)
@@ -391,7 +392,7 @@ class LV_VAE(gym.Env):
         if self.success:
             reach_end_reward = self.rew_reach_end
 
-        #Existencial reward (penalty for being alive)
+        #Existencial reward (penalty for being alive to encourage the quadcopter to reach the end of the path quickly)
         self.ex_reward += self.existence_reward
 
         tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression + reach_end_reward + self.ex_reward
@@ -428,7 +429,7 @@ class LV_VAE(gym.Env):
         R = geom.Rzyx(*self.quadcopter.attitude)
 
         #Essentially three different velocities that one can choose to track:
-        #Think body or wolrd frame velocity control is the best choice
+        #Think body or world frame velocity control is the best choice
         ###---###
         ##Vehicle frame velocity control i.e. intermediary frame between body and world frame
         # vehicleR = geom.Rzyx(0, 0, self.quadcopter.attitude[2])
@@ -488,8 +489,6 @@ class LV_VAE(gym.Env):
 
 
     #### UTILS ####
-
-    
     def calculate_object_distance(self, alpha, beta, obstacle):
         """
         Searches along a sonar ray for an object
@@ -684,7 +683,6 @@ class LV_VAE(gym.Env):
 
         return self.axis_equal3d(ax)
 
-
     def plot_section3d(self):
         """
         Returns 3D plot of path, obstacles and quadcopter.
@@ -792,14 +790,12 @@ class LV_VAE(gym.Env):
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
 
-
     def scenario_intermediate(self):
         initial_state = self.scenario_3d_new()
         obstacle_radius = np.random.uniform(low=4,high=10)
         obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
         self.obstacles.append(Obstacle(radius=obstacle_radius, position=obstacle_coords))
         return initial_state
-
 
     def scenario_proficient(self):
         initial_state = self.scenario_3d_new()
@@ -835,7 +831,6 @@ class LV_VAE(gym.Env):
     #             self.obstacles.append(obstacle)
     #     return initial_state
 
-
     def scenario_expert(self):
         initial_state = self.scenario_3d_new()
         obstacle_radius = np.random.uniform(low=4,high=10)
@@ -857,7 +852,6 @@ class LV_VAE(gym.Env):
 
         return initial_state
 
-
     def scenario_test_path(self):
         # test_waypoints = np.array([np.array([0,0,0]), np.array([1,1,0]), np.array([9,9,0]), np.array([10,10,0])])
         # test_waypoints = np.array([np.array([0,0,0]), np.array([5,0,0]), np.array([10,0,0]), np.array([15,0,0])])
@@ -870,19 +864,16 @@ class LV_VAE(gym.Env):
         self.obstacles.append(Obstacle(radius=10, position=self.path(20)))
         return initial_state
 
-
     def scenario_test(self):
         initial_state = self.scenario_test_path()
         points = np.linspace(self.path.length/4, 3*self.path.length/4, 3)
         self.obstacles.append(Obstacle(radius=10, position=self.path(self.path.length/2)))
         return initial_state
 
-
     def scenario_test_current(self):
         initial_state = self.scenario_test()
         self.current = Current(mu=0, Vmin=0.75, Vmax=0.75, Vc_init=0.75, alpha_init=np.pi/4, beta_init=np.pi/6, t_step=0) # Constant velocity current (reproducability for report)
         return initial_state
-
 
     def scenario_horizontal_test(self):
         waypoints = [(0,0,0), (50,0.1,0), (100,0,0)]
@@ -897,7 +888,6 @@ class LV_VAE(gym.Env):
         initial_state = np.hstack([init_pos[0], init_attitude])
         return initial_state
 
-
     def scenario_vertical_test(self):
         waypoints = [(0,0,0), (50,0,1), (100,0,0)]
         self.path = QPMI(waypoints)
@@ -910,7 +900,6 @@ class LV_VAE(gym.Env):
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos[0], init_attitude])
         return initial_state
-
 
     def scenario_deadend_test(self):
         waypoints = [(0,0,0), (50,0.5,0), (100,0,0)]
@@ -929,7 +918,6 @@ class LV_VAE(gym.Env):
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos[0], init_attitude])
         return initial_state
-
 
     def scenario_helix(self):
         initial_state = np.zeros(6)
