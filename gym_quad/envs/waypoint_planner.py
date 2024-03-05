@@ -21,7 +21,7 @@ class WaypointPlanner(gym.Env):
     Creates an environment with a quadcopter, a path and obstacles.
     """
     def __init__(self, env_config, scenario="line", seed=None):
-        np.random.seed(0) 
+        # np.random.seed(0) #From the original code, but wont this make the seed the same every time? 
         
         for key in env_config:
             setattr(self, key, env_config[key])
@@ -118,7 +118,7 @@ class WaypointPlanner(gym.Env):
         Resets environment to initial state. 
         """
         seed = kwargs.get('seed', None)
-        # print("PRINTING SEED WHEN RESETTING:", seed)
+        print("PRINTING SEED WHEN RESETTING:", seed)
         self.quadcopter = None
         self.path = None
         self.path_generated = None

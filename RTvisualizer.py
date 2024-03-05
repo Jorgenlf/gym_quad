@@ -13,8 +13,8 @@ class EnvironmentVisualizer(app.Canvas):
         self.text_numbers = 0
         self.text_pos = {}
         self.text_visuals = []
-        self.vector_visuals = []
-        self.point_visuals = []
+        self.vector_visuals = {}
+        self.point_visuals = {}
 
     def create_visuals(self):
         self.scene = scene.SceneCanvas(keys='interactive', show=True)
@@ -153,22 +153,45 @@ class EnvironmentVisualizer(app.Canvas):
             value = values_related_to_text[i]
             display_text = txt + ": " + str(np.round(value,3))
             self.text_visuals.append(scene.visuals.Text(display_text, pos=pos,bold=True, color='white', font_size=320, parent=self.view.scene))
-            i += 1
+            i += 1 
 
-    def update_vector(self, point1, point2, color):
-        for vector_visual in self.vector_visuals:
-            vector_visual.parent = None
 
-        vector_visual = scene.visuals.Line(pos=np.array([point1, point1 + point2]), color=color, parent=self.view.scene)
-        self.vector_visuals.append(vector_visual)
+    def update_vector(self, start_point, end_point, color, id):
+        '''
+        Input point1 and point2 are 3D numpy arrays representing the start and end points of the vector.
+        color is a 3D numpy array representing the color of the vector.
+        id is a string representing the id of the vector visual.
+        Updates the vector visual with the given id. 
+        If the vector visual with the given id does not exist, it creates a new vector visual with the given id.
+        '''
+        if self.vector_visuals == {}:    
+            self.vector_visuals[id] = scene.visuals.Line(pos=np.array([start_point, end_point]), color=color, parent=self.view.scene)
+        elif id not in self.vector_visuals.keys():
+            self.vector_visuals[id] = scene.visuals.Line(pos=np.array([start_point, end_point]), color=color, parent=self.view.scene)
+        elif id in self.vector_visuals.keys():
+            self.vector_visuals[id].parent = None
+            self.vector_visuals[id] = scene.visuals.Line(pos=np.array([start_point, end_point]), color=color, parent=self.view.scene)
 
-    def update_point(self, point, color):
-        for point_visual in self.point_visuals:
-            point_visual.parent = None
 
-        point_visual = scene.visuals.Markers(parent=self.view.scene)
-        point_visual.set_data(pos=np.array([point]), size=7, edge_color=color, face_color=color)
-        self.point_visuals.append(point_visual)
+    def update_point(self, point, color, id):
+        '''
+        Input point is a 3D numpy array representing the point.
+        color is a 3D numpy array representing the color of the point.
+        id is a string representing the id of the point visual.
+        Updates the point visual with the given id.
+        If the point visual with the given id does not exist, it creates a new point visual with the given id.
+        '''
+        if self.point_visuals == {}:    
+            self.point_visuals[id] = scene.visuals.Markers(parent=self.view.scene)
+            self.point_visuals[id].set_data(pos=np.array([point]), size=7, edge_color=color, face_color=color)
+        elif id in self.point_visuals.keys():
+            self.point_visuals[id].parent = None
+            self.point_visuals[id] = scene.visuals.Markers(parent=self.view.scene)
+            self.point_visuals[id].set_data(pos=np.array([point]), size=7, edge_color=color, face_color=color)
+        elif id not in self.point_visuals.keys():
+            self.point_visuals[id] = scene.visuals.Markers(parent=self.view.scene)
+            self.point_visuals[id].set_data(pos=np.array([point]), size=7, edge_color=color, face_color=color)
+
 
     def on_draw(self, event):
         gloo.clear(color='black', depth=True)

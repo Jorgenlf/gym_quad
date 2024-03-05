@@ -23,7 +23,7 @@ from utils import parse_experiment_info
 print('CPU COUNT:', multiprocessing.cpu_count())
 
 # scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
-scenarios = ["line"]
+scenarios = ["line_new"]
 
 #From kulkarni paper:
 '''
@@ -38,14 +38,17 @@ We train this policy for approximately 26 × 10^6 environment steps aggregated o
 
 hyperparams = {
     'n_steps': 1024, #TODO double check what is reasobale when considered against the time steps of the environment
-    'learning_rate': 2.5e-4, #TODO why this value? #Could use ADAM? Kulkarni use adaptive lr
+    'learning_rate': 10e-4, #2.5e-4,old 
     'batch_size': 64,
     'gae_lambda': 0.95,
-    'gamma': 0.98, #kulkarni:0.98 old:0.99
+    'gamma': 0.98, #old:0.99,
     'n_epochs': 4,
     'clip_range': 0.2,
     'ent_coef': 0.01, 
     'verbose': 2,
+    # "optimizer_class":torch.optim.Adam, #Throws error 
+    # "optimizer_kwargs":{"lr": 10e-4}
+    # 'optimizer_class': torch.optim.Adam, #Throws error
     # 'device':'cuda' #unsure if cuda wanted as default as dont have nvidia gpu
 }
 
@@ -57,11 +60,14 @@ policy_kwargs = dict(
 
 #-----#------#-----#Temp fix to make the global n_steps variable work pasting the tensorboardlogger class here#-----#------#-----#
 class TensorboardLogger(BaseCallback):
-    """
+    '''
      A custom callback for tensorboard logging.
 
     :param verbose: Verbosity level: 0 for no output, 1 for info messages, 2 for debug messages
-    """
+    To open tensorboard after training run the following command in terminal:
+    tensorboard --logdir Path/to/tensorboard_dir
+    example path: 'C:/Users/jflin/Code/Drone3D/gym_quad/log/LV_VAE-v0/Experiment 6/line/tensorboard'
+    '''
 
     def __init__(self, agents_dir=None, verbose=0,):
         super().__init__(verbose)
@@ -202,7 +208,7 @@ class TensorboardLogger(BaseCallback):
             # for stat in self.prev_stats[i].keys():
             # KeyError: 13
 
-            # for i in range(len(done_array)): #TODO this must be fixedurgh
+            # for i in range(len(done_array)): #TODO somewhat fixed, cant find the variables in tensorboard though
             #     if done_array[i]:
             if self.prev_stats is not None:
                 # for stat in self.prev_stats[i].keys():
@@ -283,7 +289,7 @@ if __name__ == '__main__':
     else:
         continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
 
-    if scen == "line" and continual_step == 0:
+    if scen == "line_new" and continual_step == 0:
         agent = PPO('MultiInputPolicy', env, **hyperparams,policy_kwargs=policy_kwargs,seed=seed)
     elif continual_step == 0:
         continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.zip")

@@ -156,7 +156,7 @@ class Quad():
     @property
     def chi(self):
         """
-        Returns the angle between the velocity vector and the x-axis.
+        Returns the angle between the velocity vector and the world xy plane.
         i.e heading angle. (?)
         """
         [x_dot, y_dot, z_dot] = self.position_dot
@@ -165,7 +165,7 @@ class Quad():
     @property
     def upsilon(self):
         """
-        Returns the angle between the world velocity vector and the x-y plane.
+        Returns the angle between the world velocity vector and the world z-axis.
         """
         [x_dot, y_dot, z_dot] = self.position_dot
         return np.arctan2(z_dot, np.sqrt(x_dot**2 + y_dot**2))
@@ -173,15 +173,18 @@ class Quad():
     @property
     def aoa(self):
         """
-        Returns the angle between the velocity vector and the body x-axis.
-        i.e the angle of attack.
+        Returns the angle between the velocity vector and the body xy plane. (angle of attack)
         """
         [u, v, w] = self.velocity
-        if u == 0:
-            return np.pi/2
-        else:
-            return np.arctan2(w, u)
-        
+        return np.arctan2(w, u)
+
+    @property
+    def beta(self):
+        """
+        Returns the angle between the velocity vector and the body x-axis about the z-axis. (sideslip angle)
+        """
+        [u, v, w] = self.velocity
+        return np.arctan2(v, u)        
 
 def _thrust(force):
     force = np.clip(force, -1, 1)

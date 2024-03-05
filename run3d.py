@@ -37,7 +37,9 @@ if __name__ == "__main__":
     
     experiment_dir, agent_path, args = parse_experiment_info()
 
-    args = Namespace(manual_control=True) #For running of file without the need of command line arguments
+    #----#----#For running of file without the need of command line arguments#----#----#
+    # args = Namespace(manual_control=True) 
+    #----#----#NB uncomment when running actual agents#----#----#
 
     if args.manual_control == False:
         tests = glob.glob(os.path.join(experiment_dir, "test*"))
@@ -81,8 +83,20 @@ if __name__ == "__main__":
                     while True:
                         action = agent.predict(env.observation, deterministic=True)[0]
                         _, _, done, _, _ = env.step(action)
-                        print(action)
-                        visualizer.update_quad_visual(env.quadcopter.position, env.quadcopter.attitude)           
+                        quad_pos = env.quadcopter.position
+                        quad_att = env.quadcopter.attitude
+
+                        world_LApoint = env.path.get_lookahead_point(quad_pos, 5, env.waypoint_index) #Maybe faster to use env.wolrd_LApoint and env.closest_path_point
+                        closest_path_point = env.path.get_closest_position(quad_pos,env.waypoint_index)
+
+                        visualizer.update_quad_visual(quad_pos, quad_att)
+
+                        #purple LA point and vector
+                        visualizer.update_vector(quad_pos,world_LApoint, [160/255, 32/255, 240/255],"LA_vec") 
+                        visualizer.update_point(world_LApoint, [160/255, 32/255, 240/255],"LA_point")
+
+                        #green closest point on path
+                        visualizer.update_point(closest_path_point, [0, 1, 0],"Closest_p_point")        
                         app.process_events()
                         if done:
                             break
@@ -136,14 +150,17 @@ if __name__ == "__main__":
                 quad_pos = env.quadcopter.position
                 quad_att = env.quadcopter.attitude
 
-                body_LApoint = env.LA_point_body
-                world_LApoint = geom.Rzyx(*quad_att) @ body_LApoint
+                world_LApoint = env.path.get_lookahead_point(quad_pos, 5, env.waypoint_index)
+                closest_path_point = env.path.get_closest_position(quad_pos,env.waypoint_index)
 
                 visualizer.update_quad_visual(quad_pos, quad_att)
 
                 #purple LA point and vector
-                visualizer.update_vector(quad_pos,body_LApoint, [160/255, 32/255, 240/255]) 
-                visualizer.update_point(world_LApoint, [160/255, 32/255, 240/255]) #TODO 2x check this either Rzyx faulty or the point is not in the right place
+                visualizer.update_vector(quad_pos,world_LApoint, [160/255, 32/255, 240/255],"LA_vec") 
+                visualizer.update_point(world_LApoint, [160/255, 32/255, 240/255],"LA_point")
+
+                #green closest point on path
+                visualizer.update_point(closest_path_point, [0, 1, 0],"Closest_p_point")
 
                 if update_text: #Relate values to the added text above
                     print("Updating values of text")  
@@ -168,7 +185,7 @@ if __name__ == "__main__":
                     done = False
                     env.reset()
 
-        env = gym.make("LV_VAE-v0", scenario="line")
+        env = gym.make("LV_VAE-v0", scenario="line_new")
         _manual_control(env)
         exit()
 
@@ -190,7 +207,7 @@ Training scenarios
     "helix": 
     "intermediate": 
     "proficient": 
-    # "advanced": 
+    #"advanced": 
     "expert": 
 
 # Testing scenarios

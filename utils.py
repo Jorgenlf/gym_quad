@@ -28,14 +28,16 @@ def parse_experiment_info():
 
     experiment_dir = os.path.join(r"./log", r"{}".format(args.env), r"Experiment {}".format(args.exp_id))
 
-    if args.run_scenario is not None:
-        agent_path = os.path.join(experiment_dir, args.run_scenario, "agents")
-    else:
+    if args.trained_scenario is not None:
         agent_path = os.path.join(experiment_dir, args.trained_scenario, "agents")
+    else:
+        agent_path = os.path.join(experiment_dir, args.run_scenario, "agents")
+    
     if args.agent is not None:
         agent_path = os.path.join(agent_path, "model_" + str(args.agent) + ".zip")
     else:
         agent_path = os.path.join(agent_path,"last_model.zip")
+    
     return experiment_dir, agent_path, args
 
 

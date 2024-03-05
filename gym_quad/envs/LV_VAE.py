@@ -21,7 +21,7 @@ class LV_VAE(gym.Env):
     while the observationspace uses a Varial AutoEncoder "plus more" for observations of environment.'''
 
     def __init__(self, env_config, scenario="line", seed=None):
-        np.random.seed(0)
+        # np.random.seed(0) #Uncomment to make the environment deterministic
 
         # Set all the parameters from GYM_QUAD/qym_quad/__init__.py as attributes of the class
         for key in env_config:
@@ -104,7 +104,7 @@ class LV_VAE(gym.Env):
         Resets environment to initial state.
         """
         seed = kwargs.get('seed', None)
-        # print("PRINTING SEED WHEN RESETTING:", seed)
+        print("PRINTING SEED WHEN RESETTING:", seed)
         self.quadcopter = None
         self.path = None
         self.path_generated = None
@@ -118,9 +118,9 @@ class LV_VAE(gym.Env):
         self.success = False
         self.done = False
         self.LA_at_end = False
+        self.cumulative_reward = 0
 
         #Variables for real time plotting
-        self.LA_point_body = None
 
         #Obstacle variables
         self.obstacles = []
@@ -165,7 +165,6 @@ class LV_VAE(gym.Env):
         # Update nearby obstacles and calculate distances PER NOW THESE FCN CALLED ONCE HERE SO DONT NEED TO BE FCNS
         # (LIDAR sensor readings)
         self.update_sensor_readings()
-
         sensor_readings = self.sensor_readings.reshape(1, self.sensor_suite[0], self.sensor_suite[1])
 
         domain_obs = np.zeros(20)
@@ -176,13 +175,11 @@ class LV_VAE(gym.Env):
         domain_obs[2] = np.sin(self.upsilon_error*np.pi)
         domain_obs[3] = np.cos(self.upsilon_error*np.pi)
         
-        # Angle to velocity vector from body might be chi_r #TODO double check also decide if both the errors and these are needed
-        #Iguess one actually needs two angles to describe the velocity vector in body frame
-        # Then the other angle may be upsilon_r
-        domain_obs[4] = np.sin(self.chi_r)
-        domain_obs[5] = np.cos(self.chi_r)
-        domain_obs[6] = np.sin(self.upsilon_r)
-        domain_obs[7] = np.cos(self.upsilon_r)
+        # Angle to velocity vector from body frame
+        domain_obs[4] = np.sin(self.quadcopter.aoa) #angle of attack
+        domain_obs[5] = np.cos(self.quadcopter.aoa)
+        domain_obs[6] = np.sin(self.quadcopter.beta) #sideslip angle
+        domain_obs[7] = np.cos(self.quadcopter.beta)
         
         # x y z of closest point on path in body frame
         relevant_distance = 20 #For this value and lower the observation will be changing i.e. giving info if above or below its clipped to -1 or 1
@@ -211,7 +208,6 @@ class LV_VAE(gym.Env):
             lookahead_world = self.path.get_endpoint()    
 
         lookahead_body = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(lookahead_world - self.quadcopter.position)
-        self.LA_point_body = lookahead_body
         relevant_distance = self.la_dist*2 #TODO decide this value
         domain_obs[15] = self.m1to1(lookahead_body[0], -relevant_distance,relevant_distance)
         domain_obs[16] = self.m1to1(lookahead_body[1], -relevant_distance, relevant_distance)
@@ -264,9 +260,9 @@ class LV_VAE(gym.Env):
         end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad and self.waypoint_index == self.n_waypoints-2
         end_cond_2 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
         end_cond_3 = self.total_t_steps >= self.max_t_steps
-        # end_cond_4 = self.reward < self.min_reward
+        end_cond_4 = self.cumulative_reward < self.min_reward
         # end_cond_4 = False
-        if end_cond_1 or end_cond_2 or end_cond_3 or self.collided: # or end_cond_4:
+        if end_cond_1 or end_cond_2 or end_cond_3 or self.collided or end_cond_4:
             if end_cond_1:
                 print("Quadcopter reached target!")
                 self.success = True
@@ -276,7 +272,9 @@ class LV_VAE(gym.Env):
             elif end_cond_2: #I think this Should be removed such that the quadcopter can fly past the endpoint and come back #TODO
                 print("Passed endpoint without hitting")
             elif end_cond_3:
-                print("Exceeded time limit")
+                print("Exceeded time limit") #Should maybe set done = truncated = True here? #TODO
+            elif end_cond_4:
+                print("Acumulated reward less than", self.min_reward)
             self.done = True
 
         # Save sim time info
@@ -293,7 +291,8 @@ class LV_VAE(gym.Env):
 
         # Calculate reward
         step_reward = self.reward()
-        
+        self.cumulative_reward += step_reward
+
         # Make next observation
         self.observation = self.observe()
         domain_obs = self.observation['domain']
@@ -302,13 +301,6 @@ class LV_VAE(gym.Env):
         #dummy truncated for debugging See stack overflow QnA or Sb3 documentation for how to use truncated
         truncated = False
         return self.observation, step_reward, self.done, truncated, self.info
-
-    # def get_stats(self):
-    #     return self.info
-    #     # return {"reward_path_following":self.reward_path_following_sum, #OLD
-    #     #         "reward_collision_avoidance":self.reward_collision_avoidance_sum,
-    #     #         "reward_collision":self.reward_collision}
-    #     #         #,"obs":self.past_obs,"states":self.past_states,"errors":self.past_errors}
 
 
     def reward(self):
@@ -323,12 +315,21 @@ class LV_VAE(gym.Env):
         dist_from_path = np.linalg.norm(self.path(self.prog) - self.quadcopter.position)
         # reward_path_adherence = np.clip(- np.log(dist_from_path), - np.inf, - np.log(0.1)) / (- np.log(0.1)) #OLD
         reward_path_adherence = -(2*(np.clip(dist_from_path, 0, self.PA_band_edge) / self.PA_band_edge) - 1)*self.PA_scale 
-       
+        # print("reward_path_adherence", reward_path_adherence)
+
         #Path progression reward 
         reward_path_progression1 = np.cos(self.chi_error*np.pi)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
         reward_path_progression2 = np.cos(self.upsilon_error*np.pi)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
         reward_path_progression = reward_path_progression1/2 + reward_path_progression2/2
         reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max)
+        # print(  "chi error [deg]", np.round(self.chi_error*180),\
+        #         "  upsilon error [deg]", np.round(self.upsilon_error*180),\
+        #         "  yaw", np.round(self.quadcopter.attitude[2]*180/np.pi),\
+        #         "  vel", np.round(np.linalg.norm(self.quadcopter.velocity),2),\
+        #         "  rew_PA", np.round(reward_path_adherence,2),\
+        #         "  rew_PP", np.round(reward_path_progression,2),\
+        #         "  rew_PP_Chi", np.round(reward_path_progression1,2),\
+        #         "  rew_PP_Ups", np.round(reward_path_progression2,2))
 
         ####Collision avoidance reward####
         #Find the closest obstacle
@@ -558,29 +559,26 @@ class LV_VAE(gym.Env):
         self.chi_error = 0.0
         self.upsilon_error = 0.0
 
-        # Get path course and elevation
-        # s = self.prog + self.la_dist #TODO decide to use this for s or the one below
-        # if s > self.path.us[-1]:
-        #     s = self.path.us[-1]
-
         s = self.prog
 
         chi_p, upsilon_p = self.path.get_direction_angles(s)
 
-        # Calculate tracking errors
+        # Calculate tracking errors Serret Frenet frame
         SF_rotation = geom.Rzyx(0, upsilon_p, chi_p)
 
         epsilon = np.transpose(SF_rotation).dot(self.quadcopter.position - self.path(s))
         self.e = epsilon[1] #Cross track error
-        self.h = epsilon[2] #Vertical track error 
+        self.h = epsilon[2] #Vertical track error
 
         # Calculate course and elevation errors from tracking errors
         self.chi_r = np.arctan2(self.e, self.la_dist)
         self.upsilon_r = np.arctan2(self.h, np.sqrt(self.e**2 + self.la_dist**2))
-        chi_d = chi_p + self.chi_r
-        upsilon_d =upsilon_p + self.upsilon_r
-        self.chi_error = np.clip(geom.ssa(self.quadcopter.chi - chi_d)/np.pi, -1, 1) #Course angle error
-        self.upsilon_error = np.clip(geom.ssa(self.quadcopter.upsilon - upsilon_d)/np.pi, -1, 1) #Elevation angle error
+        chi_d = -(chi_p + self.chi_r)
+        upsilon_d = -(upsilon_p + self.upsilon_r) #Added a minus here and above as the agent only flew up along z when it should be going along x see exp 4
+        self.chi_error = np.clip(geom.ssa(chi_d - self.quadcopter.chi)/np.pi, -1, 1) #Course angle error xy-plane
+        self.upsilon_error = np.clip(geom.ssa(upsilon_d - self.quadcopter.upsilon)/np.pi, -1, 1) #Elevation angle error zx-plane
+        # print("upsilon_d", np.round(upsilon_d*180/np.pi), "upsilon_quad", np.round(self.quadcopter.upsilon*180/np.pi), "upsilon_error", np.round(self.upsilon_error*180),\
+        #       "\n\nchi_d", np.round(chi_d*180/np.pi), "chi_quad", np.round(self.quadcopter.chi*180/np.pi), "chi_error", np.round(self.chi_error*180))
 
     def update_nearby_obstacles(self):
         """
@@ -816,9 +814,6 @@ class LV_VAE(gym.Env):
         for l in lengths:
             obstacle_radius = np.random.uniform(low=4,high=10)
             obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
-            # print(self.path(l))
-            # print(np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3)))
-            # print(obstacle_coords)
             obstacle = Obstacle(obstacle_radius, obstacle_coords[0])
             if self.check_object_overlap(obstacle):
                 continue
@@ -850,9 +845,6 @@ class LV_VAE(gym.Env):
         for l in lengths:
             obstacle_radius = np.random.uniform(low=4,high=10)
             obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
-            # print(self.path(l))
-            # print(np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3)))
-            # print(obstacle_coords)
             obstacle = Obstacle(obstacle_radius, obstacle_coords[0])
             if self.check_object_overlap(obstacle):
                 continue

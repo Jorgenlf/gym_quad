@@ -2,6 +2,7 @@ import numpy as np
 
 
 def ssa(angle):
+    """ Returns the smallest signed angle in the range [-pi, pi]."""
     return ((angle + np.pi) % (2*np.pi)) - np.pi
 
 

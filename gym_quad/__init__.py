@@ -4,7 +4,7 @@ import numpy as np
 lv_vae_config = {
     "step_size"             : 0.01, #Step size of the simulation
     "max_t_steps"           : 40000, #Maximum number of timesteps in the simulation before it is terminated
-    "min_reward"            : -200, #Minimum reward before the simulation is terminated
+    "min_reward"            : -10e4, #Minimum reward before the simulation is terminated
     "sensor_span"           : (85, 58), # the horizontal and vertical span of the sensors
     "sensor_suite"          : (15, 15), # the number of sensors covering the horizontal and vertical span
     "sensor_input_size"     : (8, 8), # the shape of FLS data passed to the neural network. Max pooling from raw data is used
@@ -16,9 +16,9 @@ lv_vae_config = {
     "s_max"                 : 2.5, # Maximum speed of the quadcopter m/s
     "i_max"                 : np.pi/2, # Maximum inclination angle of commanded velocity wrt x-axis
     "r_max"                 : 0.5, # Maximum commanded yaw rate rad/s
-    'PA_band_edge'          : 4, # edge of Path adherence band
-    'PA_scale'              : 2.5,  # scale of Path adherence reward [-PA_scale, PA_scale]
-    'PP_vel_scale'          : 1, # scaling of velocity reward e.g. 1-> make 2.5m/s
+    'PA_band_edge'          : 5, # edge of Path adherence band
+    'PA_scale'              : 3,  # scale of Path adherence reward [-PA_scale, PA_scale]
+    'PP_vel_scale'          : 0.7, # scaling of velocity reward e.g. 1-> make 2.5m/s
     'PP_rew_max'            : 2.5, # maximum reward for path progression
     'PP_rew_min'            : -1, # minimum reward for path progression
     'rew_collision'         : -50, # reward for collision
