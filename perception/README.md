@@ -28,7 +28,7 @@ python run_perception.py -h
 <br/>
 
 **Important:** <br/>
-When loading a model for testing with `--model_name <modelname>`, make sure all parameters that affect the architecture of the net (i.e., `--latent_dim`, `--batch_size`, and ofc. `IMG_SIZE` and `NUM_CHANNELS`, which are initialized in the VAE object) is set to the same values as during training of the given model.
+When loading a model for testing with `--model_name <modelname>`, make sure all parameters that affect the architecture of the net (i.e., `--latent_dim`, `--batch_size`, and ofc. `IMG_SIZE` and `NUM_CHANNELS` which are initialized in the VAE object) is set to the same values as during training of the given model. Also, make sure the encoder and decoder objects in the code are identical as during training.
 
 ## Pretraining VAE using SUN RGBD dataset:
 1. Get stripped depth (and possibly rgb) images from [this repo](https://github.com/ankurhanda/sunrgbd-meta-data?tab=readme-ov-file) created by Github user ankurhanda, under "Training and test data for depth" in the readme.

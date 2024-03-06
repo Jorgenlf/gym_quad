@@ -112,7 +112,7 @@ class TrainerVAE():
 
         return avg_tot_val_loss, avg_bce_val_loss, avg_kl_val_loss
     
-    def train(self):
+    def train(self, early_stopping=True):
         """Trains the model for self.epochs epochs and updates self.training_loss and self.validation_loss with the loss for each epoch"""
         print(f'Training VAE model\n Name: "{self.model.encoder.name}"\n Latent dim: {self.model.latent_dim} | β: {self.beta} | Epochs: {self.epochs} | Batch size: {self.batch_size} | Learning rate: {self.learning_rate}')
         print('------------------------------------------------------------')
@@ -137,14 +137,18 @@ class TrainerVAE():
             print('------------------------------------------------------------')
             
             # Early stopping check
-            if self.validation_loss['Total loss'][-1] < self.best_val_loss - self.min_delta:
-                self.best_val_loss = self.validation_loss['Total loss'][-1]
-                self.epochs_no_improve = 0
-            else:
-                self.epochs_no_improve += 1
-            
-            if self.epochs_no_improve >= self.patience:
-                print(f'Early stopping triggered after {epoch+1} epochs.')
-                return epoch+1
+            if early_stopping:
+                if self.validation_loss['Total loss'][-1] < self.best_val_loss - self.min_delta:
+                    self.best_val_loss = self.validation_loss['Total loss'][-1]
+                    self.epochs_no_improve = 0
+                else:
+                    self.epochs_no_improve += 1
+                
+                if self.epochs_no_improve >= self.patience:
+                    print(f'Early stopping triggered after {epoch+1} epochs.')
+                    return epoch+1
+        
+        if not early_stopping:
+            return self.epochs
                 
             

@@ -163,8 +163,8 @@ class DataReader:
         """
         
         # USED FOR FAST ITERATION ON PLOTTING CODE
-        indices_1 = list(range(300))
-        indices_2 = list(range(100))
+        indices_1 = list(range(1000))
+        indices_2 = list(range(400))
         train_loader = DataLoader(Subset(train_data, indices_1), 
                                   batch_size=self.batch_size, 
                                   shuffle=shuffle,
@@ -201,6 +201,8 @@ class CustomDepthDataset(Dataset):
         self.transform = transform
         self.image_files = [os.path.join(root_dir, f) for f in os.listdir(root_dir) if f.endswith('.png')]
         self.depth_divide_by_to_get_meters = 10000
+        self.max_measurable_distance = 65535
+        self.min_measurable_distance = 0
     
     def __len__(self):
         return len(self.image_files)
@@ -211,11 +213,52 @@ class CustomDepthDataset(Dataset):
         img_np = np.array(img, dtype=np.float32)  # Convert to numpy array and ensure it's float32
 
         # Convert to meters and normalize
-        img_np = img_np / self.depth_divide_by_to_get_meters  # Conversion to meters
-        img_np = (img_np - img_np.min()) / (img_np.max() - img_np.min())
+        #img_np = img_np / self.depth_divide_by_to_get_meters  # Conversion to meters
+        img_np = img_np / self.max_measurable_distance  # Normalization
 
         # Due to a bug, some pixels have values slightly larger than 1 (1,0000001 or 1.0000002), set these to 1
-        img_np[img_np > 1] = 1.0
+        #img_np[img_np > 1] = 1.0
+
+        # Convert to 1-channeled tensor
+        img_tensor = torch.from_numpy(img_np).unsqueeze(0)  # Add channel dimension
+
+        if self.transform:
+            img_tensor = self.transform(img_tensor)
+
+        return img_tensor
+    
+class RealSenseDataset(Dataset):
+    """
+    - Custom depth image dataset for the collected Intel Realsense deph images. 
+    - Images are normalized to [0, 1] range, and then converted to tensors.
+    - Output tensors have one channel.
+    - Additional transformations can be added to the transform argument in the constructor.
+    """
+    def __init__(self, root_dir, transform=None):
+        """
+        Args:
+            root_dir (string): Directory with all the depth images.
+            transform (callable, optional): Optional transform to be applied on a sample.
+        """
+        self.root_dir = root_dir
+        self.transform = transform
+        self.image_files = [os.path.join(root_dir, f) for f in os.listdir(root_dir) if f.endswith('.png')]
+        self.max_measurable_distance = 65535
+        self.min_measurable_distance = 0
+    
+    def __len__(self):
+        return len(self.image_files)
+
+    def __getitem__(self, idx):
+        img_path = self.image_files[idx]
+        img = cv2.imread(img_path, cv2.IMREAD_ANYDEPTH)
+        img_np = np.array(img, dtype=np.float32)  # Convert to numpy array and ensure it's float
+
+        # Normalize
+        #img_np = (img_np - img_np.min()) / (img_np.max() - img_np.min())
+        # set all pixel values above 6500 in img_np to 6500
+        img_np[img_np > 6500] = 6500
+        img_np = (img_np - self.min_measurable_distance) / 6500
 
         # Convert to 1-channeled tensor
         img_tensor = torch.from_numpy(img_np).unsqueeze(0)  # Add channel dimension

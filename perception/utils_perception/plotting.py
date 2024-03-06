@@ -77,13 +77,13 @@ def reconstruct_and_plot(input_img_as_tensor, vae: nn.Module, model_name: str, e
             os.makedirs(path)
         
         plt.figure(figsize=(10, 10))  
-        plt.imshow(input_img, cmap=cmap)
+        plt.imshow(input_img, cmap=cmap, vmin=0, vmax=1)
         plt.axis('off')
         save_path = os.path.join(path, f"{model_name}_experiment_{experiment_id}_{i}_input.pdf")
         plt.savefig(save_path, bbox_inches='tight')
 
         plt.figure(figsize=(10, 10))  
-        plt.imshow(reconstruction, cmap=cmap)
+        plt.imshow(reconstruction, cmap=cmap, vmin=0, vmax=1)
         plt.axis('off')
         save_path = os.path.join(path, f"{model_name}_experiment_{experiment_id}_{i}_reconstructed.pdf")
         plt.savefig(save_path, bbox_inches='tight')
@@ -150,7 +150,6 @@ def plot_loss_ldim_sweep(total_losses:np.ndarray, BCE_losses:np.ndarray, KL_loss
     
     # Adding the legend to the last subplot for clarity
     ax[-1].legend(handles=legend_elements, loc='upper right')
-, thresh=0.01
     if save:
         path = os.path.join(path, f'beta_sweep_separated.pdf')
         fig.savefig(path, bbox_inches='tight')
