@@ -23,7 +23,7 @@ from utils import parse_experiment_info
 print('CPU COUNT:', multiprocessing.cpu_count())
 
 # scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
-scenarios = ["line_new"]
+scenarios = ["line"]
 
 #From kulkarni paper:
 '''
@@ -289,7 +289,7 @@ if __name__ == '__main__':
     else:
         continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
 
-    if scen == "line_new" and continual_step == 0:
+    if scen == "line" and continual_step == 0:
         agent = PPO('MultiInputPolicy', env, **hyperparams,policy_kwargs=policy_kwargs,seed=seed)
     elif continual_step == 0:
         continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.zip")

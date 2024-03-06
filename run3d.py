@@ -88,8 +88,12 @@ if __name__ == "__main__":
 
                         world_LApoint = env.path.get_lookahead_point(quad_pos, 5, env.waypoint_index) #Maybe faster to use env.wolrd_LApoint and env.closest_path_point
                         closest_path_point = env.path.get_closest_position(quad_pos,env.waypoint_index)
+                        velcoity_body = env.quadcopter.velocity
 
                         visualizer.update_quad_visual(quad_pos, quad_att)
+                        
+                        #orange body velocity vector NB SCALED FOR VISIBILITY
+                        visualizer.update_vector(quad_pos,quad_pos+velcoity_body*2, [1, 0.5, 0],"Body_velocity")
 
                         #purple LA point and vector
                         visualizer.update_vector(quad_pos,world_LApoint, [160/255, 32/255, 240/255],"LA_vec") 
@@ -132,7 +136,7 @@ if __name__ == "__main__":
                 elif event.key == 'Space': # Up 
                     input = [1, 1, 0]
                 elif event.key == 's': # down (might not be possible as geometric ctrl holds quad hovering)
-                    input = [0, 0, 0]
+                    input = [1, -1, 0]
                 elif event.key == 'escape':
                     env.close()
                 elif event.key == 'u':
@@ -153,7 +157,12 @@ if __name__ == "__main__":
                 world_LApoint = env.path.get_lookahead_point(quad_pos, 5, env.waypoint_index)
                 closest_path_point = env.path.get_closest_position(quad_pos,env.waypoint_index)
 
+                velcoity_body = env.quadcopter.velocity
+
                 visualizer.update_quad_visual(quad_pos, quad_att)
+                
+                #orange body velocity vector NB SCALED FOR VISIBILITY
+                visualizer.update_vector(quad_pos,quad_pos+velcoity_body*2, [1, 0.5, 0],"Body_velocity")
 
                 #purple LA point and vector
                 visualizer.update_vector(quad_pos,world_LApoint, [160/255, 32/255, 240/255],"LA_vec") 

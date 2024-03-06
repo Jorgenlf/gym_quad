@@ -164,13 +164,14 @@ class EnvironmentVisualizer(app.Canvas):
         Updates the vector visual with the given id. 
         If the vector visual with the given id does not exist, it creates a new vector visual with the given id.
         '''
+        w = 2
         if self.vector_visuals == {}:    
-            self.vector_visuals[id] = scene.visuals.Line(pos=np.array([start_point, end_point]), color=color, parent=self.view.scene)
+            self.vector_visuals[id] = scene.visuals.Line(pos=np.array([start_point, end_point]), color=color,width=w, parent=self.view.scene)
         elif id not in self.vector_visuals.keys():
-            self.vector_visuals[id] = scene.visuals.Line(pos=np.array([start_point, end_point]), color=color, parent=self.view.scene)
+            self.vector_visuals[id] = scene.visuals.Line(pos=np.array([start_point, end_point]), color=color,width=w, parent=self.view.scene)
         elif id in self.vector_visuals.keys():
             self.vector_visuals[id].parent = None
-            self.vector_visuals[id] = scene.visuals.Line(pos=np.array([start_point, end_point]), color=color, parent=self.view.scene)
+            self.vector_visuals[id] = scene.visuals.Line(pos=np.array([start_point, end_point]), color=color,width=w, parent=self.view.scene)
 
 
     def update_point(self, point, color, id):

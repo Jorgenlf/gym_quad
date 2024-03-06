@@ -32,6 +32,10 @@ def R(x, y, z):
 
 
 def Rzyx(phi, theta, psi):
+    '''
+    input: phi, theta, psi of the body frame relative to the world frame
+    Rotation matrix from the body frame to the world frame.
+    '''
     cphi = np.cos(phi)
     sphi = np.sin(phi)
     cth = np.cos(theta)

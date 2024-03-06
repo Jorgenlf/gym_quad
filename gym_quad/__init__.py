@@ -4,7 +4,7 @@ import numpy as np
 lv_vae_config = {
     "step_size"             : 0.01, #Step size of the simulation
     "max_t_steps"           : 40000, #Maximum number of timesteps in the simulation before it is terminated
-    "min_reward"            : -10e4, #Minimum reward before the simulation is terminated
+    "min_reward"            : -5e4, #Minimum reward before the simulation is terminated
     "sensor_span"           : (85, 58), # the horizontal and vertical span of the sensors
     "sensor_suite"          : (15, 15), # the number of sensors covering the horizontal and vertical span
     "sensor_input_size"     : (8, 8), # the shape of FLS data passed to the neural network. Max pooling from raw data is used
