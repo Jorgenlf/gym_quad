@@ -9,7 +9,7 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.nn.functional as F
 
-from utils_perception.data_reader import DataReader, SunRGBD, CustomDepthDataset, RealSenseDataset
+from utils_perception.data_reader import DataReader, SunRGBD, CustomDepthDataset, RealSenseDataset, RealSenseDataset_v2, DataReaderRealSensev2
 from utils_perception import plotting
 
 #from utils_perception.data_augmentation import DataAugmentation
@@ -55,8 +55,8 @@ def main(args):
     train_additional_transform = transforms.Compose([
         transforms.Resize((IMG_SIZE, IMG_SIZE)),
         transforms.RandomHorizontalFlip(p=0.5),
-        #transforms.RandomVerticalFlip(p=0.25),
-        #transforms.GaussianBlur(kernel_size=(5, 5), sigma=(0.5, 1.5)),
+        transforms.RandomVerticalFlip(p=0.15),
+        transforms.GaussianBlur(kernel_size=(5, 5), sigma=(0.5, 1.5)),
         #transforms.Normalize(mean=[0.291],
         #                     std=[0.147])
         #transforms.RandomRotation(degrees=(30, 70)),
@@ -87,10 +87,16 @@ def main(args):
     print(f'Data loaded\nSize train: {len(train_loader.dataset)} | Size validation: {len(val_loader.dataset)} | Size test: {len(test_loader.dataset)}\n')
 
 
-    realsense_dataset = RealSenseDataset(root_dir="data/realsense_data/depth_imgs", transform=transforms.Resize((IMG_SIZE, IMG_SIZE)))
-    realsense_loader = torch.utils.data.DataLoader(realsense_dataset, batch_size=1, shuffle=True)
+    dataloader_rs = DataReaderRealSensev2(path_img_depth="data/realsense_v2_depth",
+                            batch_size=BATCH_SIZE,
+                            train_test_split=0.7,
+                            train_val_split=0.3,
+                            transforms_train=valid_additional_transform,
+                            transforms_validate=valid_additional_transform)
+    
+    train_loader_rs, val_loader_rs, test_loader_rs = dataloader_rs.load_split_data_realsense(seed=None, shuffle=True)
 
-    print(f'Realsense data loaded\nSize: {len(realsense_loader.dataset)}\n')
+    print(f'RealSense Data loaded\nSize train: {len(train_loader_rs.dataset)} | Size validation: {len(val_loader_rs.dataset)} | Size test: {len(test_loader_rs.dataset)}\n')
 
     # Augment data
     #data_augmentation = DataAugmentation()
@@ -115,7 +121,8 @@ def main(args):
                 print(f'[Seed {i+1}/{NUM_SEEDS}]')
 
                 # Load data with different seed
-                train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=None, shuffle=True)
+                #train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=None, shuffle=True)
+                train_loader, val_loader, test_loader = dataloader_rs.load_split_data_realsense(seed=None, shuffle=True)
 
                 # Create VAE based on args.model_name
                 if model_name == 'conv1':
@@ -363,7 +370,7 @@ def main(args):
         decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=encoder.flattened_size, dim_before_flatten=encoder.dim_before_flatten)
         decoder.load(f"models/decoders/decoder_{full_name}.json")
         vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)"""
-
+        """
         # Test realsense data
         savepath_realsense = f'results/{model_name}/plots/realsense/exp{experiment_id}'
         loss = 0.0
@@ -390,12 +397,12 @@ def main(args):
                 #plotting.reconstruct_and_plot(x, vae, model_name, experiment_id, savepath2, i, cmap='magma', save=True)
 
         print(f'Average reconstruction loss for realsense data: {loss/len(realsense_loader.dataset)}')
-        print(f'Average reconstruction loss for test data: {loss2/len(test_loader.dataset)}')
+        print(f'Average reconstruction loss for test data: {loss2/len(test_loader.dataset)}')"""
         
         if "reconstructions" in args.plot:
             savepath_recon = f'results/{model_name}/plots/reconstructions/exp{experiment_id}'
             os.makedirs(savepath_recon, exist_ok=True)
-            for i, x in enumerate(test_loader):
+            for i, x in enumerate(test_loader_rs):
                 if i == args.num_examples: break
                 img = x.to(device)
                 plotting.reconstruct_and_plot(img, vae, model_name, experiment_id, savepath_recon, i, cmap='magma', save=True)
