@@ -194,12 +194,17 @@ class LV_VAE(gym.Env):
         #       "  quad att", np.round(self.quadcopter.attitude))
 
         # Two angles to describe direction of the vector between the drone and the closeset point on path
-        ele_closest_p_point_vec = np.arcsin(closest_point_body[2]/np.linalg.norm(closest_point_body))
-        azi_closest_p_point_vec = np.arctan2(closest_point_body[1], closest_point_body[0])
-        
-        print(  "elevation angle to CPP", np.round(ele_closest_p_point_vec*180/np.pi,2),\
-                "  azimuth angle to CPP", np.round(azi_closest_p_point_vec*180/np.pi,2),\
-                )
+        x_b_cpp = closest_point_body[0]
+        y_b_cpp = closest_point_body[1]
+        z_b_cpp = closest_point_body[2]
+        # ele_closest_p_point_vec = np.arcsin(closest_point_body[2]/np.linalg.norm(closest_point_body)) #OLD
+        # azi_closest_p_point_vec = np.arctan2(closest_point_body[1], closest_point_body[0])
+        ele_closest_p_point_vec = np.arctan2(z_b_cpp, np.sqrt(x_b_cpp**2 + y_b_cpp**2))
+        azi_closest_p_point_vec = np.arctan2(y_b_cpp, x_b_cpp)
+
+        # print(  "elevation angle to CPP", np.round(ele_closest_p_point_vec*180/np.pi,2),\
+        #         "  azimuth angle to CPP", np.round(azi_closest_p_point_vec*180/np.pi,2),\
+        #         )
         
         domain_obs[11] = np.sin(ele_closest_p_point_vec)
         domain_obs[12] = np.cos(ele_closest_p_point_vec)
