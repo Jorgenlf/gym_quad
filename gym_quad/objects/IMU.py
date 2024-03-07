@@ -31,11 +31,11 @@ class IMU():
         Measure the state of the quadcopter.
         """
         # Add noise to the state #TODO implement later
-        worldaccl = quad.state_dot(quad.state)[0:3]
-        R_b_to_w = geom.Rzyx(*quad.attitude)
+        bodyaccl = quad.state_dot(quad.state)[6:9] #Speed derivative of the body frame velocity
+        # R_b_to_w = geom.Rzyx(*quad.attitude)
 
-        self.measurement[0:3] = worldaccl @ R_b_to_w.T + np.random.normal(0, self.noiseLinAcc, 3) #linear acceleration
-        self.measurement[3:6] = quad.angular_velocity + np.random.normal(0, self.noiseAngAcc, 3) #angular velocity aka angular rate
+        self.measurement[0:3] = bodyaccl #@ R_b_to_w.T + np.random.normal(0, self.noiseLinAcc, 3) #linear acceleration
+        self.measurement[3:6] = quad.angular_velocity # + np.random.normal(0, self.noiseAngAcc, 3) #angular velocity aka angular rate
 
         return self.measurement
 

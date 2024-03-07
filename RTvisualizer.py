@@ -38,9 +38,9 @@ class EnvironmentVisualizer(app.Canvas):
             self.obstacle_visuals.append(obstacle_visual)
 
         # Create quadcopter visual
-        half_length = 0.5
-        half_width = 0.5
-        half_height = 0.25
+        half_length = 0.25
+        half_width = 0.25
+        half_height = 0.125
         quadcopter_vertices = np.array([
             (-half_length, -half_width, -half_height),  # Front bottom left
             (half_length, -half_width, -half_height),   # Front bottom right
@@ -65,20 +65,20 @@ class EnvironmentVisualizer(app.Canvas):
         # Define colors for each vertex
         quadcopter_colors = np.array([
             
-            [0.5, 0.5, 0.5], # Grey face
+            [0.5, 0.5, 0.5], # Grey faces
             [0.5, 0.5, 0.5],
-            [0, 0, 1],  # Blue face Up
-            [0, 0, 1],
+            [0.5, 0.5, 0.5], 
+            [0.5, 0.5, 0.5],
 
-            [0.5, 0.5, 0.5], # Grey face
+            [0.5, 0.5, 0.5], 
             [0.5, 0.5, 0.5],
-            [1, 0, 0], # Red face Along x axis ie front face
-            [1, 0, 0],
+            [0.5, 0.5, 0.5], 
+            [0.5, 0.5, 0.5],
 
-            [0.5, 0.5, 0.5], # Grey face
+            [0.5, 0.5, 0.5], 
             [0.5, 0.5, 0.5],
-            [0, 1, 0],  # Green face Along y axis ie left face
-            [0, 1, 0],
+            [0.5, 0.5, 0.5], 
+            [0.5, 0.5, 0.5],
         ])
 
         # Create quadcopter visual

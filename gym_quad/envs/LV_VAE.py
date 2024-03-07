@@ -10,10 +10,8 @@ from gym_quad.objects.current3d import Current
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.obstacle3d import Obstacle
 
-
-#TODO Implement the reward fcn from the specialization project step by step
-#TODO Decide on observation space
-#TODO TEST EVERYTHING should make manual debug for this tbh
+#TODO Squash bugs such that pathfollowing works
+#TODO Hope that obstacle avoidance works when pathfollowing works if not fix it as well
 #TODO Set up curriculum learning
 
 class LV_VAE(gym.Env):
@@ -104,7 +102,7 @@ class LV_VAE(gym.Env):
         Resets environment to initial state.
         """
         seed = kwargs.get('seed', None)
-        print("PRINTING SEED WHEN RESETTING:", seed)
+        print("PRINTING SEED WHEN RESETTING:", seed) 
         self.quadcopter = None
         self.path = None
         self.path_generated = None
@@ -151,7 +149,6 @@ class LV_VAE(gym.Env):
         """
         Returns observations of the environment.
         """
-        self.update_nearby_obstacles()
 
         imu = IMU()
         imu_measurement = np.zeros((6,))
@@ -164,6 +161,7 @@ class LV_VAE(gym.Env):
 
         # Update nearby obstacles and calculate distances PER NOW THESE FCN CALLED ONCE HERE SO DONT NEED TO BE FCNS
         # (LIDAR sensor readings)
+        self.update_nearby_obstacles()
         self.update_sensor_readings()
         sensor_readings = self.sensor_readings.reshape(1, self.sensor_suite[0], self.sensor_suite[1])
 
@@ -196,12 +194,17 @@ class LV_VAE(gym.Env):
         #       "  quad att", np.round(self.quadcopter.attitude))
 
         # Two angles to describe direction of the vector between the drone and the closeset point on path
-        phi_closest_p_point_vec = np.arcsin(closest_point_body[2]/np.linalg.norm(closest_point_body))
-        psi_closest_p_point_vec = np.arctan2(closest_point_body[1], closest_point_body[0])
-        domain_obs[11] = np.sin(phi_closest_p_point_vec)
-        domain_obs[12] = np.cos(phi_closest_p_point_vec)
-        domain_obs[13] = np.sin(psi_closest_p_point_vec)
-        domain_obs[14] = np.cos(psi_closest_p_point_vec)
+        ele_closest_p_point_vec = np.arcsin(closest_point_body[2]/np.linalg.norm(closest_point_body))
+        azi_closest_p_point_vec = np.arctan2(closest_point_body[1], closest_point_body[0])
+        
+        print(  "elevation angle to CPP", np.round(ele_closest_p_point_vec*180/np.pi,2),\
+                "  azimuth angle to CPP", np.round(azi_closest_p_point_vec*180/np.pi,2),\
+                )
+        
+        domain_obs[11] = np.sin(ele_closest_p_point_vec)
+        domain_obs[12] = np.cos(ele_closest_p_point_vec)
+        domain_obs[13] = np.sin(azi_closest_p_point_vec)
+        domain_obs[14] = np.cos(azi_closest_p_point_vec)
 
         # body coordinates of the look ahead point
         lookahead_world = self.path.get_lookahead_point(self.quadcopter.position, self.la_dist, self.waypoint_index)
@@ -218,25 +221,24 @@ class LV_VAE(gym.Env):
         domain_obs[17] = self.m1to1(lookahead_body[2], -relevant_distance,relevant_distance)
 
         # euclidean norm of the distance from drone to next waypoint
-        relevant_distance = self.path.length / self.n_waypoints
+        relevant_distance = (self.path.length / self.n_waypoints-1)*2 #Should be n-1 waypoints to get m segments
         distance_to_next_wp = 0
         try:
             distance_to_next_wp = np.linalg.norm(self.path.waypoints[self.waypoint_index+1] - self.quadcopter.position)
         except IndexError:
             distance_to_next_wp = np.linalg.norm(self.path.waypoints[-1] - self.quadcopter.position)
-
         domain_obs[18] = self.m1to1(distance_to_next_wp, -relevant_distance, relevant_distance)
+        # print("dist_nxt_wp", np.round(distance_to_next_wp),"  normed", np.round(domain_obs[18],2))
 
         #euclidean norm of the distance from drone to the final waypoint
         distance_to_end = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position)
         domain_obs[19] = self.m1to1(distance_to_end, -self.path.length*2, self.path.length*2)
 
         #velocity vector in body frame
-        velocity_body = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(self.quadcopter.velocity)
+        velocity_body = self.quadcopter.velocity
         domain_obs[20] = self.m1to1(velocity_body[0], -self.s_max, self.s_max)
         domain_obs[21] = self.m1to1(velocity_body[1], -self.s_max, self.s_max)
         domain_obs[22] = self.m1to1(velocity_body[2], -self.s_max, self.s_max)
-
 
         return {'perception':sensor_readings,
                 'IMU':imu_measurement,
@@ -332,11 +334,11 @@ class LV_VAE(gym.Env):
               
 
         #Path progression reward 
+        reward_path_progression = 0
         # reward_path_progression1 = np.cos(self.chi_error*np.pi)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
         # reward_path_progression2 = np.cos(self.upsilon_error*np.pi)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
         # reward_path_progression = reward_path_progression1/2 + reward_path_progression2/2
         # reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max)
-        reward_path_progression = 0
         # print(  "chi error [deg]", np.round(self.chi_error*180),\
         #         "  upsilon error [deg]", np.round(self.upsilon_error*180),\
         #         "  yaw", np.round(self.quadcopter.attitude[2]*180/np.pi),\
@@ -346,57 +348,58 @@ class LV_VAE(gym.Env):
         #         "  rew_PP_Chi", np.round(reward_path_progression1,2),\
         #         "  rew_PP_Ups", np.round(reward_path_progression2,2))
 
+
         ####Collision avoidance reward####
         #Find the closest obstacle
         reward_collision_avoidance = 0
-        if self.nearby_obstacles != []: #If there are no obstacles, no need to calculate the reward #TODO decide if this nearby or all obstacles should be used
-            drone_closest_obs_dist = np.inf
-            self.sensor_readings
-            for i in range(self.sensor_suite[0]):
-                for j in range(self.sensor_suite[1]):
-                    if self.sensor_readings[j,i] < drone_closest_obs_dist:
-                        drone_closest_obs_dist = self.sensor_readings[j,i]
-                        print("drone_closest_obs_dist", drone_closest_obs_dist)
+        # if self.nearby_obstacles != []: #If there are no obstacles, no need to calculate the reward #TODO decide if this nearby or all obstacles should be used
+        #     drone_closest_obs_dist = np.inf
+        #     self.sensor_readings
+        #     for i in range(self.sensor_suite[0]):
+        #         for j in range(self.sensor_suite[1]):
+        #             if self.sensor_readings[j,i] < drone_closest_obs_dist:
+        #                 drone_closest_obs_dist = self.sensor_readings[j,i]
+        #                 print("drone_closest_obs_dist", drone_closest_obs_dist)
 
-            inv_abs_min_rew = self.abs_inv_CA_min_rew 
-            danger_range = self.danger_range
-            danger_angle = self.danger_angle            
+        #     inv_abs_min_rew = self.abs_inv_CA_min_rew 
+        #     danger_range = self.danger_range
+        #     danger_angle = self.danger_angle            
             
-            #Determine lambda reward for path following and path adherence based on the distance to the closest obstacle
-            if (drone_closest_obs_dist < danger_range):
-                lambda_PA = (drone_closest_obs_dist/danger_range)/2
-                if lambda_PA < 0.10 : lambda_PA = 0.10
-                lambda_CA = 1-lambda_PA
+        #     #Determine lambda reward for path following and path adherence based on the distance to the closest obstacle
+        #     if (drone_closest_obs_dist < danger_range):
+        #         lambda_PA = (drone_closest_obs_dist/danger_range)/2
+        #         if lambda_PA < 0.10 : lambda_PA = 0.10
+        #         lambda_CA = 1-lambda_PA
             
-            #Determine the angle difference between the velocity vector and the vector to the closest obstacle
-            velocity_vec = self.quadcopter.velocity
-            drone_to_obstacle_vec = self.nearby_obstacles[0].position - self.quadcopter.position #This wil require state estimation and preferably a GPS too hmm 
-            #No worries to use this in simulation to do reward calculations as long as the observations allow for correlation between this reward and the actual world
-            angle_diff = np.arccos(np.dot(drone_to_obstacle_vec, velocity_vec)/(np.linalg.norm(drone_to_obstacle_vec)*np.linalg.norm(velocity_vec)))
+        #     #Determine the angle difference between the velocity vector and the vector to the closest obstacle
+        #     velocity_vec = self.quadcopter.velocity
+        #     drone_to_obstacle_vec = self.nearby_obstacles[0].position - self.quadcopter.position #This wil require state estimation and preferably a GPS too hmm 
+        #     #No worries to use this in simulation to do reward calculations as long as the observations allow for correlation between this reward and the actual world
+        #     angle_diff = np.arccos(np.dot(drone_to_obstacle_vec, velocity_vec)/(np.linalg.norm(drone_to_obstacle_vec)*np.linalg.norm(velocity_vec)))
 
-            reward_collision_avoidance = 0
-            if (drone_closest_obs_dist < danger_range) and (angle_diff < danger_angle):
-                range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1) #same fcn in if and elif, but need this structure to color red and orange correctly
-                angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
-                if angle_rew > 0: angle_rew = 0 
-                if range_rew > 0: range_rew = 0
-                reward_collision_avoidance = range_rew + angle_rew
+        #     reward_collision_avoidance = 0
+        #     if (drone_closest_obs_dist < danger_range) and (angle_diff < danger_angle):
+        #         range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1) #same fcn in if and elif, but need this structure to color red and orange correctly
+        #         angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
+        #         if angle_rew > 0: angle_rew = 0 
+        #         if range_rew > 0: range_rew = 0
+        #         reward_collision_avoidance = range_rew + angle_rew
 
-                self.draw_red_velocity = True
-                self.draw_orange_obst_vec = True
-            elif drone_closest_obs_dist <danger_range:
-                range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1)
-                angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
-                if angle_rew > 0: angle_rew = 0 #In this case the angle reward may become positive as anglediff may !< danger_angle
-                if range_rew > 0: range_rew = 0
-                reward_collision_avoidance = range_rew + angle_rew
+        #         self.draw_red_velocity = True
+        #         self.draw_orange_obst_vec = True
+        #     elif drone_closest_obs_dist <danger_range:
+        #         range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1)
+        #         angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
+        #         if angle_rew > 0: angle_rew = 0 #In this case the angle reward may become positive as anglediff may !< danger_angle
+        #         if range_rew > 0: range_rew = 0
+        #         reward_collision_avoidance = range_rew + angle_rew
                 
-                self.draw_red_velocity = False
-                self.draw_orange_obst_vec = True
-            else:
-                reward_collision_avoidance = 0
-                self.draw_red_velocity = False
-                self.draw_orange_obst_vec = False
+        #         self.draw_red_velocity = False
+        #         self.draw_orange_obst_vec = True
+        #     else:
+        #         reward_collision_avoidance = 0
+        #         self.draw_red_velocity = False
+        #         self.draw_orange_obst_vec = False
             # print('reward_collision_avoidance', reward_collision_avoidance)
 
             #OLD
@@ -406,14 +409,16 @@ class LV_VAE(gym.Env):
 
         #Collision reward
         reward_collision = 0
-        if self.collided:
-            reward_collision = self.rew_collision
+        # if self.collided:
+        #     reward_collision = self.rew_collision
             # print("Reward:", self.reward_collision)
+
 
         #Reach end reward
         reach_end_reward = 0
-        if self.success:
-            reach_end_reward = self.rew_reach_end
+        # if self.success:
+        #     reach_end_reward = self.rew_reach_end
+
 
         #Existencial reward (penalty for being alive to encourage the quadcopter to reach the end of the path quickly)
         # self.ex_reward += self.existence_reward 
@@ -432,6 +437,7 @@ class LV_VAE(gym.Env):
         self.info['reach_end_reward'] = reach_end_reward
         self.info['existence_reward'] = self.ex_reward
         
+        # print("Reward:", tot_reward)
         return tot_reward
 
 
@@ -554,7 +560,6 @@ class LV_VAE(gym.Env):
         s = self.prog
 
         chi_p, upsilon_p = self.path.get_direction_angles(s)
-
         # Calculate tracking errors Serret Frenet frame
         SF_rotation = geom.Rzyx(0, upsilon_p, chi_p)
 

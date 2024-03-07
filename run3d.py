@@ -38,7 +38,9 @@ if __name__ == "__main__":
     experiment_dir, agent_path, args = parse_experiment_info()
 
     #----#----#For running of file without the need of command line arguments#----#----#
+
     # args = Namespace(manual_control=True) 
+
     #----#----#NB uncomment when running actual agents#----#----#
 
     if args.manual_control == False:
@@ -67,9 +69,9 @@ if __name__ == "__main__":
                     sim_df = episode_df
                 
                 write_report(test_dir, sim_df, env, episode)
-                # plot_attitude(sim_df)
-                #plot_velocity(sim_df)
-                #plot_angular_velocity(sim_df)
+                plot_attitude(sim_df)
+                plot_velocity(sim_df)
+                plot_angular_velocity(sim_df)
                 #plot_control_inputs([sim_df])
                 #plot_control_errors([sim_df])
                 plot_3d(env, sim_df[sim_df['Episode']==episode], test_dir)
@@ -85,15 +87,22 @@ if __name__ == "__main__":
                         _, _, done, _, _ = env.step(action)
                         quad_pos = env.quadcopter.position
                         quad_att = env.quadcopter.attitude
+                        visualizer.update_quad_visual(quad_pos, quad_att)
 
                         world_LApoint = env.path.get_lookahead_point(quad_pos, 5, env.waypoint_index) #Maybe faster to use env.wolrd_LApoint and env.closest_path_point
                         closest_path_point = env.path.get_closest_position(quad_pos,env.waypoint_index)
-                        velcoity_body = env.quadcopter.velocity
+                        velocity_world = env.quadcopter.position_dot
+                        b1 = geom.Rzyx(*quad_att) @ np.array([1,0,0])
+                        b2 = geom.Rzyx(*quad_att) @ np.array([0,1,0])
+                        b3 = geom.Rzyx(*quad_att) @ np.array([0,0,1])
 
-                        visualizer.update_quad_visual(quad_pos, quad_att)
+                        #Body axis vectors
+                        visualizer.update_vector(quad_pos,quad_pos+b1, [1, 0, 0],"b1")
+                        visualizer.update_vector(quad_pos,quad_pos+b2, [0, 1, 0],"b2")
+                        visualizer.update_vector(quad_pos,quad_pos+b3, [0, 0, 1],"b3")
                         
-                        #orange body velocity vector NB SCALED FOR VISIBILITY
-                        visualizer.update_vector(quad_pos,quad_pos+velcoity_body*2, [1, 0.5, 0],"Body_velocity")
+                        #orange body velocity vector
+                        visualizer.update_vector(quad_pos,quad_pos+velocity_world, [1, 0.5, 0],"world_velocity")
 
                         #purple LA point and vector
                         visualizer.update_vector(quad_pos,world_LApoint, [160/255, 32/255, 240/255],"LA_vec") 
@@ -153,16 +162,24 @@ if __name__ == "__main__":
                 obs, rew, done, _, info = env.step(action=input)
                 quad_pos = env.quadcopter.position
                 quad_att = env.quadcopter.attitude
+                visualizer.update_quad_visual(quad_pos, quad_att)
 
                 world_LApoint = env.path.get_lookahead_point(quad_pos, 5, env.waypoint_index)
                 closest_path_point = env.path.get_closest_position(quad_pos,env.waypoint_index)
+                velocity_world = env.quadcopter.position_dot
+                # vel_world_from_transform = geom.Rzyx(*quad_att) @ env.quadcopter.velocity  #equivalent to the pos_dot :)
+                b1 = geom.Rzyx(*quad_att) @ np.array([1,0,0])
+                b2 = geom.Rzyx(*quad_att) @ np.array([0,1,0])
+                b3 = geom.Rzyx(*quad_att) @ np.array([0,0,1])
 
-                velcoity_body = env.quadcopter.velocity
+                #Body axis vectors
+                visualizer.update_vector(quad_pos,quad_pos+b1, [1, 0, 0],"b1")
+                visualizer.update_vector(quad_pos,quad_pos+b2, [0, 1, 0],"b2")
+                visualizer.update_vector(quad_pos,quad_pos+b3, [0, 0, 1],"b3")
 
-                visualizer.update_quad_visual(quad_pos, quad_att)
-                
-                #orange body velocity vector NB SCALED FOR VISIBILITY
-                visualizer.update_vector(quad_pos,quad_pos+velcoity_body*2, [1, 0.5, 0],"Body_velocity")
+                #orange world velocity vector
+                visualizer.update_vector(quad_pos,quad_pos+velocity_world, [1, 0.5, 0],"world_velocity")
+                # visualizer.update_vector(quad_pos,quad_pos+vel_world_from_transform*3, [1, 0, 0],"transd_world_velocity")
 
                 #purple LA point and vector
                 visualizer.update_vector(quad_pos,world_LApoint, [160/255, 32/255, 240/255],"LA_vec") 
@@ -179,7 +196,7 @@ if __name__ == "__main__":
                     headingangleerr = np.arcsin(info['domain_obs'][0])*rad2deg
                     elevationangleerr = np.arcsin(info['domain_obs'][1])*rad2deg
                     anglesclosestppath_phi = np.arcsin(info['domain_obs'][11])*rad2deg
-                    agnleclosestppath_psi = np.arcsin(info['domain_obs'][13])*rad2deg #TODO add more to verify seemingly stuffs good tho so ill train an agent now
+                    agnleclosestppath_psi = np.arcsin(info['domain_obs'][13])*rad2deg
                     values_related_to_text = [normalized_dist_to_end,
                                                 x_y_z_closepath,
                                                 headingangleerr,
@@ -194,7 +211,7 @@ if __name__ == "__main__":
                     done = False
                     env.reset()
 
-        env = gym.make("LV_VAE-v0", scenario="line_new")
+        env = gym.make("LV_VAE-v0", scenario="line_new",seed=0)
         _manual_control(env)
         exit()
 

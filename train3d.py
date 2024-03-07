@@ -23,7 +23,7 @@ from utils import parse_experiment_info
 print('CPU COUNT:', multiprocessing.cpu_count())
 
 # scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
-scenarios = ["line"]
+scenarios = ["line_new"]
 
 #From kulkarni paper:
 '''
@@ -38,13 +38,13 @@ We train this policy for approximately 26 × 10^6 environment steps aggregated o
 
 hyperparams = {
     'n_steps': 1024, #TODO double check what is reasobale when considered against the time steps of the environment
-    'learning_rate': 10e-4, #2.5e-4,old 
+    'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old 
     'batch_size': 64,
     'gae_lambda': 0.95,
-    'gamma': 0.98, #old:0.99,
+    'gamma': 0.99, #old:0.99,
     'n_epochs': 4,
     'clip_range': 0.2,
-    'ent_coef': 0.01, 
+    'ent_coef': 0.001, 
     'verbose': 2,
     # "optimizer_class":torch.optim.Adam, #Throws error 
     # "optimizer_kwargs":{"lr": 10e-4}
@@ -289,7 +289,7 @@ if __name__ == '__main__':
     else:
         continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
 
-    if scen == "line" and continual_step == 0:
+    if scen == "line_new" and continual_step == 0: #TODO fix this so dont need to manually change scenario when training new agent(?)
         agent = PPO('MultiInputPolicy', env, **hyperparams,policy_kwargs=policy_kwargs,seed=seed)
     elif continual_step == 0:
         continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.zip")
