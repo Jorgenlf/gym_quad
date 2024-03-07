@@ -411,22 +411,22 @@ def main(args):
             savepath_kde = f'results/{model_name}/plots/kde/exp{experiment_id}_realsense'
             os.makedirs(savepath_kde, exist_ok=True)
             
-            combos_to_test = [(0, 1)]#, (1, 2), (0, 2), (0, 3), (1, 3), (2, 3), (0, 4), (1, 4), (2, 4), (3, 4)]
+            combos_to_test = [(0, 1), (1, 2), (0, 2), (0, 3), (1, 3), (2, 3), (0, 4), (1, 4), (2, 4), (3, 4)]
             plotting.latent_space_kde(model=vae, 
-                                      dataloader=realsense_loader, 
+                                      dataloader=test_loader_rs, 
                                       latent_dim=LATENT_DIMS, 
                                       name=model_name,
                                       path = savepath_kde,
                                       save=True, combos=combos_to_test)
             
-            savepath_kde = f'results/{model_name}/plots/kde/exp{experiment_id}_test'
-            os.makedirs(savepath_kde, exist_ok=True)
-            plotting.latent_space_kde(model=vae,
-                                        dataloader=test_loader,
-                                        latent_dim=LATENT_DIMS,
-                                        name=model_name,
-                                        path=savepath_kde,
-                                        save=True, combos=combos_to_test)
+            #savepath_kde = f'results/{model_name}/plots/kde/exp{experiment_id}_test'
+            #os.makedirs(savepath_kde, exist_ok=True)
+            #plotting.latent_space_kde(model=vae,
+            #                            dataloader=test_loader,
+            #                            latent_dim=LATENT_DIMS,
+            #                            name=model_name,
+            #                            path=savepath_kde,
+            #                            save=True, combos=combos_to_test)
             
         
 
