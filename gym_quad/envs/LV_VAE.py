@@ -155,9 +155,10 @@ class LV_VAE(gym.Env):
         if self.total_t_steps > 0:
             imu_measurement = imu.measure(self.quadcopter)
         #The linear acceleration is not in [-1,1] clipping it using the max speed of the quadcopter
-        imu_measurement[0:3] = np.clip(imu_measurement[0:3], -self.s_max, self.s_max)
+        imu_measurement[0:3] = self.m1to1(imu_measurement[0:3], -self.s_max*2, self.s_max*2)
         #The angular velocity is not in [-1,1] clipping it using the max yaw rate of the quadcopter
-        imu_measurement[3:6] = np.clip(imu_measurement[3:6], -self.r_max, self.r_max)
+        imu_measurement[3:6] = self.m1to1(imu_measurement[3:6], -self.r_max*2, self.r_max*2)
+        # print(np.round(imu_measurement,2))
 
         # Update nearby obstacles and calculate distances PER NOW THESE FCN CALLED ONCE HERE SO DONT NEED TO BE FCNS
         # (LIDAR sensor readings)
@@ -211,6 +212,11 @@ class LV_VAE(gym.Env):
         domain_obs[13] = np.sin(azi_closest_p_point_vec)
         domain_obs[14] = np.cos(azi_closest_p_point_vec)
 
+        # print(  "sin ele",np.round(domain_obs[11],2),\
+        #         "  cos ele",np.round(domain_obs[12],2),\
+        #         "  sin azi",np.round(domain_obs[13],2),\
+        #         "  cos azi",np.round(domain_obs[14],2))
+
         # body coordinates of the look ahead point
         lookahead_world = self.path.get_lookahead_point(self.quadcopter.position, self.la_dist, self.waypoint_index)
         #If lookahead point is the end point lock it to the end point
@@ -244,6 +250,8 @@ class LV_VAE(gym.Env):
         domain_obs[20] = self.m1to1(velocity_body[0], -self.s_max, self.s_max)
         domain_obs[21] = self.m1to1(velocity_body[1], -self.s_max, self.s_max)
         domain_obs[22] = self.m1to1(velocity_body[2], -self.s_max, self.s_max)
+        
+        # print(np.round(domain_obs,2))
 
         return {'perception':sensor_readings,
                 'IMU':imu_measurement,
@@ -334,8 +342,8 @@ class LV_VAE(gym.Env):
         dist_from_path = np.linalg.norm(self.path(self.prog) - self.quadcopter.position)
         # reward_path_adherence = np.clip(- np.log(dist_from_path), - np.inf, - np.log(0.1)) / (- np.log(0.1)) #OLD
         reward_path_adherence = -(2*(np.clip(dist_from_path, 0, self.PA_band_edge) / self.PA_band_edge) - 1)*self.PA_scale 
-        # print("reward_path_adherence", np.round(reward_path_adherence),\
-        #       "  dist_from_path", np.round(dist_from_path))
+        print("reward_path_adherence", np.round(reward_path_adherence,2),\
+              "  dist_from_path", np.round(dist_from_path,2))
               
 
         #Path progression reward 
