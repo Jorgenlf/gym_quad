@@ -64,7 +64,7 @@ def simulate_environment(episode, env, agent):
     progression = []
     total_t_steps = 0
     past_states = []
-    past_actions = []
+    past_thrust = []
     errors = []
     time = []
     while not done:
@@ -73,7 +73,7 @@ def simulate_environment(episode, env, agent):
         progression.append(info['progression'])
         total_t_steps = info['env_steps']
         past_states.append(info['state'])
-        past_actions.append(info['action'])
+        past_thrust.append(info['cmd_thrust'])
         errors.append(info['errors'])
         time.append(info['time'])
 
@@ -81,7 +81,7 @@ def simulate_environment(episode, env, agent):
     time = np.array(time).reshape((total_t_steps,1))
     episode = np.full(((total_t_steps,1)), episode)
     progression = np.array(progression).reshape((total_t_steps,1))
-    sim_data = np.hstack([episode, time, progression, past_states, past_actions, errors])
+    sim_data = np.hstack([episode, time, progression, past_states, past_thrust, errors])
     df = pd.DataFrame(sim_data, columns=labels)
     return df, env
 
