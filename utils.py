@@ -208,7 +208,7 @@ def plot_observation_dists(sim_df):
     ax.set_ylim([0,100])
     plt.show()
 
-def plot_observed_body_velocities(sim_df):
+def plot_observation_body_velocities(sim_df):
     """Plots the body frame velocities from the observation"""
     set_default_plot_rc()
     ax = sim_df.plot(x="Time", y=[r"$u_o$",r"$v_o$", r"$w_o$"], kind="line")
@@ -216,6 +216,16 @@ def plot_observed_body_velocities(sim_df):
     ax.set_ylabel(ylabel="Velocity [m/s]", fontsize=14)
     ax.legend(loc="lower right", fontsize=14)
     ax.set_ylim([-1.25,1.25])
+    plt.show()
+
+def plot_observation_LA(sim_df):
+    """Plots the lookahead vector in body frame from the observation"""
+    set_default_plot_rc()
+    ax = sim_df.plot(x="Time", y=[r"la_{x}$", r"la_{y}$", r"la_{z}$"], kind="line")
+    ax.set_xlabel(xlabel="Time [s]", fontsize=14)
+    ax.set_ylabel(ylabel="Position [m]", fontsize=14)
+    ax.legend(loc="lower right", fontsize=14)
+    ax.set_ylim([-10,10])
     plt.show()
 
 #STATE PLOTTING#

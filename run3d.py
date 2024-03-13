@@ -23,7 +23,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # Tensflow logging level
 # '3': logs messages with level ERROR and above.
 
 """
-To run a trained agent, run the following command in terminal exchange x for the experiment id you want to train:
+To run a trained agent, run the following command in terminal, exchange x for the experiment id you want to run:
 
 python run3d.py --env "" --exp_id x --run_scenario "" --trained_scenario "" --agent x --episodes x --manual_control False --RT_vis True
 
@@ -31,6 +31,9 @@ python run3d.py --exp_id 3 --run_scenario "line" --trained_scenario "line" --age
 
 --manual_control and --RT_vis are False by default
 --env "" is set to LV_VAE-v0 by default
+
+If RT_vis and manual_control are both set to False,
+the agent will run the simulation and save the results to a new test folder in the experiment directory
 """
 
 if __name__ == "__main__":
@@ -73,13 +76,15 @@ if __name__ == "__main__":
                 
                 # Observations
                 plot_all_normed_domain_observations(sim_df)
-                # plot_observation_body_accl(sim_df)
-                # plot_observation_body_angvel(sim_df)
-                # plot_observation_cpp(sim_df)
-                # plot_observation_cpp_azi_ele(sim_df)
-                # plot_observation_e_azi_ele(sim_df)
+                
+                plot_observation_body_accl(sim_df)
+                plot_observation_body_angvel(sim_df)
+                plot_observation_cpp(sim_df)
+                plot_observation_cpp_azi_ele(sim_df)
+                plot_observation_e_azi_ele(sim_df)
                 plot_observation_dists(sim_df)
-                plot_observed_body_velocities(sim_df)
+                # plot_observation_body_velocities(sim_df)
+                plot_observation_LA(sim_df)
                 
                 # States
                 # plot_angular_velocity(sim_df)
@@ -90,45 +95,44 @@ if __name__ == "__main__":
 
         elif args.RT_vis == True: #TODO add the stoarge of variables to this loop below such as above
             for episode in range(args.episodes):
-                try:
-                    obs,info = env.reset()
-                    visualizer = EnvironmentVisualizer(env.obstacles, env.quadcopter.position, env.quadcopter.attitude)
-                    visualizer.draw_path(env.path.waypoints)
-                    while True:
-                        action = agent.predict(env.observation, deterministic=True)[0] #[a,dtype,None] so action[0] is the action
-                        print(action)
-                        _, _, done, _, _ = env.step(action)
-                        quad_pos = env.quadcopter.position
-                        quad_att = env.quadcopter.attitude
-                        visualizer.update_quad_visual(quad_pos, quad_att)
+                obs,info = env.reset()
+                visualizer = EnvironmentVisualizer(env.obstacles, env.quadcopter.position, env.quadcopter.attitude)
+                visualizer.draw_path(env.path.waypoints)
+                while True:
+                    action = agent.predict(env.observation, deterministic=True)[0] #[a,dtype,None] so action[0] is the action
+                    _, _, done, _, _ = env.step(action)
+                    
+                    quad_pos = env.quadcopter.position
+                    quad_att = env.quadcopter.attitude
+                    visualizer.update_quad_visual(quad_pos, quad_att)
 
-                        world_LApoint = env.path.get_lookahead_point(quad_pos, 5, env.waypoint_index) #Maybe faster to use env.wolrd_LApoint and env.closest_path_point
-                        closest_path_point = env.path.get_closest_position(quad_pos,env.waypoint_index)
-                        velocity_world = env.quadcopter.position_dot
-                        b1 = geom.Rzyx(*quad_att) @ np.array([1,0,0])
-                        b2 = geom.Rzyx(*quad_att) @ np.array([0,1,0])
-                        b3 = geom.Rzyx(*quad_att) @ np.array([0,0,1])
+                    world_LApoint = env.path.get_lookahead_point(quad_pos, 5, env.waypoint_index) #Maybe faster to use env.wolrd_LApoint and env.closest_path_point
+                    closest_path_point = env.path.get_closest_position(quad_pos,env.waypoint_index)
+                    velocity_world = env.quadcopter.position_dot
+                    print("tot speed",np.linalg.norm(velocity_world))
+                    b1 = geom.Rzyx(*quad_att) @ np.array([1,0,0])
+                    b2 = geom.Rzyx(*quad_att) @ np.array([0,1,0])
+                    b3 = geom.Rzyx(*quad_att) @ np.array([0,0,1])
 
-                        #Body axis vectors
-                        visualizer.update_vector(quad_pos,quad_pos+b1, [1, 0, 0],"b1")
-                        visualizer.update_vector(quad_pos,quad_pos+b2, [0, 1, 0],"b2")
-                        visualizer.update_vector(quad_pos,quad_pos+b3, [0, 0, 1],"b3")
-                        
-                        #orange body velocity vector
-                        visualizer.update_vector(quad_pos,quad_pos+velocity_world, [1, 0.5, 0],"world_velocity")
+                    #Body axis vectors
+                    visualizer.update_vector(quad_pos,quad_pos+b1, [1, 0, 0],"b1")
+                    visualizer.update_vector(quad_pos,quad_pos+b2, [0, 1, 0],"b2")
+                    visualizer.update_vector(quad_pos,quad_pos+b3, [0, 0, 1],"b3")
+                    
+                    #orange body velocity vector
+                    visualizer.update_vector(quad_pos,quad_pos+velocity_world, [1, 0.5, 0],"world_velocity")
 
-                        #purple LA point and vector
-                        visualizer.update_vector(quad_pos,world_LApoint, [160/255, 32/255, 240/255],"LA_vec") 
-                        visualizer.update_point(world_LApoint, [160/255, 32/255, 240/255],"LA_point")
+                    #purple LA point and vector
+                    visualizer.update_vector(quad_pos,world_LApoint, [160/255, 32/255, 240/255],"LA_vec") 
+                    visualizer.update_point(world_LApoint, [160/255, 32/255, 240/255],"LA_point")
 
-                        #green closest point on path
-                        visualizer.update_point(closest_path_point, [0, 1, 0],"Closest_p_point")        
-                        app.process_events()
-                        if done:
-                            break
-                    env.close()    
-                except NameError:
-                    pass
+                    #green closest point on path
+                    visualizer.update_point(closest_path_point, [0, 1, 0],"Closest_p_point")        
+                    app.process_events()
+                    if done:
+                        break
+                env.close()    
+
 
     elif args.manual_control == True:
         def _manual_control(env):

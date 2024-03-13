@@ -181,7 +181,7 @@ class LV_VAE(gym.Env):
          
         pure_obs.extend([self.chi_error*np.pi, self.upsilon_error*np.pi])
 
-        # # Angle to velocity vector from body frame
+        # # Angle to velocity vector from body frame #PROBS NOT NEEDED :)
         # domain_obs[4] = np.sin(self.quadcopter.aoa) #angle of attack
         # domain_obs[5] = np.cos(self.quadcopter.aoa)
         # domain_obs[6] = np.sin(self.quadcopter.beta) #sideslip angle
@@ -356,10 +356,10 @@ class LV_VAE(gym.Env):
 
         #Path progression reward 
         reward_path_progression = 0
-        # reward_path_progression1 = np.cos(self.chi_error*np.pi)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
-        # reward_path_progression2 = np.cos(self.upsilon_error*np.pi)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
-        # reward_path_progression = reward_path_progression1/2 + reward_path_progression2/2
-        # reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max)
+        reward_path_progression1 = np.cos(self.chi_error*np.pi)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
+        reward_path_progression2 = np.cos(self.upsilon_error*np.pi)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
+        reward_path_progression = reward_path_progression1/2 + reward_path_progression2/2
+        reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max)
         # print(  "chi error [deg]", np.round(self.chi_error*180),\
         #         "  upsilon error [deg]", np.round(self.upsilon_error*180),\
         #         "  yaw", np.round(self.quadcopter.attitude[2]*180/np.pi),\
@@ -437,12 +437,12 @@ class LV_VAE(gym.Env):
 
         #Reach end reward
         reach_end_reward = 0
-        # if self.success:
-        #     reach_end_reward = self.rew_reach_end
+        if self.success:
+            reach_end_reward = self.rew_reach_end
 
 
         #Existencial reward (penalty for being alive to encourage the quadcopter to reach the end of the path quickly)
-        # self.ex_reward += self.existence_reward 
+        self.ex_reward += self.existence_reward 
 
         tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression + reach_end_reward + self.ex_reward
 
