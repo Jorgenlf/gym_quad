@@ -133,39 +133,39 @@ def plot_angular_velocity(sim_df):
     ax.set_ylim([-1,1])
     plt.show()
 
+#Outdated #TODO update to our case 
+# def plot_control_inputs(sim_dfs):
+#     """ Plot control inputs from simulation data"""
+#     set_default_plot_rc()
+#     c = ['#EE6666', '#88BB44', '#EECC55']
+#     for i, sim_df in enumerate(sim_dfs):
+#         control = np.sqrt(sim_df[r"$\delta_r$"]**2+sim_df[r"$\delta_s$"]**2)
+#         plt.plot(sim_df["Time"], sim_df[r"$\delta_s$"], linewidth=4, color=c[i])
+#     plt.xlabel(xlabel="Time [s]", fontsize=14)
+#     plt.ylabel(ylabel="Normalized Input", fontsize=14)
+#     plt.legend(loc="lower right", fontsize=14)
+#     plt.legend([r"$\lambda_r=0.9$", r"$\lambda_r=0.5$", r"$\lambda_r=0.1$"], loc="upper right", fontsize=14)
+#     plt.ylim([-1.25,1.25])
+#     plt.show()
 
-def plot_control_inputs(sim_dfs):
-    """ Plot control inputs from simulation data"""
-    set_default_plot_rc()
-    c = ['#EE6666', '#88BB44', '#EECC55']
-    for i, sim_df in enumerate(sim_dfs):
-        control = np.sqrt(sim_df[r"$\delta_r$"]**2+sim_df[r"$\delta_s$"]**2)
-        plt.plot(sim_df["Time"], sim_df[r"$\delta_s$"], linewidth=4, color=c[i])
-    plt.xlabel(xlabel="Time [s]", fontsize=14)
-    plt.ylabel(ylabel="Normalized Input", fontsize=14)
-    plt.legend(loc="lower right", fontsize=14)
-    plt.legend([r"$\lambda_r=0.9$", r"$\lambda_r=0.5$", r"$\lambda_r=0.1$"], loc="upper right", fontsize=14)
-    plt.ylim([-1.25,1.25])
-    plt.show()
 
-
-def plot_control_errors(sim_dfs):
-    """
-    Plot control inputs from simulation data
-    """
-    set_default_plot_rc()
-    c = ['#EE6666', '#88BB44', '#EECC55']
-    for i, sim_df in enumerate(sim_dfs):
-        error = np.sqrt(sim_df[r"e"]**2+sim_df[r"h"]**2)
-        plt.plot(sim_df["Time"], error, linewidth=4, color='r')
-        plt.plot(sim_df["Time"], sim_df[r"e"], linewidth=4, color='g')
-        plt.plot(sim_df["Time"], sim_df[r"h"], linewidth=4, color='b')
-        plt.plot(sim_df["Time"], sim_df[r"$\tilde{\chi}$"], linewidth=4, color='k')
-        plt.plot(sim_df["Time"], sim_df[r"$\tilde{\upsilon}$"], linewidth=4, color='y')
-    plt.xlabel(xlabel="Time [s]", fontsize=12)
-    plt.ylabel(ylabel="Tracking Error [m]", fontsize=12)
-    #plt.ylim([0,15])
-    plt.show()
+# def plot_control_errors(sim_dfs):
+#     """
+#     Plot control inputs from simulation data
+#     """
+#     set_default_plot_rc()
+#     c = ['#EE6666', '#88BB44', '#EECC55']
+#     for i, sim_df in enumerate(sim_dfs):
+#         error = np.sqrt(sim_df[r"e"]**2+sim_df[r"h"]**2)
+#         plt.plot(sim_df["Time"], error, linewidth=4, color='r')
+#         plt.plot(sim_df["Time"], sim_df[r"e"], linewidth=4, color='g')
+#         plt.plot(sim_df["Time"], sim_df[r"h"], linewidth=4, color='b')
+#         plt.plot(sim_df["Time"], sim_df[r"$\tilde{\chi}$"], linewidth=4, color='k')
+#         plt.plot(sim_df["Time"], sim_df[r"$\tilde{\upsilon}$"], linewidth=4, color='y')
+#     plt.xlabel(xlabel="Time [s]", fontsize=12)
+#     plt.ylabel(ylabel="Tracking Error [m]", fontsize=12)
+#     #plt.ylim([0,15])
+#     plt.show()
 
 
 def plot_3d(env, sim_df, test_dir):

@@ -72,8 +72,8 @@ if __name__ == "__main__":
                 plot_attitude(sim_df)
                 plot_velocity(sim_df)
                 plot_angular_velocity(sim_df)
-                #plot_control_inputs([sim_df])
-                #plot_control_errors([sim_df])
+                # plot_control_inputs([sim_df])
+                # plot_control_errors([sim_df])
                 plot_3d(env, sim_df[sim_df['Episode']==episode], test_dir)
                 #plot_current_data(sim_df)
         elif args.RT_vis == True: #TODO add the stoarge of variables to this loop below such as above
@@ -83,7 +83,8 @@ if __name__ == "__main__":
                     visualizer = EnvironmentVisualizer(env.obstacles, env.quadcopter.position, env.quadcopter.attitude)
                     visualizer.draw_path(env.path.waypoints)
                     while True:
-                        action = agent.predict(env.observation, deterministic=True)[0]
+                        action = agent.predict(env.observation, deterministic=True)[0] #[a,dtype,None] so action[0] is the action
+                        print(action)
                         _, _, done, _, _ = env.step(action)
                         quad_pos = env.quadcopter.position
                         quad_att = env.quadcopter.attitude

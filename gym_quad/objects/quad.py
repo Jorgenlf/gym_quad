@@ -36,15 +36,8 @@ class Quad():
         self.position_dot = np.zeros(3)
 
 
-    def step(self, action):
-        # Un-normalize actions from neural network
-        # F_1 = _thrust(action[0])
-        # F_2 = _thrust(action[1])
-        # F_3 = _thrust(action[2])
-        # F_4 = _thrust(action[3])
-
-        # self.input=np.array([F_1,F_2,F_3,F_4])
-        self.input = action
+    def step(self, thrust):
+        self.input = thrust
         self._sim()
 
 
