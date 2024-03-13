@@ -79,8 +79,6 @@ class TensorboardLogger(BaseCallback):
         self.agents_dir = agents_dir
         self.n_steps = 0
         self.n_calls=0
-        self.prev_stats=None
-        self.ob_names=["u","v","w","roll","pitch","yaw","p","q","r","nu_c0","nu_c1","nu_c2","chi_err","upsilon_err","chi_err_1","upsilon_err_1","chi_err_5","upsilon_err_5"]
         self.state_names=["x","y","z","roll","pitch","yaw","u","v","w","p","q","r"]
         self.error_names=["e", "h"]
 
@@ -129,29 +127,11 @@ class TensorboardLogger(BaseCallback):
 
         :return: (bool) If the callback returns False, training is aborted early.
         """
-        ###From tensorboard logger###
         # Logging data at the end of an episode - must check if the environment is done
         done_array = self.locals["dones"]
         n_done = np.sum(done_array).item()
     
         # Only log if any workers are actually at the end of an episode
-        ###From tensorboard logger end###
-
-        ###From stats callbacks###
-        stats  = {"path_adherence": [],             #self.reward_path_following_sum, 
-                "collision_avoidance_reward": [],   #self.reward_collision_avoidance_sum,
-                "collision_reward": [],             #self.reward_collision,
-                "obs":[],                           #self.past_obs,
-                "states":[],                        #self.past_states,
-                "errors":[]}                        #self.past_errors
-        
-        for info in self.locals["infos"]:
-                stats["path_adherence"].append(info["path_adherence"])
-                stats["collision_avoidance_reward"].append(info["collision_avoidance_reward"])
-                stats["collision_reward"].append(info["collision_reward"])
-                # stats["obs"].append(info["obs"])
-                stats["states"].append(info["state"])
-                stats["errors"].append(info["errors"])
 
         global n_steps
         ###From stats callback end###
@@ -201,24 +181,7 @@ class TensorboardLogger(BaseCallback):
             self.logger.record("episodes/avg_reach_end_reward", avg_reach_end_reward)
             self.logger.record("episodes/avg_existence_reward", avg_existence_reward)
 
-            #From stats callback
-
-            #Got this error when trying to use the stats callback code below
-            # File "C:\Users\jflin\Code\Drone3D\gym_quad\train3d.py", line 218, in _on_step
-            # for stat in self.prev_stats[i].keys():
-            # KeyError: 13
-
-            # for i in range(len(done_array)): #TODO somewhat fixed, cant find the variables in tensorboard though
-            #     if done_array[i]:
-            if self.prev_stats is not None:
-                # for stat in self.prev_stats[i].keys():
-                for stat in self.prev_stats.keys():
-                    self.logger.record('stats/' + stat, self.prev_stats[stat])
-                    # for stat in stats[i].keys():
-                    #     self.logger.record('stats/' + stat, stats[i][stat])
-        
-        #From stats callback
-        self.prev_stats = stats
+            #Can log error and state here if wanted
 
         if (n_steps + 1) % 10000 == 0:
             _self = self.locals.get("self")

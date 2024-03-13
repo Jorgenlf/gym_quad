@@ -68,14 +68,26 @@ if __name__ == "__main__":
                 except NameError:
                     sim_df = episode_df
                 
-                write_report(test_dir, sim_df, env, episode)
-                plot_attitude(sim_df)
-                plot_velocity(sim_df)
-                plot_angular_velocity(sim_df)
-                # plot_control_inputs([sim_df])
-                # plot_control_errors([sim_df])
+                #Path and quadcopter travel
                 plot_3d(env, sim_df[sim_df['Episode']==episode], test_dir)
-                #plot_current_data(sim_df)
+                
+                # Observations
+                plot_all_normed_domain_observations(sim_df)
+                # plot_observation_body_accl(sim_df)
+                # plot_observation_body_angvel(sim_df)
+                # plot_observation_cpp(sim_df)
+                # plot_observation_cpp_azi_ele(sim_df)
+                # plot_observation_e_azi_ele(sim_df)
+                plot_observation_dists(sim_df)
+                plot_observed_body_velocities(sim_df)
+                
+                # States
+                # plot_angular_velocity(sim_df)
+                # plot_attitude(sim_df)
+                # plot_velocity(sim_df)
+                    
+                write_report(test_dir, sim_df, env, episode)
+
         elif args.RT_vis == True: #TODO add the stoarge of variables to this loop below such as above
             for episode in range(args.episodes):
                 try:

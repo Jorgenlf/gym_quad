@@ -45,43 +45,70 @@ def calculate_IAE(sim_df):
     """
     Calculates and prints the integral absolute error provided an environment id and simulation data
     """
-    IAE_cross = sim_df[r"e"].abs().sum()
-    IAE_vertical = sim_df[r"h"].abs().sum()
+    IAE_cross = sim_df[r"$e$"].abs().sum()
+    IAE_vertical = sim_df[r"$h$"].abs().sum()
     return IAE_cross, IAE_vertical
 
 
 def simulate_environment(episode, env, agent):
-    global error_labels, current_labels, input_labels, state_labels
-    state_labels = [r"$N$", r"$E$", r"$D$", r"$\phi$", r"$\theta$", r"$\psi$", r"$u$", r"$v$", r"$w$", r"$p$", r"$q$", r"$r$"]
-    # input_labels = [r"$\eta$", r"$\delta_r$", r"$\delta_s$",r"$\F_4$"] #OLD
-    input_labels = [r"$\v_{cmd}$", r"$\incline_{cmd}$",r"$\r_{cmd}$"]
-    error_labels = [r"$\tilde{u}$", r"$\tilde{\chi}$", r"e", r"$\tilde{\upsilon}$", r"h"]
-    # error_labels = [r"e", r"h"]
-    labels = np.hstack(["Episode", "Time", "Progression", state_labels, input_labels, error_labels])
+    state_labels = [r"$X$", r"$Y$", r"$Z$", r"$\phi$", r"$\theta$", r"$\psi$", r"$u$", r"$v$", r"$w$", r"$p$", r"$q$", r"$r$"]
+    action_labels = [r"$\v_{cmd}$", r"$\incline_{cmd}$",r"$\r_{cmd}$"]
+    error_labels = [r"$e$",r"$h$"]
+    observation_labels = [r"$\dot{u}^b$",r"$\dot{v}^b$",r"$\dot{w}^b$",\
+                          r"$p_o$",r"$q_o$",r"$r_o$",\
+                          r"$\chi_e$", r"$\upsilon_e$",\
+                          r"$x_{cpp}^b$", r"$y_{cpp}^b$", r"$z_{cpp}^b$",\
+                          r"$\upsilon_{cpp}^b$", r"$\chi_{cpp}^b$",\
+                          r"$d_{nwp}$",r"$d_{end}$",\
+                          r"la_{x}$", r"la_{y}$", r"la_{z}$"
+                        # r"$u_o$", r"$v_o$", r"$w_o$",\
+                        ]
     
     done = False
     env.reset()
-    progression = []
     total_t_steps = 0
-    past_states = []
-    past_thrust = []
-    errors = []
     time = []
+    progression = []
+
+    past_states = []
+    past_actions = []
+    errors = []
+    pure_observations = []
+    normed_domain_observations = []
+
     while not done:
         action = agent.predict(env.observation, deterministic=True)[0]
         _, _, done, _, info = env.step(action)
-        progression.append(info['progression'])
+        
         total_t_steps = info['env_steps']
-        past_states.append(info['state'])
-        past_thrust.append(info['cmd_thrust'])
-        errors.append(info['errors'])
+        progression.append(info['progression'])
         time.append(info['time'])
 
-    errors = np.array(errors)
-    time = np.array(time).reshape((total_t_steps,1))
+        past_states.append(info['state'])
+        errors.append(info['errors'])
+        past_actions.append(action)
+        pure_observations.append(info['pure_obs'])
+        normed_domain_observations.append(info['domain_obs'])
+
     episode = np.full(((total_t_steps,1)), episode)
+    time = np.array(time).reshape((total_t_steps,1))
     progression = np.array(progression).reshape((total_t_steps,1))
-    sim_data = np.hstack([episode, time, progression, past_states, past_thrust, errors])
+
+    past_actions = np.array(past_actions).reshape((total_t_steps,3))
+    errors = np.array(errors).reshape((total_t_steps,2))
+    pure_observations = np.array(pure_observations)
+    normed_domain_observations = np.array(normed_domain_observations)
+
+    labels = np.hstack(["Episode", "Time", "Progression", state_labels, error_labels, action_labels, observation_labels])
+    sim_data = np.hstack([episode, time, progression,     past_states,  errors,       past_actions,  pure_observations, normed_domain_observations])
+    
+    #make labels of obs to be obs0 obs1 depending on how many obs are in normed_domain_observations
+    #Consult the env to correlate what obs0 obs1 means
+    normed_obs_labels = []
+    for i in range(normed_domain_observations.shape[1]):
+        normed_obs_labels = np.hstack([normed_obs_labels, f"obs{i}"])
+    labels = np.hstack([labels, normed_obs_labels])
+
     df = pd.DataFrame(sim_data, columns=labels)
     return df, env
 
@@ -98,7 +125,100 @@ def set_default_plot_rc():
     plt.rc('patch', edgecolor='#ffffff')
     plt.rc('lines', linewidth=4)
 
+#OBSERVATION PLOTTING#
+def plot_all_normed_domain_observations(sim_df):
+    """Plots all normalized domain observations"""
+    set_default_plot_rc()
+    #Find largest observation index to use as range
+    labels = sim_df.columns
+    obs_labels = [label for label in labels if "obs" in label]
+    range_obs = len(obs_labels)
+    try:
+        for i in range(0, range_obs):
+            ax = sim_df.plot(x="Time", y=f"obs{i}", kind="line")
+            ax.set_xlabel(xlabel="Time [s]", fontsize=14)
+            ax.set_ylabel(ylabel="Normalized Observation", fontsize=14)
+            ax.legend(loc="lower right", fontsize=14)
+            ax.set_ylim([-1.25,1.25])
+        plt.show()
+    except KeyError:
+        print("Keyerror or All obs plotted or no normalized domain observations to plot")
 
+def plot_observation_body_accl(sim_df):
+    """Plots body frame acceleration from the observation"""
+    set_default_plot_rc()
+    ax = sim_df.plot(x="Time", y=[r"$\dot{u}^b$",r"$\dot{v}^b$", r"$\dot{w}^b$"], kind="line")
+    ax.set_xlabel(xlabel="Time [s]", fontsize=14)
+    ax.set_ylabel(ylabel="Acceleration [m/s^2]", fontsize=14)
+    ax.legend(loc="lower right", fontsize=14)
+    ax.set_ylim([-1.25,1.25])
+    plt.show()
+
+def plot_observation_body_angvel(sim_df):
+    """Plots body frame angular velocity from the observation"""
+    set_default_plot_rc()
+    ax = sim_df.plot(x="Time", y=[r"$p_o$",r"$q_o$", r"$r_o$"], kind="line")
+    ax.set_xlabel(xlabel="Time [s]", fontsize=14)
+    ax.set_ylabel(ylabel="Angular Velocity [rad/s]", fontsize=14)
+    ax.legend(loc="lower right", fontsize=14)
+    ax.set_ylim([-1,1])
+    plt.show()
+
+def plot_observation_cpp(sim_df):
+    """Plots the closest point on path in body frame from the observation"""
+    set_default_plot_rc()
+    ax = sim_df.plot(x="Time", y=[r"$x_{cpp}^b$",r"$y_{cpp}^b$", r"$z_{cpp}^b$"], kind="line")
+    ax.set_xlabel(xlabel="Time [s]", fontsize=14)
+    ax.set_ylabel(ylabel="Position [m]", fontsize=14)
+    ax.legend(loc="lower right", fontsize=14)
+    ax.set_ylim([-1.25,1.25])
+    plt.show()
+
+def plot_observation_cpp_azi_ele(sim_df):
+    """Plots the aziumuth (chi) and elevation (upslion) of the closest point on path in body frame from the observation in degrees"""
+    set_default_plot_rc()
+    sim_df[r"$\chi_{cpp}^b$"] = np.rad2deg(sim_df[r"$\chi_{cpp}^b$"])
+    sim_df[r"$\upsilon_{cpp}^b$"] = np.rad2deg(sim_df[r"$\upsilon_{cpp}^b$"])
+    ax = sim_df.plot(x="Time", y=[r"$\chi_{cpp}^b$",r"$\upsilon_{cpp}^b$"], kind="line")
+    ax.set_xlabel(xlabel="Time [s]", fontsize=14)
+    ax.set_ylabel(ylabel="Direction from body x to CPP [deg]", fontsize=14)
+    ax.legend(loc="lower right", fontsize=14)
+    ax.set_ylim([-180,180])
+    plt.show()
+
+def plot_observation_e_azi_ele(sim_df):
+    """Plots the aziumuth (chi) and elevation (upslion) error between lookahead vector and velocity vector in world (i think) from the observation"""
+    set_default_plot_rc()
+    sim_df[r"$\chi_e$"] = np.rad2deg(sim_df[r"$\chi_e$"])
+    sim_df[r"$\upsilon_e$"] = np.rad2deg(sim_df[r"$\upsilon_e$"])
+    ax = sim_df.plot(x="Time", y=[r"$\chi_e$", r"$\upsilon_e$"], kind="line")
+    ax.set_xlabel(xlabel="Time [s]", fontsize=14)
+    ax.set_ylabel(ylabel="Error between velocity vec and LA [Deg]", fontsize=14)
+    ax.legend(loc="lower right", fontsize=14)
+    ax.set_ylim([-180,180])
+    plt.show()
+
+def plot_observation_dists(sim_df):
+    """Plots the distance to the next waypoint and the distance to the end of the path from the observation"""
+    set_default_plot_rc()
+    ax = sim_df.plot(x="Time", y=[r"$d_{nwp}$", r"$d_{end}$"], kind="line")
+    ax.set_xlabel(xlabel="Time [s]", fontsize=14)
+    ax.set_ylabel(ylabel="Distance [m]", fontsize=14)
+    ax.legend(loc="lower right", fontsize=14)
+    ax.set_ylim([0,100])
+    plt.show()
+
+def plot_observed_body_velocities(sim_df):
+    """Plots the body frame velocities from the observation"""
+    set_default_plot_rc()
+    ax = sim_df.plot(x="Time", y=[r"$u_o$",r"$v_o$", r"$w_o$"], kind="line")
+    ax.set_xlabel(xlabel="Time [s]", fontsize=14)
+    ax.set_ylabel(ylabel="Velocity [m/s]", fontsize=14)
+    ax.legend(loc="lower right", fontsize=14)
+    ax.set_ylim([-1.25,1.25])
+    plt.show()
+
+#STATE PLOTTING#
 def plot_attitude(sim_df):
     """Plots the state trajectories for the simulation data"""
     set_default_plot_rc()
@@ -167,7 +287,7 @@ def plot_angular_velocity(sim_df):
 #     #plt.ylim([0,15])
 #     plt.show()
 
-
+#TRAJECTORY PLOTTING#
 def plot_3d(env, sim_df, test_dir):
     """
     Plots the Quadcopter path in 3D inside the environment provided.
@@ -176,8 +296,8 @@ def plot_3d(env, sim_df, test_dir):
     plt.rc('lines', linewidth=3)
 
     ax = env.plot3D()#(wps_on=False)
-    ax.scatter3D(sim_df[r"$N$"][0], sim_df[r"$E$"][0], sim_df[r"$D$"][0], color="#66FF66", label="Initial Position")
-    ax.plot3D(sim_df[r"$N$"], sim_df[r"$E$"], sim_df[r"$D$"], color="#EECC55", label="Quadcopter Path")#, linestyle="dashed")
+    ax.scatter3D(sim_df[r"$X$"][0], sim_df[r"$Y$"][0], sim_df[r"$Z$"][0], color="#66FF66", label="Initial Position")
+    ax.plot3D(sim_df[r"$X$"], sim_df[r"$Y$"], sim_df[r"$Z$"], color="#EECC55", label="Quadcopter Path")#, linestyle="dashed")
     ax.set_xlabel(xlabel=r"$x_w$ [m]", fontsize=18)
     ax.set_ylabel(ylabel=r"$y_w$ [m]", fontsize=18)
     ax.set_zlabel(zlabel=r"$z_w$ [m]", fontsize=18)
@@ -204,17 +324,18 @@ def plot_multiple_3d(env, sim_dfs):
     plt.rc('lines', linewidth=3)
     ax = env.plot3D()#(wps_on=False)
     for i,sim_df in enumerate(sim_dfs):
-        ax.plot3D(sim_df[r"$N$"], sim_df[r"$E$"], sim_df[r"$D$"], color=c[i], linestyle=styles[i])
+        ax.plot3D(sim_df[r"$X$"], sim_df[r"$Y$"], sim_df[r"$Z$"], color=c[i], linestyle=styles[i])
     ax.set_xlabel(xlabel="North [m]", fontsize=14)
     ax.set_ylabel(ylabel="East [m]", fontsize=14)
     ax.set_zlabel(zlabel="Down [m]", fontsize=14)
     ax.legend(["Path",r"$\lambda_r=0.9$", r"$\lambda_r=0.5$",r"$\lambda_r=0.1$"], loc="upper right", fontsize=14)
     plt.show()
     
-
+#CURRENT PLOTTING#
 def plot_current_data(sim_df):
     set_default_plot_rc()
     #---------------Plot current intensity------------------------------------
+    current_labels = [r"$u_c$", r"$v_c$", r"$w_c$"] #TODO verify
     ax1 = sim_df.plot(x="Time", y=current_labels, linewidth=4, style=["-", "-", "-"] )
     ax1.set_title("Current", fontsize=18)
     ax1.set_xlabel(xlabel="Time [s]", fontsize=14)
@@ -236,7 +357,7 @@ def plot_current_data(sim_df):
     plt.show()
     """
 
-
+#SPECIAL STUFF#
 def plot_collision_reward_function():
     horizontal_angles = np.linspace(-70, 70, 300)
     vertical_angles = np.linspace(-70, 70, 300)
@@ -266,7 +387,7 @@ def write_report(test_dir: str, sim_df: pd.DataFrame, env, episode: int) -> None
     episode_df = sim_df.loc[sim_df['Episode'] == episode]
 
     timesteps = episode_df.shape[0]
-    avg_ape = np.sqrt(episode_df['e']**2 + episode_df['h']**2).mean()
+    avg_ape = np.sqrt(episode_df[r'$e$']**2 + episode_df[r'$h$']**2).mean()
     iae_cross, iae_vertical = calculate_IAE(episode_df)
     progression = episode_df['Progression'].max()
     success = int(env.success)
