@@ -23,10 +23,10 @@ from utils import parse_experiment_info
 print('CPU COUNT:', multiprocessing.cpu_count())
 
 # scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
-scenarios = ["3d_new"]
+scenarios = ["proficient"]
 
-#From kulkarni paper:
 '''
+From kulkarni paper:
 The neural network is trained with an adaptive learning rate initialized at lr = 10−4. 
 The discount factor is set to γ = 0.98. 
 The neural network is trained with 1024 environments simulated in parallel with an average time step of 0.1s 
@@ -34,7 +34,6 @@ and rollout buffer size set to 32.
 We train this policy for approximately 26 × 10^6 environment steps aggregated over all agents.
 '''
 #TODO implement the above hyperparameters
-
 
 hyperparams = {
     'n_steps': 1024, #TODO double check what is reasobale when considered against the time steps of the environment
@@ -51,12 +50,21 @@ hyperparams = {
     # 'optimizer_class': torch.optim.Adam, #Throws error
     # 'device':'cuda' #unsure if cuda wanted as default as dont have nvidia gpu
 }
-
+'''
+Kulkarni paper:
+We define a neural network architecture containing 3 fullyconnected layers consisting of 
+512, 256 and 64 neurons each with an ELU activation layer, followed by a GRU with a hidden layer size of 64. 
+Given an observation vector ot, the policy outputs a 3-dimensional action command at = [at,1, at,2, at,3] with values in [-1, 1]
+'''
 policy_kwargs = dict(
-    features_extractor_class = PerceptionNavigationExtractor,
-    features_extractor_kwargs = dict(sensor_dim_x=15,sensor_dim_y=15,features_dim=32),
+    features_extractor_class = PerceptionIMUDomainExtractor,
+    features_extractor_kwargs = dict(sensor_dim_x=15,sensor_dim_y=15,features_dim=32), #TODO decide the features_dim
     net_arch = [dict(pi=[128, 64, 32], vf=[128, 64, 32])]
 )
+#From Ørjan:    net_arch = [dict(pi=[128, 64, 32], vf=[128, 64, 32])]
+#SB3 default:   net_arch = [dict(pi=[64, 64], vf=[64, 64])]
+#From Kulkarni: net_arch = [dict(pi=[512, 256, 64], vf=[512, 256, 64])] #NB: GRU is not included in this
+#There exists a recurrent PPO using LSTM which could be used as replacement for the GRU
 
 #-----#------#-----#Temp fix to make the global n_steps variable work pasting the tensorboardlogger class here#-----#------#-----#
 class TensorboardLogger(BaseCallback):
@@ -66,7 +74,7 @@ class TensorboardLogger(BaseCallback):
     :param verbose: Verbosity level: 0 for no output, 1 for info messages, 2 for debug messages
     To open tensorboard after training run the following command in terminal:
     tensorboard --logdir Path/to/tensorboard_dir
-    example path: 'C:/Users/jflin/Code/Drone3D/gym_quad/log/LV_VAE-v0/Experiment 6/line/tensorboard'
+    example path: 'C:/Users/jflin/Code/Drone3D/gym_quad/log/LV_VAE-v0/Experiment 6'
     '''
 
     def __init__(self, agents_dir=None, verbose=0,):
@@ -252,9 +260,9 @@ if __name__ == '__main__':
     else:
         continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
 
-    if scen == "3d_new" and continual_step == 0: #TODO fix this so dont need to manually change scenario when training new agent(?)
-        # agent = PPO('MultiInputPolicy', env, **hyperparams,policy_kwargs=policy_kwargs,seed=seed) #To use the lidar
-        agent = PPO('MultiInputPolicy', env, **hyperparams,seed=seed)
+    if scen == "proficient" and continual_step == 0: #TODO fix this so dont need to manually change scenario when training new agent(?)
+        agent = PPO('MultiInputPolicy', env, **hyperparams,policy_kwargs=policy_kwargs,seed=seed) #To use homemade feature extractor and architecture
+        # agent = PPO('MultiInputPolicy', env, **hyperparams,seed=seed)
     elif continual_step == 0:
         continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.zip")
         agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)

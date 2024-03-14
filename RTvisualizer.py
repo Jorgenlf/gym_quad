@@ -103,7 +103,7 @@ class EnvironmentVisualizer(app.Canvas):
         # self.quadcopter.transform.rotate(np.degrees(attitude[1]), (0, 1, 0))  # Rotate around body y-axis
         # self.quadcopter.transform.rotate(np.degrees(attitude[2]), (0, 0, 1))  # Rotate around body z-axis
 
-    def draw_path(self, waypoints):
+    def draw_path(self, waypoints): #TODO make it draw curved paths must probs take in the QPMI path then
         if self.waypoints_visual is not None:
             self.waypoints_visual.parent = None  # Remove previous waypoints if they exist
 

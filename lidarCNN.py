@@ -157,6 +157,77 @@ class PerceptionNavigationExtractor(BaseFeaturesExtractor):
         # Return a (B, self._features_dim) PyTorch tensor, where B is batch dimension.
         return th.cat(encoded_tensor_list, dim=1)
 
+##My new classes for feature extraction 
+class IMU_NN(BaseFeaturesExtractor):
+    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 6):
+        super(IMU_NN, self).__init__(observation_space, features_dim=features_dim)
+
+        self.passthrough = nn.Identity()
+
+    def forward(self, observations: th.Tensor) -> th.Tensor:
+        # shape = observations.shape #Dont need this as the imu is already a 1D tensor
+        # observations = observations[:,0,:].reshape(shape[0], shape[-1])
+        return self.passthrough(observations)
+
+class domain_NN(BaseFeaturesExtractor):
+    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 16):
+        super(domain_NN, self).__init__(observation_space, features_dim=features_dim)
+
+        self.passthrough = nn.Identity()
+
+    def forward(self, observations: th.Tensor) -> th.Tensor:
+        # shape = observations.shape #dont need this as the domain is already an 1d tensor
+        # observations = observations[:,0,:].reshape(shape[0], shape[-1])
+        return self.passthrough(observations)
+
+class PerceptionIMUDomainExtractor(BaseFeaturesExtractor):
+    """
+    :param observation_space: (gym.Space) of dimension (1, 3, N_sensors)
+    :param features_dim: (int) Number of features extracted.
+        This corresponds to the number of unit for the last layer.
+    """
+
+    def __init__(self, observation_space: gym.spaces.Dict, sensor_dim_x : int = 25,sensor_dim_y : int = 25, features_dim: int = 32, kernel_overlap : float = 0.05):
+        # We do not know features-dim here before going over all the items,
+        # so put something dummy for now. PyTorch requires calling
+        # nn.Module.__init__ before adding modules
+        super(PerceptionIMUDomainExtractor, self).__init__(observation_space, features_dim=1)
+        # We assume CxHxW images (channels first)
+        # Re-ordering will be done by pre-preprocessing or wrapper
+
+        extractors = {}
+        total_concat_size = 0
+        # We need to know size of the output of this extractor,
+        # so go over all the spaces and compute output feature sizes
+        for key, subspace in observation_space.spaces.items():
+            if key == "perception":
+                # Pass sensor readings through CNN
+                extractors[key] = LidarCNN(subspace, sensor_dim_x=sensor_dim_x, sensor_dim_y=sensor_dim_y, features_dim=features_dim, kernel_overlap=kernel_overlap)
+                total_concat_size += features_dim  # extractors[key].n_flatten
+            elif key == "IMU":
+                #Pass IMU features straight through to the MlpPolicy.
+                extractors[key] = IMU_NN(subspace, features_dim=subspace.shape[-1]) #nn.Identity()
+                total_concat_size += subspace.shape[-1]
+            elif key == "domain":
+                # Pass domain features straight through to the MlpPolicy.
+                extractors[key] = domain_NN(subspace, features_dim=subspace.shape[-1]) #nn.Identity()
+                total_concat_size += subspace.shape[-1]
+
+        self.extractors = nn.ModuleDict(extractors)
+
+        # Update the features dim manually
+        self._features_dim = total_concat_size
+
+    def forward(self, observations) -> th.Tensor:
+        encoded_tensor_list = []
+
+        # self.extractors contain nn.Modules that do all the processing.
+        for key, extractor in self.extractors.items():
+            encoded_tensor_list.append(extractor(observations[key]))
+        # Return a (B, self._features_dim) PyTorch tensor, where B is batch dimension.
+        return th.cat(encoded_tensor_list, dim=1)
+### END OF MY NEW CLASSES
+
 
 if __name__ == '__main__':
     import numpy as np

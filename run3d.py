@@ -228,7 +228,7 @@ if __name__ == "__main__":
                     done = False
                     env.reset()
 
-        env = gym.make("LV_VAE-v0", scenario="line_new",seed=0)
+        env = gym.make("LV_VAE-v0", scenario="proficient",seed=0)
         _manual_control(env)
         exit()
 
