@@ -26,11 +26,6 @@ class EnvironmentVisualizer(app.Canvas):
         self.axis_y = scene.visuals.Line(pos=np.array([[0, 0, 0], [0, 20, 0]]), color='green', parent=self.view.scene)
         self.axis_z = scene.visuals.Line(pos=np.array([[0, 0, 0], [0, 0, 20]]), color='blue', parent=self.view.scene)
 
-        #TODO if want to continue witht this visualizer: Add the body axis and rotate them per timestep according to the attitude 
-        self.body_x = scene.visuals.Line(pos=np.array([self.quadcopter_position, self.quadcopter_position + [1, 0, 0]]), color='red', parent=self.view.scene)
-        self.body_y = scene.visuals.Line(pos=np.array([self.quadcopter_position, self.quadcopter_position + [0, 1, 0]]), color='green', parent=self.view.scene)
-        self.body_z = scene.visuals.Line(pos=np.array([self.quadcopter_position, self.quadcopter_position + [0, 0, 1]]), color='blue', parent=self.view.scene)
-
         # Create obstacle visuals
         self.obstacle_visuals = []
         for obstacle in self.obstacles:
@@ -92,16 +87,6 @@ class EnvironmentVisualizer(app.Canvas):
         
         self.update_quad_visual(self.quadcopter_position,self.quadcopter_attitude)
 
-    def update_quad_visual(self, position, attitude):
-        #TODO make attitude of quadcopter and body axis change correctly 
-
-        #Translate the quadcopter mesh to the new position
-        self.quadcopter.transform = scene.transforms.MatrixTransform()
-        self.quadcopter.transform.translate(position)
-        #Rotate the quadcopter mesh to the new attitude
-        # self.quadcopter.transform.rotate(np.degrees(attitude[0]), (1, 0, 0))  # Rotate around body x-axis #might need to flip the sign
-        # self.quadcopter.transform.rotate(np.degrees(attitude[1]), (0, 1, 0))  # Rotate around body y-axis
-        # self.quadcopter.transform.rotate(np.degrees(attitude[2]), (0, 0, 1))  # Rotate around body z-axis
 
     def draw_path(self, waypoints): #TODO make it draw curved paths must probs take in the QPMI path then
         if self.waypoints_visual is not None:

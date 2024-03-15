@@ -33,7 +33,7 @@ python run3d.py --exp_id 3 --run_scenario "line" --trained_scenario "line" --age
 --env "" is set to LV_VAE-v0 by default
 
 If RT_vis and manual_control are both set to False,
-the agent will run the simulation and save the results to a new test folder in the experiment directory
+The simulation will be ran and results and plots will be saved to a test folder in the experiment directory
 """
 
 if __name__ == "__main__":
@@ -93,7 +93,7 @@ if __name__ == "__main__":
                     
                 write_report(test_dir, sim_df, env, episode)
 
-        elif args.RT_vis == True: #TODO add the stoarge of variables to this loop below such as above
+        elif args.RT_vis == True: 
             for episode in range(args.episodes):
                 obs,info = env.reset()
                 visualizer = EnvironmentVisualizer(env.obstacles, env.quadcopter.position, env.quadcopter.attitude)
@@ -228,7 +228,7 @@ if __name__ == "__main__":
                     done = False
                     env.reset()
 
-        env = gym.make("LV_VAE-v0", scenario="proficient",seed=0)
+        env = gym.make("LV_VAE-v0", scenario="helix",seed=0)
         _manual_control(env)
         exit()
 

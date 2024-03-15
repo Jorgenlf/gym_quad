@@ -131,7 +131,6 @@ class LV_VAE(gym.Env):
 
         self.passed_waypoints = np.zeros((1, 3), dtype=np.float32)
         self.total_t_steps = 0
-        self.ex_reward = 0
 
         ### Path and obstacle generation based on scenario
         scenario = self.scenario_switch.get(self.scenario, lambda: print("Invalid scenario"))
@@ -412,7 +411,7 @@ class LV_VAE(gym.Env):
                 reward_collision_avoidance = 0
                 self.draw_red_velocity = False
                 self.draw_orange_obst_vec = False
-            print('reward_collision_avoidance', reward_collision_avoidance)
+            # print('reward_collision_avoidance', reward_collision_avoidance)
 
             #OLD
             # collision_avoidance_rew = self.penalize_obstacle_closeness()
@@ -423,7 +422,7 @@ class LV_VAE(gym.Env):
         reward_collision = 0
         if self.collided:
             reward_collision = self.rew_collision
-            print("Reward:", self.reward_collision)
+            print("Collision Reward:", reward_collision)
 
         #Reach end reward
         reach_end_reward = 0
@@ -431,9 +430,9 @@ class LV_VAE(gym.Env):
             reach_end_reward = self.rew_reach_end
 
         #Existencial reward (penalty for being alive to encourage the quadcopter to reach the end of the path quickly)
-        self.ex_reward += self.existence_reward 
+        ex_reward = self.existence_reward 
 
-        tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression + reach_end_reward + self.ex_reward
+        tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression + reach_end_reward + ex_reward
 
         self.info['reward'] = tot_reward
         self.info['collision_avoidance_reward'] = reward_collision_avoidance*lambda_CA
@@ -441,7 +440,7 @@ class LV_VAE(gym.Env):
         self.info["path_progression"] = reward_path_progression
         self.info['collision_reward'] = reward_collision
         self.info['reach_end_reward'] = reach_end_reward
-        self.info['existence_reward'] = self.ex_reward
+        self.info['existence_reward'] = ex_reward
         
         return tot_reward
 
@@ -748,7 +747,6 @@ class LV_VAE(gym.Env):
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
 
-
     def scenario_line_new(self):
         initial_state = np.zeros(6)
         waypoints = generate_random_waypoints(self.n_waypoints,'line_new')
@@ -759,7 +757,6 @@ class LV_VAE(gym.Env):
         init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
-
 
     def scenario_horizontal(self):
         initial_state = np.zeros(6)

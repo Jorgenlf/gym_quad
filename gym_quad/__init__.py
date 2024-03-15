@@ -4,7 +4,7 @@ import numpy as np
 lv_vae_config = {
     "step_size"             : 0.01,     # Step size of the simulation
     "max_t_steps"           : 40000,    # Maximum number of timesteps in the simulation before it is terminated
-    "min_reward"            : -5e4,     # Minimum reward before the simulation is terminated
+    "min_reward"            : -7e4,     # Minimum reward before the simulation is terminated
     "sensor_span"           : (85, 58), # the horizontal and vertical span of the sensors
     "sensor_suite"          : (15, 15), # the number of sensors covering the horizontal and vertical span
     "sensor_input_size"     : (8, 8),   # the shape of FLS data passed to the neural network. Max pooling from raw data is used
@@ -23,7 +23,7 @@ lv_vae_config = {
     'PP_rew_min'            : -1,       # minimum reward for path progression
     'rew_collision'         : -50,      # reward for collision
     'rew_reach_end'         : 30,       # reward for reaching the end of the path
-    'existence_reward'      : -0.0001,  # reward for existing increments with the value defined here per timestep
+    'existence_reward'      : -0.001,   # reward for existing
     'danger_range'          : 150,      # Range between quadcopter and obstacle within which the quadcopter is in danger
     'danger_angle'          : 20,       # Angle between quadcopter and obstacle within which the quadcopter is in danger
     'abs_inv_CA_min_rew'    : 1/8,      #1/2 -> -2 is min reward per CA fcn range and angle --> rangefcn + anglefcn = -4
