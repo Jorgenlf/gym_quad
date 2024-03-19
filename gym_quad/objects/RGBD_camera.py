@@ -2,8 +2,7 @@ import numpy as np
 import pyrealsense2 as rs
 import cv2
 # Assuming depth_image is a numpy array representing depth images
-# depth_image = np.zeros((height, width), dtype=np.uint16)  # Example depth image, depth values in millimeters
-
+# depth_image = np.zeros((height, width), dtype=np.uint16)  # Example depth image, depth values in millimeters+
 class RGBDCamera:
     '''Class that emulates The depth part of an Intel RealSense D455 RGBD camera.'''
 
@@ -31,12 +30,13 @@ class RGBDCamera:
         }
 
         # Configure depth stream
-        self.depth_stream = self.configure_depth_stream(intrinsics=self.depth_intrinsics)
+        self.depth_stream = self.configure_depth_stream()
 
         # Create pointcloud
         self.pc = rs.pointcloud()
 
-    def configure_depth_stream(self, intrinsics):
+
+    def configure_depth_stream(self):
         '''Configure depth stream parameters.'''
         depth_stream = rs.video_stream()
         # Add depth stream to depth sensor
@@ -71,29 +71,103 @@ class RGBDCamera:
 
     # Add more methods as needed for processing and using the captured frames and pointclouds
 
+class StereoDepthEstimationCamera:
+    '''Class that emulates the depth capturing part of an Intel RealSense D455 RGBD camera.
+    Use cv2 to create a depth image'''
+
+    def __init__(self, resolution=(640, 480), fps=30):
+        '''Initialize the RGBD camera with specified resolution and fps.'''
+        self.resolution = resolution
+        self.fps = fps
+
+    def capture_images(self):
+        '''Capture a pair of synchronized images.'''
+        #TODO make it come from simulation
+
+        imfolder = 'C:/Users/jflin/Code/Drone3D/gym_quad/media'
+        # left_image = np.zeros(self.resolution, dtype=np.uint8)
+        # right_image = np.zeros(self.resolution, dtype=np.uint8)
+        # left_image[50:100, 50:100] = 255
+        # right_image[55:105, 55:105] = 200
+        left_image = cv2.imread(imfolder + '/left.png', cv2.IMREAD_GRAYSCALE)
+        right_image = cv2.imread(imfolder + '/right.png', cv2.IMREAD_GRAYSCALE)
+
+        return left_image, right_image
+    
+    def estimate_depth(self, left_image, right_image):
+        '''Estimate depth from a pair of synchronized images.'''
+        depth_image = np.zeros(self.resolution, dtype=np.uint16)
+        return depth_image
+    
+    # def computeDepthMapBM(self, left_image, right_image): https://docs.opencv.org/4.x/dd/d53/tutorial_py_depthmap.html
+    #     nDispFactor = 12 # adjust this 
+    #     stereo = cv2.StereoBM.create(numDisparities=16*nDispFactor, blockSize=21)
+    #     disparity = stereo.compute(left_image,right_image)
+    #     depth_image = disparity
+
+    def computeDepthMapSGBM(self,left_image, right_image): #Better than BM more comp though https://docs.opencv.org/3.4/d2/d85/classcv_1_1StereoSGBM.html 
+        window_size = 7
+        min_disp = 16
+        nDispFactor = 14 # adjust this (14 is good)
+        num_disp = 16*nDispFactor-min_disp
+
+        stereo = cv2.StereoSGBM_create(minDisparity=min_disp,
+                                    numDisparities=num_disp,
+                                    blockSize=window_size,
+                                    P1=8*3*window_size**2,
+                                    P2=32*3*window_size**2,
+                                    disp12MaxDiff=1,
+                                    uniquenessRatio=15,
+                                    speckleWindowSize=0,
+                                    speckleRange=2,
+                                    preFilterCap=63,
+                                    mode=cv2.STEREO_SGBM_MODE_SGBM_3WAY)
+
+        # Compute disparity map
+        disparity = stereo.compute(left_image,right_image).astype(np.float32) / 16.0
+        depth_image = disparity
+        return depth_image
+
 # Example usage:
 if __name__ == "__main__":
     # Initialize RGBD camera
-    camera = RGBDCamera()
+    import matplotlib.pyplot as plt
+    
+    stereoest = True
+    rgbdIntellisense = False
 
-    try:
-        while True:
-            # Capture a frame
-            depth_frame = camera.capture_frame()
+    if stereoest:
+        stereo_camera = StereoDepthEstimationCamera()
+        left_image, right_image = stereo_camera.capture_images()
+        plt.imshow(left_image, cmap='gray')
+        plt.show()
+        plt.imshow(right_image, cmap='gray')
+        plt.show()
+        depth_image = stereo_camera.estimate_depth(left_image, right_image)
+        plt.imshow(depth_image, cmap='gray')
+        plt.colorbar()
+        plt.show()
+    elif rgbdIntellisense:
+        camera = RGBDCamera()
 
-            # Generate pointcloud
-            points = camera.generate_pointcloud(depth_frame)
+        try:
+            while True:
+                # Capture a frame
+                depth_frame = camera.capture_frame()
 
-            # Process and use captured frames and pointclouds as needed
-            # Example: Display depth frame using OpenCV
-            depth_image = np.asanyarray(depth_frame.get_data())
-            cv2.imshow('Depth Frame', depth_image)
+                # Generate pointcloud
+                points = camera.generate_pointcloud(depth_frame)
 
-            # Break the loop if 'q' is pressed
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-    finally:
-        cv2.destroyAllWindows()
+                # Process and use captured frames and pointclouds as needed
+                # Example: Display depth frame using OpenCV
+                depth_image = np.asanyarray(depth_frame.get_data())
+                cv2.imshow('Depth Frame', depth_image)
+
+                # Break the loop if 'q' is pressed
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+        finally:
+            cv2.destroyAllWindows()
 
 
 

@@ -75,7 +75,7 @@ if __name__ == "__main__":
                 plot_3d(env, sim_df[sim_df['Episode']==episode], test_dir)
                 
                 # Observations
-                plot_all_normed_domain_observations(sim_df)
+                # plot_all_normed_domain_observations(sim_df)
                 
                 plot_observation_body_accl(sim_df)
                 plot_observation_body_angvel(sim_df)
@@ -109,7 +109,6 @@ if __name__ == "__main__":
                     world_LApoint = env.path.get_lookahead_point(quad_pos, 5, env.waypoint_index) #Maybe faster to use env.wolrd_LApoint and env.closest_path_point
                     closest_path_point = env.path.get_closest_position(quad_pos,env.waypoint_index)
                     velocity_world = env.quadcopter.position_dot
-                    print("tot speed",np.linalg.norm(velocity_world))
                     b1 = geom.Rzyx(*quad_att) @ np.array([1,0,0])
                     b2 = geom.Rzyx(*quad_att) @ np.array([0,1,0])
                     b3 = geom.Rzyx(*quad_att) @ np.array([0,0,1])

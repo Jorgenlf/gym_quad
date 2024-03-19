@@ -87,6 +87,11 @@ class EnvironmentVisualizer(app.Canvas):
         
         self.update_quad_visual(self.quadcopter_position,self.quadcopter_attitude)
 
+    def update_quad_visual(self, position, attitude):
+        #Translate the quadcopter mesh to the new position
+        self.quadcopter.transform = scene.transforms.MatrixTransform()
+        self.quadcopter.transform.translate(position)
+
 
     def draw_path(self, waypoints): #TODO make it draw curved paths must probs take in the QPMI path then
         if self.waypoints_visual is not None:
