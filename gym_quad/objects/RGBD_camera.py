@@ -133,10 +133,9 @@ if __name__ == "__main__":
     # Initialize RGBD camera
     import matplotlib.pyplot as plt
     
-    stereoest = True
-    rgbdIntellisense = False
+    camera_to_use = "stereoest" # "stereoest" or "rgbdIntellisense"
 
-    if stereoest:
+    if camera_to_use == "stereoest":
         stereo_camera = StereoDepthEstimationCamera()
         left_image, right_image = stereo_camera.capture_images()
         plt.imshow(left_image, cmap='gray')
@@ -147,7 +146,7 @@ if __name__ == "__main__":
         plt.imshow(depth_image, cmap='gray')
         plt.colorbar()
         plt.show()
-    elif rgbdIntellisense:
+    elif camera_to_use == "rgbdIntellisense":
         camera = RGBDCamera()
 
         try:
