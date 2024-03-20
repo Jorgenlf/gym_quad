@@ -218,7 +218,7 @@ class taichiDepthCam():
             alpha = quad_heading + sectors_horizontal[i]
             beta = quad_pitch + sectors_vertical[j]
             for k in range(nearby_obstacle_positions.shape[0]):
-                obstacle_pos = nearby_obstacle_positions[k,0:3]
+                obstacle_pos = nearby_obstacle_positions[k,0:3] #See more here https://docs.taichi-lang.org/docs/external 
                 s, closeness = self.calculate_object_distance(alpha, beta, obstacle_pos, quadcopter_position)
                 #Should add a check to not draw stuff twice rather than just taking the max
                 self.depth_image[j, i] = ti.max(closeness, self.depth_image[j, i])
