@@ -1,6 +1,20 @@
 import numpy as np
 import pyrealsense2 as rs
 import cv2
+import sys
+import os
+#Use os and sys to access the modules inside gym_quad (imports below are from gym_quad)
+# Get the directory of the current script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Get the parent and grandparent directory of the current script
+parent_dir = os.path.dirname(script_dir)
+grand_parent_dir = os.path.dirname(parent_dir)
+# Add the parent directory to the Python path
+sys.path.append(grand_parent_dir)
+
+from gym_quad.objects.quad import Quad
+from gym_quad.objects.obstacle3d import Obstacle
+from gym_quad.utils.geomutils import Rzyx
 # Assuming depth_image is a numpy array representing depth images
 # depth_image = np.zeros((height, width), dtype=np.uint16)  # Example depth image, depth values in millimeters+
 class RGBDCamera:
@@ -128,14 +142,131 @@ class StereoDepthEstimationCamera:
         depth_image = disparity
         return depth_image
 
+import taichi as ti
+ti.init(arch=ti.cpu)
+@ti.data_oriented
+class taichiDepthCam():
+    def __init__(self, resolution=(640, 480), sensor_span=(85,58)):
+        '''Initialize the RGBD camera with specified resolution and fps. 
+        Init the depth image.'''
+        self.resolution = resolution
+        self.sensor_span = sensor_span
+        self.depth_image = ti.field(dtype=ti.f32, shape=self.resolution)
+        
+        self.range = 6 #meters
+        self.n_sensor_readings = self.resolution[0]*self.resolution[1]
+        max_horizontal_angle = self.sensor_span[0]/2
+        max_vertical_angle = self.sensor_span[1]/2
+        self.sectors_horizontal = np.linspace(-max_horizontal_angle*np.pi/180, max_horizontal_angle*np.pi/180, self.resolution[0])
+        self.sectors_vertical =  np.linspace(-max_vertical_angle*np.pi/180, max_vertical_angle*np.pi/180, self.resolution[1])
+
+        # self.position = np.array([0,0,0]) #might include this later
+        # self.attitude = np.array([0,0,0])
+
+    def update_nearby_obstacles(self, obstacles, quadcopter:Quad):
+        """
+        Updates the nearby_obstacles array.
+        """
+        nearby_obstacles = []
+        for obstacle in obstacles:
+            distance_vec_world = obstacle.position - quadcopter.position
+            distance = np.linalg.norm(distance_vec_world)
+            distance_vec_BODY = np.transpose(Rzyx(*quadcopter.attitude)).dot(distance_vec_world)
+            heading_angle_BODY = np.arctan2(distance_vec_BODY[1], distance_vec_BODY[0])
+            pitch_angle_BODY = np.arctan2(distance_vec_BODY[2], np.sqrt(distance_vec_BODY[0]**2 + distance_vec_BODY[1]**2))
+
+            # check if the obstacle is inside the sonar window
+            if distance - quadcopter.safety_radius - obstacle.radius <= self.range and abs(heading_angle_BODY) <= self.resolution[0]*np.pi/180 \
+            and abs(pitch_angle_BODY) <= self.resolution[1]*np.pi/180:
+                nearby_obstacles.append(obstacle)
+            elif distance <= obstacle.radius +  quadcopter.safety_radius:
+                nearby_obstacles.append(obstacle)
+        # Sort the obstacles such that the closest one is first
+        nearby_obstacles.sort(key=lambda x: np.linalg.norm(x.position - quadcopter.position)) 
+        return nearby_obstacles
+    
+    @staticmethod
+    @ti.func
+    def calculate_object_distance(self, alpha, beta, obstacle_pos, quadcopter_pos,range):
+        '''Searches along a sonar ray for an object'''
+        s = 0
+        while s < range:
+            x = quadcopter_pos[0] + s*np.cos(alpha)*np.cos(beta)
+            y = quadcopter_pos[1] + s*np.sin(alpha)*np.cos(beta)
+            z = quadcopter_pos[2] + s*np.sin(beta)
+            if ti.sqrt((obstacle_pos[0] - x)**2 + (obstacle_pos[1] - y)**2 + (obstacle_pos[2] - z)**2) <= obstacle_pos[3]:  # Using ti.sqrt for vectorized operation
+                break
+            else:
+                    s += 1 #adjust this to determine how fine the search is smaller increments are more accurate but slower now search is in meters
+            closeness = 1.0 - s / range
+        closeness = ti.max(0, ti.min(closeness, 1))
+        return s, closeness            
+            
+    @ti.kernel
+    def update_sensor_readings(self,    quad_heading:float,
+                                        quad_pitch:float,
+                                        range:int, 
+                                        quadcopter_position:ti.types.ndarray(),    
+                                        nearby_obstacle_positions:ti.types.ndarray(), 
+                                        sectors_horizontal:ti.types.ndarray(), 
+                                        sectors_vertical:ti.types.ndarray()):
+        """
+        Updates the depth image.
+        """
+        ti.loop_config(serialize=True) #TODO check if this is necessary or parallel is better
+        for i, j in self.depth_image:
+            alpha = quad_heading + sectors_horizontal[i]
+            beta = quad_pitch + sectors_vertical[j]
+            for k in range(nearby_obstacle_positions.shape[0]):
+                obstacle_pos = nearby_obstacle_positions[k,0:3]
+                s, closeness = self.calculate_object_distance(alpha, beta, obstacle_pos, quadcopter_position)
+                #Should add a check to not draw stuff twice rather than just taking the max
+                self.depth_image[j, i] = ti.max(closeness, self.depth_image[j, i])
+
+
 # Example usage:
 if __name__ == "__main__":
     # Initialize RGBD camera
     import matplotlib.pyplot as plt
     
-    camera_to_use = "stereoest" # "stereoest" or "rgbdIntellisense"
+    camera_to_use = "taichi" # "stereoest", "rgbdIntellisense", "taichi"
 
-    if camera_to_use == "stereoest":
+    if camera_to_use == "taichi":
+        # Example usage
+        depth_camera = taichiDepthCam(resolution=(640, 480))
+        #Test environment
+        obstacle1 = Obstacle(2, [1,0,0])
+        obstacle2 = Obstacle(1, [0,1,0])
+        obstacle3 = Obstacle(1, [0,0,1])
+        obstacles = [obstacle1, obstacle2, obstacle3]
+        quadcopter = Quad(step_size=0.01,init_eta=np.zeros(6)) #pos = [0,0,0], att = [0,0,0]
+
+        #calc nearby obstacles
+        nearby_obs = depth_camera.update_nearby_obstacles(obstacles, quadcopter)
+
+        # Preparing data for update_sensor_readings kernel call all np arrays as type.ti.ndarray() accepts it
+        quad_heading = quadcopter.heading
+        quad_pitch = quadcopter.pitch
+        range = depth_camera.range
+        quadcopter_position_taichi = quadcopter.position
+        nearby_obstacle_positions_taichi = np.array([obstacle.position for obstacle in nearby_obs])
+
+        sectors_hori = depth_camera.sectors_horizontal
+        sectors_vert = depth_camera.sectors_vertical
+        
+        print(nearby_obstacle_positions_taichi.shape)
+        # Calling the kernel
+        depth_camera.update_sensor_readings(quad_heading, quad_pitch, range, quadcopter_position_taichi, nearby_obstacle_positions_taichi, sectors_hori, sectors_vert)
+
+        # Accessing the depth image
+        depth_image_np = depth_camera.depth_image.to_numpy()
+
+        #viewing the depth image
+        plt.imshow(depth_image_np, cmap='gray')
+        plt.colorbar()
+        plt.show()
+
+    elif camera_to_use == "stereoest":
         stereo_camera = StereoDepthEstimationCamera()
         left_image, right_image = stereo_camera.capture_images()
         plt.imshow(left_image, cmap='gray')

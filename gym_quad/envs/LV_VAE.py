@@ -604,7 +604,7 @@ class LV_VAE(gym.Env):
             elif distance <= obstacle.radius + self.quadcopter.safety_radius:
                 self.nearby_obstacles.append(obstacle)
         # Sort the obstacles such that the closest one is first
-        self.nearby_obstacles.sort(key=lambda x: np.linalg.norm(x.position - self.quadcopter.position)) #TODO check if this works
+        self.nearby_obstacles.sort(key=lambda x: np.linalg.norm(x.position - self.quadcopter.position)) 
         
 
     def update_sensor_readings(self):
