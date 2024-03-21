@@ -9,6 +9,8 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2
 import sys
+import matplotlib.pyplot as plt 
+import os
 
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -28,7 +30,7 @@ for s in device.sensors:
         found_rgb = True
         break
 if not found_rgb:
-    print("The demo requires Depth camera with Color sensor")
+    print("Requires Depth camera with Color sensor")
     exit(0)
 
 config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
@@ -41,6 +43,22 @@ else:
 # Start streaming
 pipeline.start(config)
 
+# Set filters
+decimation = rs.decimation_filter()
+depth_to_disparity_transform = rs.disparity_transform(True)
+spatial = rs.spatial_filter()
+disparity_to_depth_transform = rs.disparity_transform(False)
+hole_filling = rs.hole_filling_filter()
+
+colorizer = rs.colorizer()
+
+       
+
+location = "glassgaarden"
+os.makedirs(f"{location}/color_imgs", exist_ok=True)
+os.makedirs(f"{location}/depth_imgs", exist_ok=True)
+
+
 try:
     counter = 0
     while True:
@@ -51,44 +69,64 @@ try:
         color_frame = frames.get_color_frame()
         if not depth_frame or not color_frame:
             continue
+        
+        # Pass depth frame through filters
+        
+        """
+        plt.rcParams["axes.grid"] = False
+        plt.rcParams['figure.figsize'] = [8, 4]
+        
+        colorized_depth = np.asanyarray(colorizer.colorize(depth_frame).get_data())
+        plt.imsave("depth_imgs/1.png", colorized_depth)
+        
+        decimation = rs.decimation_filter()
+        decimated_depth = decimation.process(depth_frame)
+        colorized_decimated_depth = np.asanyarray(colorizer.colorize(decimated_depth).get_data())
+        plt.imsave("depth_imgs/2.png", colorized_decimated_depth)
+        
+        depth_to_disparity_transform = rs.disparity_transform(True)
+        disparity_depth = depth_to_disparity_transform.process(decimated_depth)
+        colorized_disparity_depth = np.asanyarray(colorizer.colorize(disparity_depth).get_data())
+        plt.imsave("depth_imgs/3.png", colorized_disparity_depth)
+        
+        spatial = rs.spatial_filter()
+        filtered_depth = spatial.process(disparity_depth)
+        colorzed_filtered_depth = np.asanyarray(colorizer.colorize(filtered_depth).get_data())
+        plt.imsave("depth_imgs/4.png", colorzed_filtered_depth)
+        
+        disparity_to_depth_transform = rs.disparity_transform(False)
+        spatial_depth = disparity_to_depth_transform.process(filtered_depth)
+        colorized_spatial_depth = np.asanyarray(colorizer.colorize(spatial_depth).get_data())
+        plt.imsave("depth_imgs/5.png", colorized_spatial_depth)
+        
+        hole_filling = rs.hole_filling_filter()
+        filled_depth = hole_filling.process(spatial_depth)
+        colorized_filled_depth = np.asanyarray(colorizer.colorize(filled_depth).get_data())
+        plt.imsave("depth_imgs/6.png", np.asanyarray(filled_depth.get_data()))
+        """
 
+        #plt.imsave("depth_imgs/test_im.png", spatial_depth)
+        frame = decimation.process(depth_frame)
+        frame = depth_to_disparity_transform.process(frame)
+        frame = spatial.process(frame)
+        frame = disparity_to_depth_transform.process(frame)
+        frame = hole_filling.process(frame)
+        
+        depth_frame = frame
+
+        
+        # Save image every 0.5 seconds
         # Convert images to numpy arrays
         depth_image = np.asanyarray(depth_frame.get_data())
         color_image = np.asanyarray(color_frame.get_data())
-
-        # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
-        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
-
-        depth_colormap_dim = depth_colormap.shape
-        color_colormap_dim = color_image.shape
-
-        # If depth and color resolutions are different, resize color image to match depth image for display
-        if depth_colormap_dim != color_colormap_dim:
-            resized_color_image = cv2.resize(color_image, dsize=(depth_colormap_dim[1], depth_colormap_dim[0]), interpolation=cv2.INTER_AREA)
-            images = np.hstack((resized_color_image, depth_colormap))
-        else:
-            images = np.hstack((color_image, depth_colormap))
+        
+        if counter % 15 == 0:
+            save_counter = int(counter / 15)
+            cv2.imwrite(f"{location}/color_imgs/{location}_color_{save_counter}.png", color_image)
+            cv2.imwrite(f"{location}/depth_imgs/{location}_depth_{save_counter}.png", depth_image)
+            print(f"Saved image {save_counter}")
             
-        min_ = depth_image.min()
-        max_ = depth_image.max()
-        
-        #print(pipeline_profile.get_device().first_depth_sensor().get_depth_scale())
-        depth_ = pipeline_profile.get_device().first_depth_sensor().get_depth_scale()
-        
-        
-        depth_min = min_ * depth_
-        depth_max = max_ * depth_
-        
-        #print(f"Min: {depth_min}, Max: {depth_max}")
-
-        #print(f"Counter: {counter}")
-        
-        # Save image every 5 seconds
-        if counter % 150 == 0:
-            save_counter = int(counter / 150)
-            cv2.imwrite(f"color_imgs/color_{save_counter}.png", color_image)
-            cv2.imwrite(f"depth_imgs/depth_{save_counter}.png", depth_image)
-            print("saved image")
+        counter += 1
         
         
             
@@ -102,8 +140,6 @@ try:
         #cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
         #cv2.imshow('RealSense', images)
         #cv2.waitKey(1)
-        
-        counter += 1
 
 finally:
 
