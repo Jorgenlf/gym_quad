@@ -14,25 +14,15 @@ fov = [85.0*np.pi/180,58.0*np.pi/180] # horizontal, vertical in radians
 sensor_range = 6 # meters
 dist_limit = 100  
 camera_pos = ti.Vector([0.0, 0.32, 2]) #NB #Y is up, X is right, -Z is forward #NB!!!!!!!!!!
+#TODO add camera attitude
+#TODO make the taichi coordinate system match the one in the simulation
 inf = 1e10
 depth_buffer = ti.Vector.field(1, float, res)
 
-# @ti.func
-# def make_nested(f):
-#     '''Returns a nested pattern based on the input float f'''
-#     f = f * 40
-#     i = int(f)
-#     if f < 0:
-#         if i % 2 == 1:
-#             f -= ti.floor(f)
-#         else:
-#             f = ti.floor(f) + 1 - f
-#     f = (f - 0.2) / 40
-#     return f
 
 # https://iquilezles.org/articles/distfunctions/ 
 @ti.func
-def sdf(o):
+def sdf(o): #TODO understand how objects are defined such that we can define them in our simulation
     '''Signed distance function for the scene geometry
     input: o - position vector
     output: signed distance to the closest object from the position o'''
@@ -46,7 +36,6 @@ def sdf(o):
     # d = ti.Vector([ti.Vector([O[0], O[2]]).norm() - 0.3, abs(O[1]) - 0.3])
     # cylinder = ti.min(d.max(), 0.0) + ti.Vector([ti.max(0, d[0]), ti.max(0, d[1])]).norm()
 
-    # geometry = make_nested(ti.min(sphere, box, cylinder))
     # geometry = ti.max(geometry, -(0.32 - (o[1] * 0.6 + o[2] * 0.8)))
     geometry = sphere
     return ti.min(wall, geometry)
