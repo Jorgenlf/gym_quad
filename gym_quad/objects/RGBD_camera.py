@@ -145,42 +145,9 @@ class StereoDepthEstimationCamera:
 
 import taichi as ti
 ti.init(arch=ti.gpu) #cpu or gpu? If AMD GPU works use it opencl or vulkan(?)
-
-@ti.func
-def calculate_object_distance(alpha:ti.f32, 
-                              beta:ti.f32, 
-                              obs_rad:ti.f32, 
-                              obs_x:ti.f32, 
-                              obs_y:ti.f32, 
-                              obs_z:ti.f32, 
-                              quad_x:ti.f32, 
-                              quad_y:ti.f32, 
-                              quad_z:ti.f32, 
-                              sensor_range:ti.f32):
-    '''Searches along a sonar ray for an object'''
-    s = 0.0
-    fine_search = False
-    while s < sensor_range:
-        x = quad_x + s*ti.cos(alpha)*ti.cos(beta)
-        y = quad_y + s*ti.sin(alpha)*ti.cos(beta)
-        z = quad_z + s*ti.sin(beta)
-        #Rough search
-        if ti.sqrt((obs_x - x)**2 + (obs_y - y)**2 + (obs_z - z)**2) <= obs_rad and fine_search == False:  # Using ti.sqrt for vectorized operation
-            fine_search = True
-            s -= 1
-        elif fine_search == False:
-            s += 1
-        
-        #Fine search
-        if ti.sqrt((obs_x - x)**2 + (obs_y - y)**2 + (obs_z - z)**2) <= obs_rad and fine_search == True:
-            break
-        elif fine_search == True:
-            s += 0.1
-    return s 
-
 @ti.data_oriented
 class taichiDepthCam():
-    def __init__(self, resolution=(240, 320), sensor_span=(85,58), fps=30,sensor_range = 6.0): #OG 480,640 but VAE takes 240,320 so I will use that
+    def __init__(self, resolution=(320, 240), sensor_span=(85,58), fps=30,sensor_range = 6.0): #OG 480,640 but VAE takes 240,320 so I will use that
         '''Initialize the RGBD camera with specified resolution and fps. 
         Init the depth image.
         Using Taichi to speed up calculations. https://docs.taichi-lang.org/ '''
@@ -197,9 +164,6 @@ class taichiDepthCam():
         max_vertical_angle = self.sensor_span[1]/2
         self.sectors_horizontal = np.linspace(-max_horizontal_angle*np.pi/180, max_horizontal_angle*np.pi/180, self.resolution[0])
         self.sectors_vertical =  np.linspace(-max_vertical_angle*np.pi/180, max_vertical_angle*np.pi/180, self.resolution[1])
-
-        # self.position = np.array([0,0,0]) #might include this later
-        # self.attitude = np.array([0,0,0])
 
     def update_nearby_obstacles(self, obstacles, quadcopter:Quad):
         """
@@ -223,48 +187,52 @@ class taichiDepthCam():
         nearby_obstacles.sort(key=lambda x: np.linalg.norm(x.position - quadcopter.position)) 
         return nearby_obstacles
     
-            
     @ti.kernel
-    def update_sensor_readings(self,    quad_heading:float,
-                                        quad_pitch:float,
-                                        sensor_range:float,
-                                        obs_rads:ti.types.ndarray(), 
-                                        nearby_obstacle_positions:ti.types.ndarray(), 
-                                        quadcopter_position:ti.types.ndarray(),    
-                                        sectors_horizontal:ti.types.ndarray(), 
-                                        sectors_vertical:ti.types.ndarray()):
+    def update_sensor_readings(self,    quad_heading:ti.f32,
+                                        quad_pitch:ti.f32,
+                                        sensor_range:ti.f32,
+                                        obs_rads:ti.types.ndarray(ti.f32), 
+                                        nearby_obstacle_positions:ti.types.ndarray(ti.f32), 
+                                        quadcopter_position:ti.types.ndarray(ti.f32),    
+                                        sectors_horizontal:ti.types.ndarray(ti.f32), 
+                                        sectors_vertical:ti.types.ndarray(ti.f32)):
         """
-        Updates the depth image.
+        Updates the depth image by casting rays from the quadcopter to the obstacles. "Raymarches" to find the distance to the obstacle.
         """
-        # ti.loop_config(serialize=True) #TODO check if this is necessary or parallel is better
         q_x = quadcopter_position[0]
         q_y = quadcopter_position[1]
         q_z = quadcopter_position[2]
-        s_range = sensor_range
 
-        for j in range(self.resolution[1]): #TODO determine if calling self.res is fast or if I should use a local variable or a ti.ndrange
-            b = quad_pitch + sectors_vertical[j]
-            
-            for i in range(self.resolution[0]):
-                a = quad_heading + sectors_horizontal[i]
-            
-                for n in ti.ndrange(nearby_obstacle_positions.shape[0]):
-                    o_x = nearby_obstacle_positions[n,0] 
-                    o_y = nearby_obstacle_positions[n,1]
-                    o_z = nearby_obstacle_positions[n,2]
-                    rad = obs_rads[n]
-                    s = calculate_object_distance(alpha=a,
-                                                    beta = b, 
-                                                    obs_rad = rad, 
-                                                    obs_x = o_x, 
-                                                    obs_y = o_y, 
-                                                    obs_z = o_z, 
-                                                    quad_x = q_x, 
-                                                    quad_y = q_y, 
-                                                    quad_z = q_z, 
-                                                    sensor_range = s_range)
-                    #Should add a check to not draw stuff twice rather than just taking the min?
-                    self.depth_image[i, j] = ti.min(s, self.depth_image[i, j])
+        for i,j in self.depth_image:
+            a = quad_heading + sectors_horizontal[i]
+            b = quad_pitch + sectors_vertical[j]    
+        
+            for n in ti.ndrange(nearby_obstacle_positions.shape[0]):
+                o_x = nearby_obstacle_positions[n,0] 
+                o_y = nearby_obstacle_positions[n,1]
+                o_z = nearby_obstacle_positions[n,2]
+                rad = obs_rads[n]
+
+                s = 0.0
+                fine_search = False
+                while s < sensor_range:
+                    x = q_x + s*ti.cos(a)*ti.cos(b)
+                    y = q_y + s*ti.sin(a)*ti.cos(b)
+                    z = q_z + s*ti.sin(b)
+                    #Rough search
+                    if ti.sqrt((o_x - x)**2 + (o_y - y)**2 + (o_z - z)**2) <= rad and fine_search == False:  # Using ti.sqrt for vectorized operation
+                        fine_search = True
+                        s -= 1 #Take a step back to start fine search
+                    elif fine_search == False:
+                        s += 1 # 1 <-> 1 meter per step
+                    
+                    #Fine search
+                    if ti.sqrt((o_x - x)**2 + (o_y - y)**2 + (o_z - z)**2) <= rad and fine_search == True:
+                        break
+                    elif fine_search == True:
+                        s += 0.1 # 0.1 <-> 10 cm per step
+                #Should add a check to not draw stuff twice rather than just taking the min? Draw front to back?
+                self.depth_image[i, j] = ti.min(s, self.depth_image[i, j])
 
 # Example usage:
 if __name__ == "__main__":
@@ -275,9 +243,8 @@ if __name__ == "__main__":
     camera_to_use = "taichi" # "stereoest", "rgbdIntellisense", "taichi"
 
     if camera_to_use == "taichi":
-        # Example usage
-
-        depth_camera = taichiDepthCam(resolution=(240, 320), sensor_span=(85,58), fps=30)
+        #TODO USE CORNELL BOX EXAMPLE TO MAKE THE DEPTH CAM AS THIS IMPLEMENTATION NESTS FOR LOOPS WHICH RESULTS IN POOR PERFORMANCE
+        depth_camera = taichiDepthCam(resolution=(320, 240), sensor_span=(85,58), fps=30)
         #Test environment
         obstacle1 = Obstacle(0.5, [4,0,0])
         obstacle2 = Obstacle(1, [0,12,0])
@@ -285,6 +252,7 @@ if __name__ == "__main__":
         obstacles = [obstacle1, obstacle2, obstacle3]
         quadcopter = Quad(step_size=0.01,init_eta=np.zeros(6)) #pos = [0,0,0], att = [0,0,0]
         print("INIT DONE")
+        
         #calc nearby obstacles
         nearby_obs = depth_camera.update_nearby_obstacles(obstacles, quadcopter)
         print("Number of nearby obstacles: ", len(nearby_obs), "\npositions: ", [obstacle.position for obstacle in nearby_obs])
@@ -293,18 +261,26 @@ if __name__ == "__main__":
         qh = quadcopter.heading
         qp = quadcopter.pitch
         sr = depth_camera.sensor_range
-        qpt = quadcopter.position
-        sh = depth_camera.sectors_horizontal
-        sv = depth_camera.sectors_vertical
 
-        obs_rads = np.array([obstacle.radius for obstacle in nearby_obs])
+        qpt = quadcopter.position.astype(np.float32)
+        sh = np.array(depth_camera.sectors_horizontal,dtype=np.float32)
+        sv = np.array(depth_camera.sectors_vertical,dtype=np.float32)
+
+        obs_rads = np.array([obstacle.radius for obstacle in nearby_obs],dtype=np.float32)
         nopt = ti.ndarray(dtype=ti.float32,shape=(len(nearby_obs),3))
         nopt.from_numpy(np.array([obstacle.position for obstacle in nearby_obs]))
         
         # print("Starting kernel")
         # Calling the kernel
         _s = time.time()
-        depth_camera.update_sensor_readings(quad_heading=qp, quad_pitch=qp, sensor_range=sr, obs_rads=obs_rads, nearby_obstacle_positions=nopt, quadcopter_position=qpt, sectors_horizontal=sh, sectors_vertical=sv)
+        depth_camera.update_sensor_readings(quad_heading=qp,
+                                            quad_pitch=qp, 
+                                            sensor_range=sr, 
+                                            obs_rads=obs_rads, 
+                                            nearby_obstacle_positions=nopt, 
+                                            quadcopter_position=qpt, 
+                                            sectors_horizontal=sh, 
+                                            sectors_vertical=sv)
         # print("Kernel done")
 
         # Accessing the depth image
@@ -316,9 +292,6 @@ if __name__ == "__main__":
         plt.imshow(depth_image_np, cmap='gray')
         plt.colorbar()
         plt.show()
-
-
-
 
 
 
