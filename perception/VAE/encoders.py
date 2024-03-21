@@ -221,3 +221,4 @@ class ResNet50Encoder(BaseEncoder):
         logvar = x[:, self.latent_dim:]
         z = super().reparameterize(mu, logvar)
         return z, mu, logvar
+    

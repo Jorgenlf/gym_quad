@@ -8,6 +8,7 @@ import argparse
 import torchvision
 import torchvision.transforms as transforms
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 
 from utils_perception.data_reader import DataReader, SunRGBD, CustomDepthDataset, RealSenseDataset, RealSenseDataset_v2, DataReaderRealSensev2
 from utils_perception import plotting
@@ -221,7 +222,7 @@ def main(args):
             #latent_dims = [2, 16, 64]
             
             # Containers w/ loss trajs for each latent dim
-            total_val_losses_for_latent_dims = [] 
+            total_val_losses_for_betas = [] 
             bce_val_losses_for_latent_dims = []   
             kl_val_losses_for_latent_dims = []
             total_train_losses_for_latent_dims = []
@@ -237,11 +238,15 @@ def main(args):
                 kl_train_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
                 kl_val_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
                 
+                
+                seed = 42 # Logic regarding seeding must be changed if many seeds used
                 for i in range(NUM_SEEDS):
                     # Load data with different seed
-                    seed = 42 # Logic regarding seeding must be changed if many seeds used
-                    seed = seed + i
-                    train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=seed, shuffle=True)
+                    seed += i
+                    print(f'Seed {i}/{NUM_SEEDS}')
+                    #train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=seed, shuffle=True)
+                    train_loader, val_loader, test_loader = dataloader_rs.load_split_data_realsense(seed=seed, shuffle=True)
+
 
                     # Create VAE based on args.model_name
                     if model_name == 'conv1':
@@ -263,7 +268,7 @@ def main(args):
                     
                     trained_epochs = trainer.train(early_stopping=False)
                     
-                    # Only insert to the first trained_epochs elemts if early stopping has been triggered
+                    # Only insert to the first trained_epochs elements if early stopping has been triggered
                     total_train_losses[i,:trained_epochs] = trainer.training_loss['Total loss']
                     total_val_losses[i,:trained_epochs] = trainer.validation_loss['Total loss']
                     bce_train_losses[i,:trained_epochs] = trainer.training_loss['Reconstruction loss']
@@ -271,8 +276,6 @@ def main(args):
                     kl_train_losses[i,:trained_epochs] = trainer.training_loss['KL divergence loss']
                     kl_val_losses[i,:trained_epochs] = trainer.validation_loss['KL divergence loss']
                     
-                    print(total_train_losses)
-
                     # Save encoder and decoder parameters to file
                     savepath_encoder = f'models/encoders'
                     savepath_decoder = f'models/decoders'
@@ -280,12 +283,12 @@ def main(args):
                     os.makedirs(savepath_decoder, exist_ok=True)
 
                     if args.save_model:
-                        vae.encoder.save(path=os.path.join(savepath_encoder, f'encoder_{model_name}_experiment_{experiment_id}_seed{i+1}_dim{l}.json'))
-                        vae.decoder.save(path=os.path.join(savepath_decoder, f'decoder_{model_name}_experiment_{experiment_id}_seed{i+1}_dim{l}.json'))
+                        vae.encoder.save(path=os.path.join(savepath_encoder, f'encoder_{model_name}_experiment_{experiment_id}_seed{seed}_dim{l}.json'))
+                        vae.decoder.save(path=os.path.join(savepath_decoder, f'decoder_{model_name}_experiment_{experiment_id}_seed{seed}_dim{l}.json'))
 
                     del train_loader, val_loader, encoder, decoder, vae, optimizer, trainer
                 
-                total_val_losses_for_latent_dims.append(total_val_losses)
+                total_val_losses_for_betas.append(total_val_losses)
                 bce_val_losses_for_latent_dims.append(bce_val_losses)
                 kl_val_losses_for_latent_dims.append(kl_val_losses)
                 total_train_losses_for_latent_dims.append(total_train_losses)
@@ -323,7 +326,7 @@ def main(args):
             savepath_ldim_plot = f'results/{model_name}/plots/losses/exp{experiment_id}/ldim_sweep'
             os.makedirs(savepath_ldim_plot, exist_ok=True)
             labels = [f'Latent dim = {l}' for l in latent_dims]
-            total_losses = [total_train_losses_for_latent_dims, total_val_losses_for_latent_dims]
+            total_losses = [total_train_losses_for_latent_dims, total_val_losses_for_betas]
             bce_losses = [bce_train_losses_for_latent_dims, bce_val_losses_for_latent_dims]
             kl_losses = [kl_train_losses_for_latent_dims, kl_val_losses_for_latent_dims]
             
@@ -335,12 +338,195 @@ def main(args):
                                         save=True,
                                         include_train=False)
             
-                        
+            
+        if 'beta_and_latent_sweep' in args.plot:
+            print('Beta and latent dim sweep test...')
+            betas = [0.01, 0.1, 0.5, 1, 1.5, 2, 4, 8, 16, 32, 64]
+            latent_dims = [8, 16, 32]
+            
+            for l in latent_dims:
+                print(f'Latent dimension: {l}')
+            
+                # Containers w/ loss trajs for each latent dim
+                total_val_losses_for_betas = [] 
+                bce_val_losses_for_betas = []   
+                kl_val_losses_for_betas = []
+                total_train_losses_for_betas = []
+                bce_train_losses_for_betas = []
+                kl_train_losses_for_betas = []
+                
+                for b in betas:
+                    print(f'Beta: {b}')
+                    total_train_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+                    total_val_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+                    bce_train_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+                    bce_val_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+                    kl_train_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
+                    kl_val_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
                     
+                    
+                    seed = 42 # Logic regarding seeding must be changed if many seeds used
+                    for i in range(NUM_SEEDS): # NUM_SEEDS is one in this test at the moment (15.05) bc. low variance in val-loss
+                        # Load data with different seed
+                        seed += i
+                        print(f'Seed {i}/{NUM_SEEDS}')
+                        #train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=seed, shuffle=True)
+                        train_loader, val_loader, test_loader = dataloader_rs.load_split_data_realsense(seed=seed, shuffle=True)
+
+
+                        # Create VAE based on args.model_name
+                        if model_name == 'conv1':
+                            encoder = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=l)
+                            decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=l, flattened_size=encoder.flattened_size, dim_before_flatten=encoder.dim_before_flatten)
+                            vae = VAE(encoder, decoder, l, b).to(device)
+
+                        # Train model
+                        optimizer = Adam(vae.parameters(), lr=LEARNING_RATE)
+                        trainer = TrainerVAE(model=vae, 
+                                            epochs=N_EPOCH, 
+                                            learning_rate=LEARNING_RATE, 
+                                            batch_size=BATCH_SIZE, 
+                                            dataloader_train=train_loader, 
+                                            dataloader_val=val_loader, 
+                                            optimizer=optimizer, 
+                                            beta=b,
+                                            reconstruction_loss="MSE")
+                        
+                        trained_epochs = trainer.train(early_stopping=False)
+                        
+                        # Only insert to the first trained_epochs elements if early stopping has been triggered
+                        total_train_losses[i,:trained_epochs] = trainer.training_loss['Total loss']
+                        total_val_losses[i,:trained_epochs] = trainer.validation_loss['Total loss']
+                        bce_train_losses[i,:trained_epochs] = trainer.training_loss['Reconstruction loss']
+                        bce_val_losses[i,:trained_epochs] = trainer.validation_loss['Reconstruction loss']
+                        
+                        kl_train_losses[i,:trained_epochs] = trainer.training_loss['KL divergence loss']
+                        kl_val_losses[i,:trained_epochs] = trainer.validation_loss['KL divergence loss']
+                        
+                        # Normalize KL losses by dividing by beta so that losses are comparable across betas
+                        kl_train_losses[i,:trained_epochs] = kl_train_losses[i,:trained_epochs] / b
+                        kl_val_losses[i,:trained_epochs] = kl_val_losses[i,:trained_epochs] / b
+                        
+                        # Save encoder and decoder parameters to file
+                        savepath_encoder = f'models/encoders'
+                        savepath_decoder = f'models/decoders'
+                        os.makedirs(savepath_encoder, exist_ok=True)
+                        os.makedirs(savepath_decoder, exist_ok=True)
+
+                        if args.save_model:
+                            vae.encoder.save(path=os.path.join(savepath_encoder, f'encoder_{model_name}_experiment_{experiment_id}_seed{seed}_dim{l}_beta{b}.json'))
+                            vae.decoder.save(path=os.path.join(savepath_decoder, f'decoder_{model_name}_experiment_{experiment_id}_seed{seed}_dim{l}_beta{b}.json'))
+
+                        del train_loader, val_loader, encoder, decoder, vae, optimizer, trainer
+                    
+                    total_val_losses_for_betas.append(total_val_losses)
+                    bce_val_losses_for_betas.append(bce_val_losses)
+                    kl_val_losses_for_betas.append(kl_val_losses)
+                    total_train_losses_for_betas.append(total_train_losses)
+                    bce_train_losses_for_betas.append(bce_train_losses)
+                    kl_train_losses_for_betas.append(kl_train_losses)
+                    
+                    # Save loss trajectories to file, so specific loss trajs can be plotted later on
+                    savepath_loss_numerical = f'results/{model_name}/numerical/losses/exp{experiment_id}/latent_dim_{l}/beta_{b}'
+                    os.makedirs(savepath_loss_numerical, exist_ok=True)
+
+                    np.save(os.path.join(savepath_loss_numerical, f'total_train_losses.npy'), total_train_losses)
+                    np.save(os.path.join(savepath_loss_numerical, f'total_val_losses.npy'), total_val_losses)
+                    np.save(os.path.join(savepath_loss_numerical, f'bce_train_losses.npy'), bce_train_losses)
+                    np.save(os.path.join(savepath_loss_numerical, f'bce_val_losses.npy'), bce_val_losses)
+                    np.save(os.path.join(savepath_loss_numerical, f'kl_train_losses.npy'), kl_train_losses)
+                    np.save(os.path.join(savepath_loss_numerical, f'kl_val_losses.npy'), kl_val_losses)
+                    
+                    # Plot the aggregated loss trajectories at end of run
+                    total_losses = [total_train_losses, total_val_losses]
+                    bce_losses = [bce_train_losses, bce_val_losses]
+                    kl_losses = [kl_train_losses, kl_val_losses]
+                    labels = ['Training loss', 'Validation loss']
+
+                    savepath_loss_plot = f'results/{model_name}/plots/losses/exp{experiment_id}/latent_dim_{l}/beta_{b}'
+                    os.makedirs(savepath_loss_plot, exist_ok=True)
+                    plotting.plot_separated_losses(total_losses=total_losses,
+                                                BCE_losses=bce_losses,
+                                                KL_losses=kl_losses,
+                                                labels=labels,
+                                                path=savepath_loss_plot,
+                                                save=True)
+                
+                    
+            
+                # Plot the aggregated loss trajectories at end of run
+                savepath_ldim_plot = f'results/{model_name}/plots/losses/exp{experiment_id}/ldim_sweep'
+                os.makedirs(savepath_ldim_plot, exist_ok=True)
+                labels = [f'β = {b}' for b in betas]
+                total_losses = [total_train_losses_for_betas, total_val_losses_for_betas]
+                bce_losses = [bce_train_losses_for_betas, bce_val_losses_for_betas]
+                kl_losses = [kl_train_losses_for_betas, kl_val_losses_for_betas]
+                """
+                # Using same function as ldim sweep but for betas :)
+                plotting.plot_loss_ldim_sweep(total_losses=total_losses,
+                                            BCE_losses=bce_losses,
+                                            KL_losses=kl_losses,
+                                            labels=labels,
+                                            path=savepath_ldim_plot,
+                                            save=True,
+                                            include_train=False)"""
+            
+            # Now run tests for different betas and latent dims
+            test_errors = np.zeros((len(latent_dims), len(betas))) #rows = latent dims, cols = betas
+            for i, l in enumerate(latent_dims):
+                for j, b in enumerate(betas):
+                    # Load model for l+b combo
+                    #seed = 42
+                    #_,_,test_loader = dataloader_rs.load_split_data_realsense(seed=seed, shuffle=True)
+                    name = f'{model_name}_experiment_{experiment_id}_seed{seed}_dim{l}_beta{b}.json'
+                    encoder = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=l)
+                    encoder.load(f"models/encoders/encoder_{name}")
+                    decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=l, flattened_size=encoder.flattened_size, dim_before_flatten=encoder.dim_before_flatten)
+                    decoder.load(f"models/decoders/decoder_{name}")
+                    vae = VAE(encoder, decoder, l, b).to(device)
+                    
+                    # test on test set
+                    loss = 0.0
+                    for _, x in enumerate(test_loader):
+                        img = x.detach().cpu().numpy().squeeze()
+                        x_hat, mu, logvar = vae(x)
+                        valid_pixels = torch.where(x > 0, torch.ones_like(x), torch.zeros_like(x))
+                        MSE_loss_ = F.mse_loss(x_hat, x, reduction='none') * valid_pixels
+                        recon_loss = torch.mean(torch.sum(MSE_loss_))
+                        KLD_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+                        KDL_loss_scaled = KLD_loss / b
+                        loss += recon_loss.item() + KDL_loss_scaled.item()
+                    
+                    test_errors[i,j] = loss/len(test_loader.dataset) # len is 1 for realsense tets data
+                    del encoder, decoder, vae
+            
+            # Plot test errors with beta on x axis and loss on y axis, different latent dim is own line
+            savepath_test_errors = f'results/{model_name}/plots/test_errors/exp{experiment_id}'
+            os.makedirs(savepath_test_errors, exist_ok=True)
+            
+            plt.style.use('ggplot')
+            plt.rc('font', family='serif')
+            plt.rc('xtick', labelsize=12)
+            plt.rc('ytick', labelsize=12)
+            plt.rc('axes', labelsize=12)
+            
+            ln_betas = np.log(betas)
+            labels = [f'Latent dim = {l}' for l in latent_dims]
+            plt.figure(figsize = (20,10))
+            for l, i in enumerate(latent_dims):
+                plt.plot(ln_betas, test_errors[l,:], label=labels[l])
+            plt.xlabel('ln(β)')
+            plt.ylabel('Test error (β-normalized)')
+            plt.legend()
+            plt.savefig(f'{savepath_test_errors}/test_errors.pdf', bbox_inches='tight')
+            
+                    
+                    
+     
                 
     if args.mode == 'test':
         seed = args.seed
-        full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}'
+        full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}_dim{LATENT_DIMS}'
 
         # Load model for testing
         if model_name == 'conv1':
@@ -428,12 +614,40 @@ def main(args):
                                         path=savepath_kde,
                                         save=True, combos=combos_to_test)
             
+        if "feature_maps" in args.plot:
+            savepath_feature_maps = f'results/{model_name}/plots/feature_maps'
+            os.makedirs(savepath_feature_maps, exist_ok=True)
+            #input_img = torch.rand(1,1, IMG_SIZE, IMG_SIZE).to(device)
+            #input_img = next(iter(test_loader_rs)).to(device)
+            # get 10 random samples from test loasder and generate feature maps for them
+            for i in range(25):
+                input_img = next(iter(test_loader_rs)).to(device)
+                plotting.visualize_feature_maps(encoder=encoder,input_image=input_img, savepath=savepath_feature_maps, ending=str(i))
+                             
+            #plotting.visualize_feature_maps(encoder=encoder,input_image=input_img, savepath=savepath_feature_maps)
         
-
-
-
-
-
+        if "filters" in args.plot:
+            savepath_filters = f'results/{model_name}/plots/filters'
+            os.makedirs(savepath_filters, exist_ok=True)
+            
+            for i in range(25):
+                img = next(iter(test_loader_rs)).to(device)
+                plotting.visualize_filters(encoder=encoder, savepath=savepath_filters, input_image=img, ending=str(i))
+        
+        if 'activation_maximization' in args.plot:
+            savepath_act_max = f'results/{model_name}/plots/activation_maximization'
+            os.makedirs(savepath_act_max, exist_ok=True)
+            if model_name == 'vgg16':
+                encoder = encoder.vgg16.features
+            if model_name == 'conv1':
+                encoder = encoder.conv_block
+            
+            for i in range(256):
+                am = plotting.ActivationMaximization(encoder=encoder, epochs=2000, cnn_layer=3, cnn_filter=i)
+                am.visualize_activation_maximization(savepath=savepath_act_max)
+    
+            
+        
 
 
 
@@ -452,7 +666,11 @@ if __name__ == '__main__':
                         choices=['losses', 
                                  'reconstructions',
                                  'latent_dims_sweep',
-                                 'kde'],
+                                 'beta_and_latent_sweep',
+                                 'kde',
+                                 'feature_maps',
+                                 'filters',
+                                 'activation_maximization'],
                         nargs="+",
                         default=['losses'])
     

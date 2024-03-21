@@ -5,7 +5,7 @@ import cv2
 from scipy.stats import skew, kurtosis, entropy
 from tqdm import tqdm
 
-locations = ["office", "hallway", "stairs", "glassgaarden"]
+locations = ["office", "hallway", "stairs", "glassgaarden", "el5", "elbygget_longdistances", "hallway2", "hsp_human", "hsp_trees", "ohma", "parkinglot", "stairs_2"]
 basepath = "data/realsense_data_v2"
 
 savepath = "data/realsense_distributions_v2/"
@@ -34,7 +34,7 @@ thresh_depth = 10000 # 10 meters
 max_depth_meters = 65535 / divide_by_to_get_meters
 
 num_bins = 100
-bin_edges = np.linspace(0, max_depth_meters, num_bins+1)
+bin_edges = np.linspace(0, thresh_depth/divide_by_to_get_meters, num_bins+1)
 hist_counts = np.zeros(num_bins, dtype=np.int64)
 
 num_bins = 100
@@ -46,7 +46,7 @@ for loc in locations:
     for image in tqdm(images, desc="Processing images"):
         im = cv2.imread(f"{basepath}/{loc}/depth_imgs/{image}", cv2.IMREAD_ANYDEPTH)
 
-        #im[im > thresh_depth] = thresh_depth
+        im[im > thresh_depth] = thresh_depth
         im = im / divide_by_to_get_meters
         flattened_im = im.flatten()
 
@@ -109,7 +109,7 @@ plt.figure()
 plt.bar(bin_centers, hist_counts, width=np.diff(bin_edges))
 plt.xlabel('Depth [m]')
 plt.ylabel('Number of Pixels')
-plt.savefig(f"{savepath}depth_histogram.pdf", bbox_inches='tight')
+plt.savefig(f"{savepath}depth_histogram_saturated.pdf", bbox_inches='tight')
 
 plt.figure()
 bin_centers_trunc[-1] = bin_centers_trunc[-3]
@@ -126,46 +126,46 @@ plt.figure()
 plt.hist(depth_stats['mean'], bins=100)
 plt.xlabel("Mean Depth Value [m]")
 plt.ylabel("Frequency")
-plt.savefig(f"{savepath}mean_depth_distribution.pdf", bbox_inches='tight')
+plt.savefig(f"{savepath}mean_depth_distribution_saturated.pdf", bbox_inches='tight')
 
 # Standard Deviation Distribution
 plt.figure()
 plt.hist(depth_stats['std'], bins=100)
 plt.xlabel("Standard Deviation of Depth Values [m]")
 plt.ylabel("Frequency")
-plt.savefig(f"{savepath}std_dev_depth_distribution.pdf", bbox_inches='tight')
+plt.savefig(f"{savepath}std_dev_depth_distribution_saturated.pdf", bbox_inches='tight')
 
 # Min Depth Value Distribution
 plt.figure()
 plt.hist(depth_stats['min'], bins=100)
 plt.xlabel("Minimum Depth Value [m]")
 plt.ylabel("Frequency")
-plt.savefig(f"{savepath}min_depth_distribution.pdf", bbox_inches='tight')
+plt.savefig(f"{savepath}min_depth_distribution_saturated.pdf", bbox_inches='tight')
 
 # Max Depth Value Distribution
 plt.figure()
 plt.hist(depth_stats['max'], bins=100)
 plt.xlabel("Maximum Depth Value [m]")
 plt.ylabel("Frequency")
-plt.savefig(f"{savepath}max_depth_distribution.pdf", bbox_inches='tight')
+plt.savefig(f"{savepath}max_depth_distribution_saturated.pdf", bbox_inches='tight')
 
 # Skewness Distribution
 plt.figure()
 plt.hist(depth_stats['skewness'], bins=100)
 plt.xlabel("Skewness of Depth Values")
 plt.ylabel("Frequency")
-plt.savefig(f"{savepath}skewness_distribution.pdf", bbox_inches='tight')
+plt.savefig(f"{savepath}skewness_distribution_saturated.pdf", bbox_inches='tight')
 
 # Kurtosis Distribution
 plt.figure()
 plt.hist(depth_stats['kurtosis'], bins=100)
 plt.xlabel("Kurtosis of Depth Values")
 plt.ylabel("Frequency")
-plt.savefig(f"{savepath}kurtosis_distribution.pdf", bbox_inches='tight')
+plt.savefig(f"{savepath}kurtosis_distribution_saturated.pdf", bbox_inches='tight')
 
 # Entropy Distribution
 plt.figure()
 plt.hist(depth_stats['entropy'], bins=100)
 plt.xlabel("Entropy of Depth Values")
 plt.ylabel("Frequency")
-plt.savefig(f"{savepath}entropy_distribution.pdf", bbox_inches='tight')
+plt.savefig(f"{savepath}entropy_distribution_saturated.pdf", bbox_inches='tight')

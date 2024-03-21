@@ -340,7 +340,7 @@ class DataReaderRealSensev2:
         
         rng = torch.Generator()
         if seed: rng.manual_seed(seed)
-        
+        #"""
         train_loader = DataLoader(train_data, 
                                   batch_size=self.batch_size, 
                                   shuffle=shuffle,
@@ -353,7 +353,21 @@ class DataReaderRealSensev2:
                                   batch_size=1, 
                                   shuffle=shuffle,
                                   generator=rng)
-
+        """
+        indices_1 = list(range(100))
+        indices_2 = list(range(40))
+        train_loader = DataLoader(Subset(train_data, indices_1), 
+                                  batch_size=self.batch_size, 
+                                  shuffle=shuffle,
+                                  generator=rng)     
+        val_loader   = DataLoader(Subset(val_data, indices_2), 
+                                  batch_size=self.batch_size, 
+                                  shuffle=shuffle,
+                                  generator=rng)
+        test_loader  = DataLoader(Subset(test_data, indices_2),
+                                  batch_size=1, 
+                                  shuffle=shuffle,
+                                  generator=rng)#"""
         return train_loader, val_loader, test_loader
     
     def split_train_validate_test(self, train_test_split:float, train_val_split:float, shuffle:bool = True, seed:int=42) -> None:
