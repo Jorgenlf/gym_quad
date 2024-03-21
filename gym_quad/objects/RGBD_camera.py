@@ -175,7 +175,7 @@ def calculate_object_distance(alpha:ti.f32,
         if ti.sqrt((obs_x - x)**2 + (obs_y - y)**2 + (obs_z - z)**2) <= obs_rad and fine_search == True:
             break
         elif fine_search == True:
-            s += 0.01
+            s += 0.1
     return s 
 
 @ti.data_oriented
@@ -263,21 +263,20 @@ class taichiDepthCam():
                                                     quad_y = q_y, 
                                                     quad_z = q_z, 
                                                     sensor_range = s_range)
-                    #Should add a check to not draw stuff twice rather than just taking the max
-                    if self.depth_image[i, j] != sensor_range:
-                        pass
-                    else:
-                        self.depth_image[i, j] = s #ti.max(s, self.depth_image[i, j])
+                    #Should add a check to not draw stuff twice rather than just taking the min?
+                    self.depth_image[i, j] = ti.min(s, self.depth_image[i, j])
 
 # Example usage:
 if __name__ == "__main__":
     # Initialize RGBD camera
     import matplotlib.pyplot as plt
+    import time
     
     camera_to_use = "taichi" # "stereoest", "rgbdIntellisense", "taichi"
 
     if camera_to_use == "taichi":
         # Example usage
+
         depth_camera = taichiDepthCam(resolution=(240, 320), sensor_span=(85,58), fps=30)
         #Test environment
         obstacle1 = Obstacle(0.5, [4,0,0])
@@ -302,14 +301,16 @@ if __name__ == "__main__":
         nopt = ti.ndarray(dtype=ti.float32,shape=(len(nearby_obs),3))
         nopt.from_numpy(np.array([obstacle.position for obstacle in nearby_obs]))
         
-        print("Starting kernel")
+        # print("Starting kernel")
         # Calling the kernel
+        _s = time.time()
         depth_camera.update_sensor_readings(quad_heading=qp, quad_pitch=qp, sensor_range=sr, obs_rads=obs_rads, nearby_obstacle_positions=nopt, quadcopter_position=qpt, sectors_horizontal=sh, sectors_vertical=sv)
-        print("Kernel done")
+        # print("Kernel done")
 
         # Accessing the depth image
         depth_image_np = depth_camera.depth_image.to_numpy()
-        
+        print(f"Kernel to calc depthimage ran in {time.time() - _s:0.2f} seconds")
+
         print("Showing depth image, shape:",depth_image_np.shape)
         #viewing the depth image
         plt.imshow(depth_image_np, cmap='gray')
