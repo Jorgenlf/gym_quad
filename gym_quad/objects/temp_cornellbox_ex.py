@@ -208,10 +208,14 @@ def main():
     window = ti.ui.Window("Cornell Box", image_resolution)
     canvas = window.get_canvas()
     build_scene()
+    i = 0
     while window.running:
+        # if i % 10 == 0: Makes the tall box fly up
+        #     objects[5].transform.position = vec3(0, +i/10000, 0) + objects[5].transform.position
         render(vec3(0, 0, 3.5), vec3(0, 0, -1), vec3(0, 1, 0))
         canvas.set_image(image_pixels)
         window.show()
+        i += 1
 
 
 if __name__ == "__main__":

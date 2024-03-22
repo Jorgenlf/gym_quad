@@ -1,14 +1,22 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
 from mpl_toolkits.mplot3d import Axes3D
+from enum import Enum
+import taichi as ti
 
+class ObstacleType(Enum):
+    WALL = 0
+    SPHERE = 1
+    BOX = 2
+    CYLINDER = 3
+    # Add more obstacle types as needed
 
-
+#TODO Make the obstacle class into a superclass and then make subclasses for each type of obstacle
 class Obstacle():
-    def __init__(self, radius, position):
+    def __init__(self, radius, position, type=ObstacleType.SPHERE):
         self.position = np.array(position)
         self.radius = radius
+        self.type = type
         self.observed = False
         self.collided = False
 
