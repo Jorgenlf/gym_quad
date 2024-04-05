@@ -15,8 +15,8 @@ from utils_perception import plotting
 
 #from utils_perception.data_augmentation import DataAugmentation
 
-from VAE.encoders import ConvEncoder1, VGG16Encoder, ResNet50Encoder
-from VAE.decoders import ConvDecoder1
+from VAE.encoders import ConvEncoder1, ConvEncoder2, VGG16Encoder, ResNet50Encoder
+from VAE.decoders import ConvDecoder1, ConvDecoder2, _ConvDecoder2
 from VAE.vae import VAE
 
 from train_perception import TrainerVAE
@@ -48,8 +48,8 @@ def main(args):
     print('Preparing data...\n') # Do this on any mode
 
     # Get SUN RGBD dataset
-    print('Getting SUN RGBD dataset')
-    sun = SunRGBD(orig_data_path="data/sunrgbd_stripped", data_path_depth="data/sunrgbd_images_depth", data_path_rgb="data/sunrgbd_images_rgb")
+    #print('Getting SUN RGBD dataset')
+    #sun = SunRGBD(orig_data_path="data/sunrgbd_stripped", data_path_depth="data/sunrgbd_images_depth", data_path_rgb="data/sunrgbd_images_rgb")
     
 
     # Define transformatons additional to the normalization and channel conversion done in the DataReader
@@ -73,19 +73,19 @@ def main(args):
     print(f'Loading data with image size = ({NUM_CHANNELS}, {IMG_SIZE}, {IMG_SIZE}), batch size = {BATCH_SIZE}, train-test split = {0.7} and train-val split = {0.3}')
     print(f'Additional transformations to training data:\n {train_additional_transform}')
     
-    dataloader_sun = DataReader(path_img_depth="data/sunrgbd_images_depth",
-                            path_img_rgb="data/sunrgbd_images_rgb",
-                            batch_size=BATCH_SIZE,
-                            train_test_split=0.7,
-                            train_val_split=0.3,
-                            transforms_train=train_additional_transform,
-                            transforms_validate=valid_additional_transform)
+    #dataloader_sun = DataReader(path_img_depth="data/sunrgbd_images_depth",
+    #                        path_img_rgb="data/sunrgbd_images_rgb",
+    #                        batch_size=BATCH_SIZE,
+    #                        train_test_split=0.7,
+    #                        train_val_split=0.3,
+    #                        transforms_train=train_additional_transform,
+    #                        transforms_validate=valid_additional_transform)
     
 
     # Load data and create dataloaders
-    train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=None, shuffle=True)
+    #train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=None, shuffle=True)
     
-    print(f'Data loaded\nSize train: {len(train_loader.dataset)} | Size validation: {len(val_loader.dataset)} | Size test: {len(test_loader.dataset)}\n')
+    #print(f'Data loaded\nSize train: {len(train_loader.dataset)} | Size validation: {len(val_loader.dataset)} | Size test: {len(test_loader.dataset)}\n')
 
 
     dataloader_rs = DataReaderRealSensev2(path_img_depth="data/realsense_v2_depth",
@@ -107,6 +107,7 @@ def main(args):
     experiment_id = args.exp_id
 
     if args.mode == 'train':
+        #torch.autograd.set_detect_anomaly(True)
         if any(mode in args.plot for mode in ['losses']):
             print(f"Training...\nPlotting mode = {args.plot}")
             
@@ -129,6 +130,10 @@ def main(args):
                 if model_name == 'conv1':
                     encoder = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS)
                     decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=encoder.flattened_size, dim_before_flatten=encoder.dim_before_flatten)
+                    vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)
+                if model_name == 'conv2':
+                    encoder = ConvEncoder2(image_size=IMG_SIZE, in_chan=NUM_CHANNELS, latent_dim=LATENT_DIMS)
+                    decoder = _ConvDecoder2(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=encoder.flattened_size, dim_before_flatten=encoder.dim_before_flatten)
                     vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)
                 if model_name == 'vgg16':
                     decoder_intermediate_size = torch.Size([1,256,14,14])
@@ -242,7 +247,7 @@ def main(args):
                 seed = 42 # Logic regarding seeding must be changed if many seeds used
                 for i in range(NUM_SEEDS):
                     # Load data with different seed
-                    seed += i
+                    seed += 2*i
                     print(f'Seed {i}/{NUM_SEEDS}')
                     #train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=seed, shuffle=True)
                     train_loader, val_loader, test_loader = dataloader_rs.load_split_data_realsense(seed=seed, shuffle=True)
@@ -283,8 +288,8 @@ def main(args):
                     os.makedirs(savepath_decoder, exist_ok=True)
 
                     if args.save_model:
-                        vae.encoder.save(path=os.path.join(savepath_encoder, f'encoder_{model_name}_experiment_{experiment_id}_seed{seed}_dim{l}.json'))
-                        vae.decoder.save(path=os.path.join(savepath_decoder, f'decoder_{model_name}_experiment_{experiment_id}_seed{seed}_dim{l}.json'))
+                        vae.encoder.save(path=os.path.join(savepath_encoder, f'encoder_{model_name}_experiment_{experiment_id}_seed{i}_dim{l}.json'))
+                        vae.decoder.save(path=os.path.join(savepath_decoder, f'decoder_{model_name}_experiment_{experiment_id}_seed{i}_dim{l}.json'))
 
                     del train_loader, val_loader, encoder, decoder, vae, optimizer, trainer
                 
@@ -341,8 +346,8 @@ def main(args):
             
         if 'beta_and_latent_sweep' in args.plot:
             print('Beta and latent dim sweep test...')
-            betas = [0.01, 0.1, 0.5, 1, 1.5, 2, 4, 8, 16, 32, 64]
-            latent_dims = [8, 16, 32]
+            betas = [0.007, 0.018, 0.05, 0.135, 0.368, 1.0, 2.718, 7.389, 20.086, 54.598, 148.413, 403.429] # Chosen for ln scale old: [0.001, 0.01, 0.1, 0.5, 1, 1.5, 2, 4, 8, 16, 32, 64, 128, 256]
+            latent_dims = [32]#[8, 16, 32]
             
             for l in latent_dims:
                 print(f'Latent dimension: {l}')
@@ -526,13 +531,22 @@ def main(args):
                 
     if args.mode == 'test':
         seed = args.seed
-        full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}_dim{LATENT_DIMS}'
+        try:
+            full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}_dim{LATENT_DIMS}'
+        except:
+            full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}'
 
         # Load model for testing
         if model_name == 'conv1':
             encoder = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS)
             encoder.load(f"models/encoders/encoder_{full_name}.json")
             decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=encoder.flattened_size, dim_before_flatten=encoder.dim_before_flatten)
+            decoder.load(f"models/decoders/decoder_{full_name}.json")
+            vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)
+        if model_name == 'conv2':
+            encoder = ConvEncoder2(image_size=IMG_SIZE, in_chan=NUM_CHANNELS, latent_dim=LATENT_DIMS)
+            encoder.load(f"models/encoders/encoder_{full_name}.json")
+            decoder = _ConvDecoder2(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=encoder.flattened_size, dim_before_flatten=encoder.dim_before_flatten)
             decoder.load(f"models/decoders/decoder_{full_name}.json")
             vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)
         if model_name == 'vgg16':
@@ -586,7 +600,7 @@ def main(args):
         print(f'Average reconstruction loss for test data: {loss2/len(test_loader.dataset)}')"""
         
         if "reconstructions" in args.plot:
-            savepath_recon = f'results/{model_name}/plots/reconstructions/exp{experiment_id}'
+            savepath_recon = f'results/{model_name}/plots/reconstructions/exp{experiment_id}/latent_dim_{LATENT_DIMS}/'
             os.makedirs(savepath_recon, exist_ok=True)
             for i, x in enumerate(test_loader_rs):
                 if i == args.num_examples: break
@@ -632,7 +646,20 @@ def main(args):
             
             for i in range(25):
                 img = next(iter(test_loader_rs)).to(device)
-                plotting.visualize_filters(encoder=encoder, savepath=savepath_filters, input_image=img, ending=str(i))
+                #img = None
+                plt.style.use('ggplot')
+                plt.rc('font', family='serif')
+                plt.rc('xtick', labelsize=12)
+                plt.rc('ytick', labelsize=12)
+                plt.rc('axes', labelsize=12)
+                
+                plt.figure(figsize=(20, 10))
+                img_plt = img.detach().cpu().numpy().squeeze()
+                plt.imshow(img_plt, cmap='gray')
+                plt.axis("off")
+                plt.savefig(f"{savepath_filters}/input_img_{i}.pdf", bbox_inches='tight')
+                
+                #plotting.visualize_filters(encoder=encoder, savepath=savepath_filters, input_image=img, ending=str(i))
         
         if 'activation_maximization' in args.plot:
             savepath_act_max = f'results/{model_name}/plots/activation_maximization'
@@ -645,6 +672,14 @@ def main(args):
             for i in range(256):
                 am = plotting.ActivationMaximization(encoder=encoder, epochs=2000, cnn_layer=3, cnn_filter=i)
                 am.visualize_activation_maximization(savepath=savepath_act_max)
+        
+        if 'interpolate' in args.plot:
+            savepath_interpolate = f'results/{model_name}/plots/interpolate'
+            os.makedirs(savepath_interpolate, exist_ok=True)
+            # Get two random images from test_loader
+            img1 = next(iter(test_loader_rs)).to(device)
+            img2 = next(iter(test_loader_rs)).to(device)
+            plotting.interpolate(autoencoder=vae, x_1=img1, x_2=img2, n=10, savepath=savepath_interpolate)
     
             
         
@@ -670,7 +705,8 @@ if __name__ == '__main__':
                                  'kde',
                                  'feature_maps',
                                  'filters',
-                                 'activation_maximization'],
+                                 'activation_maximization',
+                                 'interpolate'],
                         nargs="+",
                         default=['losses'])
     
@@ -682,6 +718,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_name',
                         type=str,
                         choices=['conv1',
+                                 'conv2',
                                  'vgg16',
                                  'resnet50'],
                         help='Name of model to test',

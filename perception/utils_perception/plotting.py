@@ -53,6 +53,7 @@ def plot_separated_losses(total_losses:list, BCE_losses:list, KL_losses:list, la
             axes[i].plot(x, mean_error_traj, label=labels[j], linewidth=1)
             axes[i].fill_between(x, mean_error_traj - conf_interval, mean_error_traj + conf_interval, alpha=0.2)
             axes[i].legend()
+            axes[i].xaxis.set_major_locator(MaxNLocator(integer=True))  # Ensure integer ticks on x-axis
 
     if save:
         path = os.path.join(path, f'LOSS_SEPARATED.pdf')
@@ -396,6 +397,37 @@ class ActivationMaximization:
                     plt.clf()
     
 
+
+def interpolate(autoencoder, x_1, x_2, n, savepath):
+    """Interpolates between two images in latent space and plots the result with n steps."""
+    z_1, _, _ = autoencoder.encoder(x_1)
+    z_2, _, _ = autoencoder.encoder(x_2)
+    z = torch.stack([z_1 + (z_2 - z_1)*t for t in np.linspace(0, 1, n)])
+    interpolate_list = autoencoder.decoder(z)
+    interpolate_list = interpolate_list.to('cpu').detach().numpy()
+    interpolate_list = interpolate_list.squeeze()
+    print(interpolate_list.shape)
+    
+    plt.style.use('ggplot')
+    plt.rc('font', family='serif')
+    plt.rc('xtick', labelsize=12)
+    plt.rc('ytick', labelsize=12)
+    plt.rc('axes', labelsize=12)
+
+    w = 28
+    img = np.zeros((w, n*w))
+    for i, x_hat in enumerate(interpolate_list):
+        print(x_hat.shape)
+        img[:, i*w:(i+1)*w] = x_hat.reshape(28, 28)
+    plt.imshow(img, heatmap='magma')
+    plt.xticks([])
+    plt.yticks([])
+    plt.axis('off')
+    plt.savefig(f'{savepath}/interpolation.pdf', bbox_inches='tight')
+    plt.clf()
+    
+    
+    
 # TODO: Add functionality forplotting saved .npy loss trajectories for a given number of seeds and a given number of epochs:
 def plot_separated_lossed_from_file(n_epochs, seeds, path):
     pass
