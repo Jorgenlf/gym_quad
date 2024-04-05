@@ -9,7 +9,6 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-
 from utils_perception.data_reader import DataReader, SunRGBD, CustomDepthDataset, RealSenseDataset, RealSenseDataset_v2, DataReaderRealSensev2
 from utils_perception import plotting
 
@@ -43,6 +42,14 @@ def main(args):
     
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    print(f'Using device: {device}')
+    print(device)
+
+    # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
+    # in PyTorch 1.12 and later.
+    torch.backends.cuda.matmul.allow_tf32 = True
+    # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
+    torch.backends.cudnn.allow_tf32 = True
 
     
     print('Preparing data...\n') # Do this on any mode
@@ -97,6 +104,7 @@ def main(args):
     
     train_loader_rs, val_loader_rs, test_loader_rs = dataloader_rs.load_split_data_realsense(seed=None, shuffle=True)
 
+
     print(f'RealSense Data loaded\nSize train: {len(train_loader_rs.dataset)} | Size validation: {len(val_loader_rs.dataset)} | Size test: {len(test_loader_rs.dataset)}\n')
 
     # Augment data
@@ -128,8 +136,8 @@ def main(args):
 
                 # Create VAE based on args.model_name
                 if model_name == 'conv1':
-                    encoder = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS)
-                    decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=encoder.flattened_size, dim_before_flatten=encoder.dim_before_flatten)
+                    encoder = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS).to(device)
+                    decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=encoder.flattened_size, dim_before_flatten=encoder.dim_before_flatten).to(device)
                     vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)
                 if model_name == 'conv2':
                     encoder = ConvEncoder2(image_size=IMG_SIZE, in_chan=NUM_CHANNELS, latent_dim=LATENT_DIMS)
@@ -161,7 +169,7 @@ def main(args):
                                     beta=BETA,
                                     reconstruction_loss="MSE")
                 
-                trained_epochs = trainer.train()
+                trained_epochs = trainer.train(early_stopping=False)
                     
                 # Only insert to the first trained_epochs elements if early stopping has been triggered
                 total_train_losses[i,:trained_epochs] = trainer.training_loss['Total loss']

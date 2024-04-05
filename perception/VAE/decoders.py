@@ -163,24 +163,24 @@ class _ConvDecoder2(BaseDecoder):
             # Body.
             ResBlock(in_chan=256, out_chan=128, scale="upscale"),   
             ResBlock(in_chan=128, out_chan=128),
-            #ResBlock(in_chan=128, out_chan=128),
-            #ResBlock(in_chan=128, out_chan=128),
+            ResBlock(in_chan=128, out_chan=128),
+            ResBlock(in_chan=128, out_chan=128),
 
             ResBlock(in_chan=128, out_chan=64, scale="upscale"),    
             ResBlock(in_chan=64, out_chan=64),
-            #ResBlock(in_chan=64, out_chan=64),
-            #ResBlock(in_chan=64, out_chan=64),
+            ResBlock(in_chan=64, out_chan=64),
+            ResBlock(in_chan=64, out_chan=64),
 
             ResBlock(in_chan=64, out_chan=32, scale="upscale"),  
             ResBlock(in_chan=32, out_chan=32),
-            #ResBlock(in_chan=32, out_chan=32),
-            #ResBlock(in_chan=32, out_chan=32),
+            ResBlock(in_chan=32, out_chan=32),
+            ResBlock(in_chan=32, out_chan=32),
 
             # Inverse stem.
             # Inverse stem.
             PositionalNorm(32),
             nn.ReLU(),
-            nn.Conv2d(32, out_channels=channels, kernel_size=3, padding="same"),
+            nn.ConvTranspose2d(32, out_channels=channels, kernel_size=3, stride=1, padding=1, output_padding=0)
         )
 
         self.sigmoid = nn.Sigmoid()

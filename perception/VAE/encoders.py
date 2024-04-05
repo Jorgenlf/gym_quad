@@ -162,25 +162,25 @@ class ConvEncoder2(BaseEncoder):
             # Body.
             ResBlock(in_chan=32, out_chan=64, scale="downscale"),   # 16x16
             ResBlock(in_chan=64, out_chan=64),
-            #ResBlock(in_chan=64, out_chan=64),
-            #ResBlock(in_chan=64, out_chan=64),
+            ResBlock(in_chan=64, out_chan=64),
+            ResBlock(in_chan=64, out_chan=64),
 
             ResBlock(in_chan=64, out_chan=128, scale="downscale"),  # 8x8
             ResBlock(in_chan=128, out_chan=128),
-            #ResBlock(in_chan=128, out_chan=128),
-            #ResBlock(in_chan=128, out_chan=128),
+            ResBlock(in_chan=128, out_chan=128),
+            ResBlock(in_chan=128, out_chan=128),
 
             ResBlock(in_chan=128, out_chan=256, scale="downscale"), # 4x4
             ResBlock(in_chan=256, out_chan=256),
-            #ResBlock(in_chan=256, out_chan=256),
-            #ResBlock(in_chan=256, out_chan=256)
+            ResBlock(in_chan=256, out_chan=256),
+            ResBlock(in_chan=256, out_chan=256)
         )
         
         self.head = nn.Sequential(
             # Head.
-            PositionalNorm(256),
+            #PositionalNorm(256),
             nn.ReLU(),
-            nn.AdaptiveAvgPool2d((1,1))
+            #nn.AdaptiveAvgPool2d((1,1))
         )
         
         self.flatten = nn.Flatten()
@@ -190,7 +190,7 @@ class ConvEncoder2(BaseEncoder):
         # Adjust the size calculations based on the number of convolution and pooling layers
         self.flattened_size, self.dim_before_flatten = self._get_conv_output(image_size)
         print(f'Encoder flattened size: {self.flattened_size}; Dim before flatten: {self.dim_before_flatten}')
-        """
+        #"""
         # Fully connected layers for mu and logvar
         self.fc_mu = nn.Sequential(
             #nn.Linear(self.flattened_size, latent_dim),
@@ -207,10 +207,10 @@ class ConvEncoder2(BaseEncoder):
             nn.Linear(512, latent_dim)
             #self.activation
         )
-        """
+        #"""
         
-        self.fc_mu = nn.Linear(256, latent_dim)
-        self.fc_logvar = nn.Linear(256, latent_dim)
+        #self.fc_mu = nn.Linear(256, latent_dim)
+        #self.fc_logvar = nn.Linear(256, latent_dim)
         
         
     def _get_conv_output(self, image_size:int) -> int:
@@ -226,7 +226,7 @@ class ConvEncoder2(BaseEncoder):
     def forward(self, x:torch.Tensor) -> tuple:
         x = x.to(device)
         x = self.conv_block(x)
-        x = self.head(x) 
+        #x = self.head(x) 
         x = self.flatten(x)
         mu = self.fc_mu(x)
         logvar = self.fc_logvar(x)
