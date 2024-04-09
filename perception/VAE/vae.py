@@ -19,6 +19,6 @@ class VAE(nn.Module):
     
     def forward(self, x):
         x = x.to(device)
-        mu, sigma, z = self.encoder(x)
+        z, mu, sigma = self.encoder(x)
         x_hat = self.decoder(z)
         return x_hat, mu, sigma #, z    

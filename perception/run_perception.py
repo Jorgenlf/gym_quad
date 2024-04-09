@@ -43,7 +43,6 @@ def main(args):
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     print(f'Using device: {device}')
-    print(device)
 
     # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
     # in PyTorch 1.12 and later.
@@ -148,13 +147,13 @@ def main(args):
                     decoder_flattened_size = 50176
                     encoder = VGG16Encoder(latent_dim=LATENT_DIMS, image_size=IMG_SIZE)
                     decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=decoder_flattened_size, dim_before_flatten=decoder_intermediate_size)
-                    vae = VAE(encoder, decoder, LATENT_DIMS, BETA)#.to(device)
+                    vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)
                 if model_name == 'resnet50':
                     decoder_intermediate_size = torch.Size([1,256,14,14])
                     decoder_flattened_size = 50176
                     encoder = ResNet50Encoder(latent_dim=LATENT_DIMS, image_size=IMG_SIZE)
                     decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=decoder_flattened_size, dim_before_flatten=decoder_intermediate_size)
-                    vae = VAE(encoder, decoder, LATENT_DIMS, BETA)
+                    vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)
 
 
                 # Train model
@@ -169,7 +168,7 @@ def main(args):
                                     beta=BETA,
                                     reconstruction_loss="MSE")
                 
-                trained_epochs = trainer.train(early_stopping=False)
+                trained_epochs = trainer.train(early_stopping=True)
                     
                 # Only insert to the first trained_epochs elements if early stopping has been triggered
                 total_train_losses[i,:trained_epochs] = trainer.training_loss['Total loss']
@@ -354,9 +353,11 @@ def main(args):
             
         if 'beta_and_latent_sweep' in args.plot:
             print('Beta and latent dim sweep test...')
-            betas = [0.007, 0.018, 0.05, 0.135, 0.368, 1.0, 2.718, 7.389, 20.086, 54.598, 148.413, 403.429] # Chosen for ln scale old: [0.001, 0.01, 0.1, 0.5, 1, 1.5, 2, 4, 8, 16, 32, 64, 128, 256]
-            latent_dims = [32]#[8, 16, 32]
-            
+            betas = [0.01, 0.05, 0.1, 0.5, 1, 1.5, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+            betas = [0.1, 0.5, 1, 1.5, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+            latent_dims = [16, 32, 64, 128]#[2, 4, 8, 16, 32, 64, 128]
+
+            """
             for l in latent_dims:
                 print(f'Latent dimension: {l}')
             
@@ -379,7 +380,7 @@ def main(args):
                     
                     
                     seed = 42 # Logic regarding seeding must be changed if many seeds used
-                    for i in range(NUM_SEEDS): # NUM_SEEDS is one in this test at the moment (15.05) bc. low variance in val-loss
+                    for i in range(NUM_SEEDS): 
                         # Load data with different seed
                         seed += i
                         print(f'Seed {i}/{NUM_SEEDS}')
@@ -474,7 +475,8 @@ def main(args):
                 total_losses = [total_train_losses_for_betas, total_val_losses_for_betas]
                 bce_losses = [bce_train_losses_for_betas, bce_val_losses_for_betas]
                 kl_losses = [kl_train_losses_for_betas, kl_val_losses_for_betas]
-                """
+                
+                
                 # Using same function as ldim sweep but for betas :)
                 plotting.plot_loss_ldim_sweep(total_losses=total_losses,
                                             BCE_losses=bce_losses,
@@ -484,34 +486,43 @@ def main(args):
                                             save=True,
                                             include_train=False)"""
             
+            
             # Now run tests for different betas and latent dims
-            test_errors = np.zeros((len(latent_dims), len(betas))) #rows = latent dims, cols = betas
+            test_errors = np.zeros((NUM_SEEDS, len(latent_dims), len(betas))) #rows = latent dims, cols = betas
             for i, l in enumerate(latent_dims):
                 for j, b in enumerate(betas):
-                    # Load model for l+b combo
-                    #seed = 42
-                    #_,_,test_loader = dataloader_rs.load_split_data_realsense(seed=seed, shuffle=True)
-                    name = f'{model_name}_experiment_{experiment_id}_seed{seed}_dim{l}_beta{b}.json'
-                    encoder = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=l)
-                    encoder.load(f"models/encoders/encoder_{name}")
-                    decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=l, flattened_size=encoder.flattened_size, dim_before_flatten=encoder.dim_before_flatten)
-                    decoder.load(f"models/decoders/decoder_{name}")
-                    vae = VAE(encoder, decoder, l, b).to(device)
-                    
-                    # test on test set
-                    loss = 0.0
-                    for _, x in enumerate(test_loader):
-                        img = x.detach().cpu().numpy().squeeze()
-                        x_hat, mu, logvar = vae(x)
-                        valid_pixels = torch.where(x > 0, torch.ones_like(x), torch.zeros_like(x))
-                        MSE_loss_ = F.mse_loss(x_hat, x, reduction='none') * valid_pixels
-                        recon_loss = torch.mean(torch.sum(MSE_loss_))
-                        KLD_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-                        KDL_loss_scaled = KLD_loss / b
-                        loss += recon_loss.item() + KDL_loss_scaled.item()
-                    
-                    test_errors[i,j] = loss/len(test_loader.dataset) # len is 1 for realsense tets data
-                    del encoder, decoder, vae
+                    seed = 42
+                    for s in range(NUM_SEEDS):
+                        # Load model for l+b combo
+                        seed += s
+                        _,_,test_loader = dataloader_rs.load_split_data_realsense(seed=seed, shuffle=True)
+                        name = f'{model_name}_experiment_{experiment_id}_seed{seed}_dim{l}_beta{b}.json'
+                        encoder = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=l)
+                        encoder.load(f"models/encoders/encoder_{name}")
+                        decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=l, flattened_size=encoder.flattened_size, dim_before_flatten=encoder.dim_before_flatten)
+                        decoder.load(f"models/decoders/decoder_{name}")
+                        vae = VAE(encoder, decoder, l, b).to(device)
+                        
+                        # test on test set
+                        loss = 0.0
+                        for _, x in enumerate(test_loader):
+                            img = x.detach().cpu().numpy().squeeze()
+                            x = x.to(device)
+                            x_hat, mu, logvar = vae(x)
+                            valid_pixels = torch.where(x > 0, torch.ones_like(x), torch.zeros_like(x))
+                            MSE_loss_ = F.mse_loss(x_hat, x, reduction='none') * valid_pixels
+                            recon_loss = torch.mean(torch.sum(MSE_loss_))
+                            KLD_loss = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+                            KDL_loss_scaled = KLD_loss / b
+                            loss += recon_loss.item() + KDL_loss_scaled.item()
+                        
+                        test_errors[s,i,j] = loss/len(test_loader.dataset) # len is 1 for realsense tets data
+                        del encoder, decoder, vae
+            ci_matrix = np.zeros((len(latent_dims), len(betas)))
+            for i in range(len(latent_dims)):
+                for j in range(len(betas)):
+                    ci_matrix[i,j] = 1.96 * np.std(test_errors[:,i,j]) / np.sqrt(NUM_SEEDS)
+            avg_matrix = np.mean(test_errors, axis=0)
             
             # Plot test errors with beta on x axis and loss on y axis, different latent dim is own line
             savepath_test_errors = f'results/{model_name}/plots/test_errors/exp{experiment_id}'
@@ -523,18 +534,19 @@ def main(args):
             plt.rc('ytick', labelsize=12)
             plt.rc('axes', labelsize=12)
             
-            ln_betas = np.log(betas)
             labels = [f'Latent dim = {l}' for l in latent_dims]
-            plt.figure(figsize = (20,10))
+            plt.figure(figsize = (20,15))
             for l, i in enumerate(latent_dims):
-                plt.plot(ln_betas, test_errors[l,:], label=labels[l])
+                # fill between
+                ln_betas = np.log(betas)
+                plt.fill_between(ln_betas, avg_matrix[l,:]-ci_matrix[l,:], avg_matrix[l,:]+ci_matrix[l,:], alpha=0.2)
+                plt.plot(ln_betas, avg_matrix[l,:], label=labels[l])
             plt.xlabel('ln(β)')
             plt.ylabel('Test error (β-normalized)')
             plt.legend()
             plt.savefig(f'{savepath_test_errors}/test_errors.pdf', bbox_inches='tight')
             
-                    
-                    
+                          
      
                 
     if args.mode == 'test':
@@ -573,6 +585,10 @@ def main(args):
             decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=decoder_flattened_size, dim_before_flatten=decoder_intermediate_size)
             decoder.load(f"models/decoders/decoder_{full_name}.json")
             vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)
+
+        #savepath_latent_dist = f'results/{model_name}/plots/latent_distributions/exp{experiment_id}'
+        #os.makedirs(savepath_latent_dist, exist_ok=True)
+        #plotting.plot_latent_distributions(model=vae, dataloader=test_loader_rs, model_name='conv1', device=device, save=True, savepath=savepath_latent_dist)
         """encoder = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS)
         encoder.load(f"models/encoders/encoder_{full_name}.json")
         decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=encoder.flattened_size, dim_before_flatten=encoder.dim_before_flatten)
@@ -619,7 +635,8 @@ def main(args):
             savepath_kde = f'results/{model_name}/plots/kde/exp{experiment_id}_realsense'
             os.makedirs(savepath_kde, exist_ok=True)
             
-            combos_to_test = [(0, 1), (1, 2), (0, 2), (0, 3), (1, 3), (2, 3), (0, 4), (1, 4), (2, 4), (3, 4)]
+            combos_to_test = [(0, 1), (1, 2), (0, 2), (0, 3), (1, 3), (2, 3)]#, (0, 4), (1, 4), (2, 4), (3, 4)]
+            #combos_to_test = [(0,4), (1,4), (2,4), (3,4), (5,4), (5,9), (7,6), (8,9), (8,7), (9,7), (13,2), (12,3), (11,4), (10,5), (9,6), (8,7), (7,8), (6,9), (5,10), (4,11), (3,12), (2,13), (1,14), (0,15)]
             plotting.latent_space_kde(model=vae, 
                                       dataloader=test_loader_rs, 
                                       latent_dim=LATENT_DIMS, 
@@ -654,20 +671,20 @@ def main(args):
             
             for i in range(25):
                 img = next(iter(test_loader_rs)).to(device)
-                #img = None
+                img = None
                 plt.style.use('ggplot')
                 plt.rc('font', family='serif')
                 plt.rc('xtick', labelsize=12)
                 plt.rc('ytick', labelsize=12)
                 plt.rc('axes', labelsize=12)
                 
-                plt.figure(figsize=(20, 10))
-                img_plt = img.detach().cpu().numpy().squeeze()
-                plt.imshow(img_plt, cmap='gray')
-                plt.axis("off")
-                plt.savefig(f"{savepath_filters}/input_img_{i}.pdf", bbox_inches='tight')
+                #plt.figure(figsize=(20, 10))
+                #img_plt = img.detach().cpu().numpy().squeeze()
+                #plt.imshow(img_plt, cmap='gray')
+                #plt.axis("off")
+                #plt.savefig(f"{savepath_filters}/input_img_{i}.pdf", bbox_inches='tight')
                 
-                #plotting.visualize_filters(encoder=encoder, savepath=savepath_filters, input_image=img, ending=str(i))
+                plotting.visualize_filters(encoder=encoder, savepath=savepath_filters, input_image=img, ending=str(i))
         
         if 'activation_maximization' in args.plot:
             savepath_act_max = f'results/{model_name}/plots/activation_maximization'
@@ -682,12 +699,23 @@ def main(args):
                 am.visualize_activation_maximization(savepath=savepath_act_max)
         
         if 'interpolate' in args.plot:
-            savepath_interpolate = f'results/{model_name}/plots/interpolate'
+            savepath_interpolate = f'results/{model_name}/plots/interpolation/'
             os.makedirs(savepath_interpolate, exist_ok=True)
             # Get two random images from test_loader
-            img1 = next(iter(test_loader_rs)).to(device)
-            img2 = next(iter(test_loader_rs)).to(device)
-            plotting.interpolate(autoencoder=vae, x_1=img1, x_2=img2, n=10, savepath=savepath_interpolate)
+            for i in range(10):
+                savepath_i = savepath_interpolate + f'interpolation_{i}'
+                i,j = np.random.randint(0, len(test_loader_rs)), np.random.randint(0, len(test_loader_rs))
+                img1 = test_loader_rs.dataset[i].unsqueeze(0).to(device)
+                img2 = test_loader_rs.dataset[j].unsqueeze(0).to(device)
+                img1 = next(iter(test_loader_rs)).to(device)
+                img2 = next(iter(test_loader_rs)).to(device)
+                plotting.interpolate(autoencoder=vae, x_1=img1, x_2=img2, n=10, savepath=savepath_i)
+                plt.imshow(img1.detach().cpu().numpy().squeeze(), cmap='magma')
+                plt.axis('off')
+                plt.savefig(f'{savepath_i}_img1.pdf', bbox_inches='tight')
+                plt.imshow(img2.detach().cpu().numpy().squeeze(), cmap='magma')
+                plt.axis('off')
+                plt.savefig(f'{savepath_i}_img2.pdf', bbox_inches='tight')
     
             
         

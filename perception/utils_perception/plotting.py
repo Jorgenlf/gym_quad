@@ -169,7 +169,8 @@ def kde(zs, xlabel:str, ylabel:str, path:str, name:str, save=True):
     plt.rc('ytick', labelsize=12)
     plt.rc('axes', labelsize=12)
     
-    sns.kdeplot(x=zs[:,0], y=zs[:,1], fill=True, levels=20, bw_adjust=0.9)
+    sns.kdeplot(x=zs[:,0], y=zs[:,1], fill=True, levels=20, thresh=0.05)#, cut=0, clip=((-1,1),(-1,1)), bw_adjust=0.9)
+    #sns.scatterplot(x=zs[:,0], y=zs[:,1], alpha=0.5)
     
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
@@ -189,8 +190,9 @@ def latent_space_kde(model:nn.Module, dataloader:torch.utils.data.DataLoader, la
     zs = np.zeros((1,latent_dim)) # 1 x l_dim to be filled vertically
     for i, x_batch in enumerate(dataloader):
         # Get latent representations for batch
+        #x_batch = x_batch.to(model.device)
         z, _, _ = model.encoder(x_batch) # z is (batch_size, latent_dim)
-        z = z.detach().numpy()[0,:]
+        z = z.detach().cpu().numpy()[0,:]
         if i == 0:
             zs = z
         else:
@@ -257,7 +259,7 @@ def visualize_filters(encoder:nn.Module, savepath, input_image, ending):
                 fname = f'conv_layer_{layer}_filtered_img_{str(ending)}.pdf'
             else:
                 # Looking at the fist color channel converted to grayscale
-                filtr = filt[0,:,:].detach().numpy()
+                filtr = filt[0,:,:].cpu().detach().numpy()
                 plt.imshow(filtr, cmap='gray')
                 plt.axis('off')
                 fname = f'conv_layer_{layer}_filter.pdf'
@@ -406,27 +408,65 @@ def interpolate(autoencoder, x_1, x_2, n, savepath):
     interpolate_list = autoencoder.decoder(z)
     interpolate_list = interpolate_list.to('cpu').detach().numpy()
     interpolate_list = interpolate_list.squeeze()
-    print(interpolate_list.shape)
-    
+
     plt.style.use('ggplot')
     plt.rc('font', family='serif')
     plt.rc('xtick', labelsize=12)
     plt.rc('ytick', labelsize=12)
     plt.rc('axes', labelsize=12)
 
-    w = 28
+    w = 224
     img = np.zeros((w, n*w))
     for i, x_hat in enumerate(interpolate_list):
         print(x_hat.shape)
-        img[:, i*w:(i+1)*w] = x_hat.reshape(28, 28)
-    plt.imshow(img, heatmap='magma')
+        img[:, i*w:(i+1)*w] = x_hat#.reshape(28, 28)
+    plt.imshow(img, cmap='magma')
     plt.xticks([])
     plt.yticks([])
     plt.axis('off')
-    plt.savefig(f'{savepath}/interpolation.pdf', bbox_inches='tight')
+    plt.savefig(f'{savepath}.pdf', bbox_inches='tight')
     plt.clf()
     
-    
+def plot_latent_distributions(model:nn.Module, dataloader:torch.utils.data.DataLoader, model_name:str, device:str, savepath:str, num_examples:int=7, save=True) -> None:
+    """Plots num_examples latent distributions from the given dataloader, data is assumed shuffled"""
+    print('Plotting latent distributions...')
+    latent_representations = np.array([])
+    labels = np.array(range(1,model.latent_dim+1))
+    for i, x_batch in enumerate(dataloader):
+        # Get latent representation
+        x_hat, mu, sigma = model(x_batch)
+        z, mu, log_var = model.encoder(x_batch)
+        sigma = torch.exp(0.5*log_var) 
+        
+        x = x_batch.cpu().detach().numpy()[0,0,:]
+        x_hat = x_hat.cpu().detach().numpy()[0,0,:]
+        z = z.cpu().detach().numpy().flatten()
+        mu = mu.cpu().detach().numpy().flatten()
+        sigma = sigma.cpu().detach().numpy().flatten()
+
+        # Plot latent representation
+        plt.style.use('ggplot')
+        plt.rc('font', family='serif')
+        plt.rc('xtick', labelsize=12)
+        plt.rc('ytick', labelsize=12)
+        plt.rc('axes', labelsize=12)
+   
+
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
+        x = np.linspace(min(mu) - 3*sigma[np.argmin(mu)], max(mu) + 3*sigma[np.argmax(mu)], 100)
+        for k in range(len(mu)):
+            if k > 6: # 6 is number of colors in ggplot
+                lin = '--'
+            else:
+                lin = '-'
+            ax2.plot(x, stats.norm.pdf(x, mu[k], sigma[k]), label=f'z{k+1}', linestyle=lin, linewidth=1.5)
+        ax2.legend()
+        ax2.set_ylabel('Probability density')
+        
+        plt.savefig(f'{savepath}/{model_name}_number_{i}.pdf', bbox_inches='tight')
+        
+        if i > num_examples:
+            break 
     
 # TODO: Add functionality forplotting saved .npy loss trajectories for a given number of seeds and a given number of epochs:
 def plot_separated_lossed_from_file(n_epochs, seeds, path):
