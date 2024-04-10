@@ -30,8 +30,9 @@ print(f'Using device: {device}')
 
 
 # Create and viz (flatted) mesh from obj file (obj links to mtl file which links to texture file)
-obj_path = "./cow_mesh/cow.obj"
-#mesh = load_objs_as_meshes([obj_path], device=device)
+#obj_path = "./cow_mesh/cow.obj"
+obj_path = "./model.obj"
+mesh = load_objs_as_meshes([obj_path], device=device)
 
 
 #plt.figure(figsize=(7,7))
@@ -47,7 +48,7 @@ Here we initialize some of these components and use default values for the rest.
 In this example we will first create a renderer which uses a perspective camera, a point light and applies Phong shading. 
 Then we learn how to vary different components using the modular API.
 """
-
+'''
 # Initialize a camera.
 # With world coordinates +Y up, +X left and +Z in, the front of the cow is facing the -Z direction. 
 # So we move the camera by 180 in the azimuth direction so it is facing the front of the cow. 
@@ -163,7 +164,7 @@ lights.location = torch.tensor([[0.0, 0.0, -3.0]], device=device)
 images = renderer(meshes, cameras=cameras, lights=lights)
 plot_image_grid.image_grid(images.cpu().numpy(), rows=4, cols=5, rgb=True, savepath="./cow_out6.png")
 
-"""
+'''
 # PLotly visualization
 verts, faces_idx, _ = load_obj(obj_path)
 faces = faces_idx.verts_idx
@@ -172,19 +173,17 @@ faces = faces_idx.verts_idx
 verts_rgb = torch.ones_like(verts)[None]  # (1, V, 3)
 textures = TexturesVertex(verts_features=verts_rgb.to(device))
 
-# create a batch of meshes, and offset one to prevent overlap
-mesh_batch = Meshes(
-    verts=[verts.to(device), (verts + 2).to(device)],   
-    faces=[faces.to(device), faces.to(device)]
+# Create a Meshes object, use default plotly texturing
+mesh = Meshes(
+    verts=[verts.to(device)],   
+    faces=[faces.to(device)],
+    #textures=textures
 )
 
-fig2 = plot_scene({
-    "cow_plot1": {
-        "cows": mesh_batch
+# Render the plotly figure
+fig = plot_scene({
+    "subplot1": {
+        "cow_mesh": mesh
     }
-},
-    xaxis={"backgroundcolor":"rgb(200, 200, 230)"},
-    yaxis={"backgroundcolor":"rgb(230, 200, 200)"},
-    zaxis={"backgroundcolor":"rgb(200, 230, 200)"}, 
-    axis_args=AxisArgs(showgrid=True))
-fig2.show()"""
+})
+fig.show()
