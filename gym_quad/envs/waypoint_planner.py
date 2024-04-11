@@ -10,7 +10,7 @@ from mpl_toolkits.mplot3d import proj3d
 import time
 
 from gym_quad.objects.quad import Quad
-from gym_quad.objects.current3d import Current
+from old.current3d import Current
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.obstacle3d import Obstacle
 

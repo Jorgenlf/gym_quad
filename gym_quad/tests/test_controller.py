@@ -15,7 +15,7 @@ sys.path.append(grand_parent_dir)
 import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
 from gym_quad.objects.quad import Quad
-from gym_quad.objects.controllers import LeeVelocityController
+from old.controllers2 import LeeVelocityController
 
     # "s_max": 0.5, # Maximum speed of the quadcopter
     # "i_max": 0.5, # Maximum inclination angle of commanded velocity wrt x-axis

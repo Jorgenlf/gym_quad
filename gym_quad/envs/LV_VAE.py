@@ -6,7 +6,6 @@ import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
 from gym_quad.objects.quad import Quad
 from gym_quad.objects.IMU import IMU
-from gym_quad.objects.current3d import Current
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.obstacle3d import Obstacle
 
@@ -88,7 +87,6 @@ class LV_VAE(gym.Env):
             # Testing scenarios
             "test_path": self.scenario_test_path,
             "test": self.scenario_test,
-            "test_current": self.scenario_test_current,
             "horizontal": self.scenario_horizontal_test,
             "vertical": self.scenario_vertical_test,
             "deadend": self.scenario_deadend_test
@@ -875,15 +873,9 @@ class LV_VAE(gym.Env):
         self.obstacles.append(Obstacle(radius=10, position=self.path(self.path.length/2)))
         return initial_state
 
-    def scenario_test_current(self):
-        initial_state = self.scenario_test()
-        self.current = Current(mu=0, Vmin=0.75, Vmax=0.75, Vc_init=0.75, alpha_init=np.pi/4, beta_init=np.pi/6, t_step=0) # Constant velocity current (reproducability for report)
-        return initial_state
-
     def scenario_horizontal_test(self):
         waypoints = [(0,0,0), (50,0.1,0), (100,0,0)]
         self.path = QPMI(waypoints)
-        self.current = Current(mu=0, Vmin=0, Vmax=0, Vc_init=0, alpha_init=0, beta_init=0, t_step=0)
         self.obstacles = []
         for i in range(7):
             y = -30+10*i
@@ -896,7 +888,6 @@ class LV_VAE(gym.Env):
     def scenario_vertical_test(self):
         waypoints = [(0,0,0), (50,0,1), (100,0,0)]
         self.path = QPMI(waypoints)
-        self.current = Current(mu=0, Vmin=0, Vmax=0, Vc_init=0, alpha_init=0, beta_init=0, t_step=0)
         self.obstacles = []
         for i in range(7):
             z = -30+10*i
@@ -909,7 +900,6 @@ class LV_VAE(gym.Env):
     def scenario_deadend_test(self):
         waypoints = [(0,0,0), (50,0.5,0), (100,0,0)]
         self.path = QPMI(waypoints)
-        self.current = Current(mu=0, Vmin=0, Vmax=0, Vc_init=0, alpha_init=0, beta_init=0, t_step=0)
         radius = 10
         angles = np.linspace(-90, 90, 10)*np.pi/180
         obstalce_radius = (angles[1]-angles[0])*radius/2
