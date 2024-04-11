@@ -9,8 +9,7 @@ from gym_quad.objects.IMU import IMU
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.obstacle3d import Obstacle
 
-#TODO Squash bugs such that pathfollowing works
-#TODO Hope that obstacle avoidance works when pathfollowing works if not fix it as well
+#TODO Implement depth camera and mesh for obstacles
 #TODO Set up curriculum learning
 
 class LV_VAE(gym.Env):
@@ -270,6 +269,7 @@ class LV_VAE(gym.Env):
         F = self.geom_ctrlv2(action)
         self.quadcopter.step(F)
 
+        #TODO update camera here
 
         if self.path:
             self.prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
@@ -520,7 +520,7 @@ class LV_VAE(gym.Env):
 
 
     #### UTILS ####
-    def calculate_object_distance(self, alpha, beta, obstacle):
+    def calculate_object_distance(self, alpha, beta, obstacle): #TODO remove when depth camera is implemented
         """
         Searches along a sonar ray for an object
         """
@@ -583,7 +583,7 @@ class LV_VAE(gym.Env):
         # print("upsilon_d", np.round(upsilon_d*180/np.pi), "upsilon_quad", np.round(self.quadcopter.upsilon*180/np.pi), "upsilon_error", np.round(self.upsilon_error*180/np.pi),\
         #       "\n\nchi_d", np.round(chi_d*180/np.pi), "chi_quad", np.round(self.quadcopter.chi*180/np.pi), "chi_error", np.round(self.chi_error*180/np.pi))
 
-    def update_nearby_obstacles(self):
+    def update_nearby_obstacles(self): #TODO Decide if we still want to get how near obstacles are regardless if theyre inside the sensor span when we move to meshes
         """
         Updates the nearby_obstacles array.
         """
@@ -602,10 +602,9 @@ class LV_VAE(gym.Env):
             elif distance <= obstacle.radius + self.quadcopter.safety_radius:
                 self.nearby_obstacles.append(obstacle)
         # Sort the obstacles such that the closest one is first
-        self.nearby_obstacles.sort(key=lambda x: np.linalg.norm(x.position - self.quadcopter.position)) #TODO check if this works
-        
+        self.nearby_obstacles.sort(key=lambda x: np.linalg.norm(x.position - self.quadcopter.position)) 
 
-    def update_sensor_readings(self):
+    def update_sensor_readings(self): #TODO remove when depth camera is implemented and update whatevers affected by this
         """
         Updates the sonar data closeness array.
         """
@@ -618,7 +617,7 @@ class LV_VAE(gym.Env):
                     _, closeness = self.calculate_object_distance(alpha, beta, obstacle)
                     self.sensor_readings[j,i] = max(closeness, self.sensor_readings[j,i])
 
-    def update_sensor_readings_with_plots(self):
+    def update_sensor_readings_with_plots(self): #TODO remove when depth camera is implemented
         """
         Updates the sonar data array and renders the simulations as 3D plot. Used for debugging.
         """
@@ -717,7 +716,7 @@ class LV_VAE(gym.Env):
         plt.show()
 
 
-    #### SCENARIOS ####
+    #### SCENARIOS #### #TODO LARGE REFACTORING NEEDED WHEN MESHES ARE IMPLEMENTED AND DEPTH CAMERA IS IMPLEMENTED
         #Utility functions for scenarios
     def check_object_overlap(self, new_obstacle):
         """
