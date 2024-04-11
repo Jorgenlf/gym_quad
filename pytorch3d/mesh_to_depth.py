@@ -1,7 +1,7 @@
 import torch
 import matplotlib.pyplot as plt
 from pytorch3d.io import load_objs_as_meshes, load_obj
-from pytorch3d.structures import Meshes
+from pytorch3d.structures import Meshes, join_meshes_as_batch, join_meshes_as_scene
 from pytorch3d.vis.plotly_vis import AxisArgs, plot_batch_individually, plot_scene
 from pytorch3d.vis.texture_vis import texturesuv_image_matplotlib
 import utils.plot_image_grid as plot_image_grid
@@ -22,7 +22,7 @@ from pytorch3d.renderer import (
 # Camera globals
 IMG_SIZE = (240, 320)           # (H, W) of physical depth cam images AFTER the preprocessing pipeline
 FOV = 60                        # Field of view in degrees, init to correct value later
-MAX_MEASURABLE_DEPTH = 2.0     # Maximum measurable depth, initialized to k here but is 10 IRL
+MAX_MEASURABLE_DEPTH = 10.0     # Maximum measurable depth, initialized to k here but is 10 IRL
 
 # Get GPU if available (it should)
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -33,7 +33,86 @@ print(f'Using device: {device}')
 obj_paths = ["./room_mesh/model.obj"]
 obj_paths = ["./sphere.obj"] # We do not need a .mtl file for mapping mesh to depth. If we wanna visualize we need mtl (i think)...
 
-meshes = load_objs_as_meshes(obj_paths, device=device) # Used for multiple meshes originally, could use load_obj for single mesh (faster..?)
+class SphereMeshObstacle:
+    def __init__(self, 
+                 device: torch.device, 
+                 path: str,
+                 radius: float,
+                 center_position: torch.Tensor):
+        self.device = device
+        self.path = path                                    # Assumes path points to UNIT sphere .obj file
+        self.radius = radius
+        self.center_position = center_position.to(device)   # Centre of the sphere in world frame
+        # May include textures later for visualization in non-depth mode
+
+        self.mesh = load_objs_as_meshes([path], device=self.device)
+        self.mesh.scale_verts_(scale=self.radius)
+        self.mesh.offset_verts_(vert_offsets_packed=self.center_position)
+    
+    def resize(self, new_radius: float):
+        self.mesh.scale_verts_(scale=new_radius/self.radius)
+        self.radius = new_radius
+    
+    def move(self, new_center_position: torch.Tensor):
+        new_center_position = new_center_position.to(self.device)
+        self.mesh.offset_verts_(vert_offsets_packed=new_center_position-self.center_position)
+        self.center_position = new_center_position
+
+    def set_device(self, new_device: torch.device):
+        self.device = new_device
+        self.mesh.to(new_device)
+        self.center_position.to(new_device)
+    
+
+class SphereScene:
+    def __init__(self, 
+                 device: torch.device, 
+                 sphere_obstacles: list):
+        self.device = device
+        self.sphere_obstacles = sphere_obstacles # List of SphereMeshObstacle objects
+        self.meshes = [sphere.mesh for sphere in sphere_obstacles]
+        self.scene = join_meshes_as_scene(meshes=self.meshes, include_textures=False) # May inlude textures later
+
+    def resize_sphere(self, sphere_idx: int, new_radius: float):
+        self.sphere_obstacles[sphere_idx].resize(new_radius)
+    
+    def move_sphere(self, sphere_idx: int, new_center_position: torch.Tensor):
+        self.sphere_obstacles[sphere_idx].move(new_center_position)
+    
+    def add_sphere(self, new_sphere: SphereMeshObstacle):
+        self.sphere_obstacles.append(new_sphere)
+        self.meshes.append(new_sphere.mesh)
+        self.scene = join_meshes_as_scene(meshes=self.meshes, include_textures=False)
+    
+    def remove_sphere(self, sphere_idx: int):
+        self.sphere_obstacles.pop(sphere_idx)
+        self.meshes.pop(sphere_idx)
+        self.scene = join_meshes_as_scene(meshes=self.meshes, include_textures=False)
+    
+    
+    def set_device(self, new_device: torch.device):
+        self.device = new_device
+        for sphere in self.sphere_obstacles:
+            sphere.set_device(new_device)
+    
+
+    
+# Test sphere obstacle and scene
+# For the position vectors, +X points left, and +Y points up and +Z points inwards
+pos1 = torch.tensor([0.0, 0.0, 0.0])
+pos2 = torch.tensor([0.0, 5.0, 0.0])
+#pos3 = torch.tensor([4.0, 0.0, 1.5])
+unit_sphere_path = "./sphere.obj"
+sphere1 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.0, center_position=pos1)
+#sphere2 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.0, center_position=pos2)
+#sphere3 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=4.0, center_position=pos3)
+
+# Sphere 3 is only partly visible, as it is at the max measurable depth
+
+spheres = [sphere1]#, sphere2]#, sphere3]
+spherescene = SphereScene(device=device, sphere_obstacles=spheres)
+meshes = spherescene.scene
+
 
 # Initialize camera
 """
@@ -45,8 +124,26 @@ The transformation from world -> view happens after applying a rotation (R) and 
 """
  
 # In the sim we plan to get the R,T matrices from the drone and use them to update the camera object at evry timestep (must handle transfomations and stuff properly)
-R, T = look_at_view_transform(2, 10, 0)
+# For now we just initialize the camera to no rotation, looking at the origin from a distance of 10 units in the +Z direction
+R = torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]).unsqueeze(0).to(device)
+T = torch.zeros((1, 3)).to(device)
+T[0, 2] = -5.0
+print(f"R: {R}")
+print(f"T: {T}")
+
+#K = torch.zeros((1, 4, 4)).to(device)
+#K[0, :, :] = torch.tensor([[639.0849609375, 0.0, 644.4653930664062],[0.0, 639.0849609375, 364.2340393066406], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0]])
 camera = FoVPerspectiveCameras(device=device, R=R, T=T, fov=FOV)
+
+R1 = look_at_rotation(camera_position=camera.get_camera_center(), at = pos1)[0].unsqueeze(0).to(device)
+print(f"R: {R1}")    
+camera.R = R
+
+camera1 = FoVPerspectiveCameras(device=device, R=R1, T=T, fov=FOV)
+
+
+pos = camera1.get_camera_center()
+print(f"Camera position: {pos}")
 
 # Initialize rasterizer
 # Rasterization maps the 3D mesh to a 2D image for the given camera.
@@ -56,11 +153,12 @@ raster_settings = RasterizationSettings(
     faces_per_pixel=1, # Keep at 1, dont change
 )
 rasterizer = MeshRasterizer(
-    cameras=camera, 
+    cameras=camera1, 
     raster_settings=raster_settings
 )
 
 fragments = rasterizer(meshes)
+#print(fragments)
 
 # **zbuf**: FloatTensor of shape (N, image_size, image_size, faces_per_pixel) giving the NDC z-coordinates of the nearest faces at each pixel, sorted in ascending z-order.
 zbuf = fragments.zbuf#.cpu().numpy() # (N, H, W, K), 
@@ -69,6 +167,8 @@ depth = torch.squeeze(zbuf) # Get only the depth values at each pixel. Shape: (H
 # In the zbuf object, the value -1.0 is used to indicate that there was no valid face at that pixel, while the value 0.0 is used to indicate that the face closest to the camera is at the pixel.
 # We set all -1 values to MAX_MEASURABLE_DEPTH as this is how such values are handled in the physical depth cam (could this be optimized with some raster settings or something?)
 depth[depth == -1.0] = MAX_MEASURABLE_DEPTH
+# For measurements beyond the max measurable depth, the depth value is also set to MAX_MEASURABLE_DEPTH
+depth[depth >= MAX_MEASURABLE_DEPTH] = MAX_MEASURABLE_DEPTH
 
 plt.figure()
 plt.imshow(depth.cpu().numpy(), cmap="magma")
