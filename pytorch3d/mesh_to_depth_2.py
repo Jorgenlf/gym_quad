@@ -38,7 +38,6 @@ class SphereMeshObstacle:
         self.path = path                                    # Assumes path points to UNIT sphere .obj file
         self.radius = radius
         self.center_position = center_position.to(device)   # Centre of the sphere in world frame
-        # May include textures later for visualization in non-depth mode
 
         self.mesh = load_objs_as_meshes([path], device=self.device)
         self.mesh.scale_verts_(scale=self.radius)
@@ -66,7 +65,10 @@ class SphereScene:
         self.device = device
         self.sphere_obstacles = sphere_obstacles # List of SphereMeshObstacle objects
         self.meshes = [sphere.mesh for sphere in sphere_obstacles]
-        self.joined_scene = join_meshes_as_scene(meshes=self.meshes, include_textures=False) # May inlude textures later
+        self.joined_scene = self.update_scene() # Textures not included by default
+    
+    def update_scene(self, include_textures: bool = False):
+        return join_meshes_as_scene(meshes=self.meshes, include_textures=include_textures)
 
     def resize_sphere(self, sphere_idx: int, new_radius: float):
         self.sphere_obstacles[sphere_idx].resize(new_radius)
@@ -83,7 +85,6 @@ class SphereScene:
         self.sphere_obstacles.pop(sphere_idx)
         self.meshes.pop(sphere_idx)
         self.joined_scene = join_meshes_as_scene(meshes=self.meshes, include_textures=False)
-    
     
     def set_device(self, new_device: torch.device):
         self.device = new_device
@@ -136,7 +137,6 @@ class DepthMapRenderer:
         Corrects for perspective distortion in the depth map by calculating the depth values to the camera center
         instead of to the image plane for each pixel in the image.
         """
-
         # Create grids of x and y coordinates
         x_grid, y_grid = torch.meshgrid(torch.arange(self.img_size[0], device=device), torch.arange(self.img_size[1], device=self.device), indexing='ij')
 
@@ -150,9 +150,29 @@ class DepthMapRenderer:
         # Correct for perspective distortion at indices where depth is not infinite
         depth = torch.where(depth < self.max_measurable_depth, torch.sqrt(torch.pow(depth,2) + torch.pow(dist_from_center,2)), depth).to(self.device)
         depth[depth >= self.max_measurable_depth] = self.max_measurable_depth
-
         return depth
-
+    
+    def render_scene(self, light_location=(5, 5, 0)):
+        """
+        Renders the scene from the current camera position and orientation with the given point light location.
+        Returns the rendered image (not the depth!)
+        """
+        # Recreate scene with textures
+        textured_scene = self.scene.update_scene(include_textures=True)
+        # Basic rendering setup with point light and soft phong shader
+        light_location = (light_location,)
+        lights = PointLights(device=device, location=light_location)
+        renderer_rgb = MeshRenderer(
+            rasterizer=self.rasterizer,
+            shader=SoftPhongShader(
+                device=self.device, 
+                cameras=self.camera,
+                lights = lights
+            )
+        )
+        img = renderer_rgb(textured_scene)
+        return img
+    
     def set_device(self, new_device: torch.device):
         self.device = new_device
         self.scene.set_device(new_device)
@@ -184,8 +204,23 @@ class DepthMapRenderer:
         plt.colorbar(label="Depth [m]", aspect=30, orientation="vertical", fraction=0.0235, pad=0.04)
         plt.axis("off")
         plt.savefig(path, bbox_inches='tight')
+    
+    def save_rendered_scene(self, path:str):
+        img = self.render_scene()
 
-unit_sphere_path = "./sphere.obj"
+        plt.style.use('ggplot')
+        plt.rc('font', family='serif')
+        plt.rc('xtick', labelsize=12)
+        plt.rc('ytick', labelsize=12)
+        plt.rc('axes', labelsize=12)
+
+        plt.figure(figsize=(8, 6))
+        plt.imshow(img[0, ..., :3].cpu().numpy())
+        plt.axis("off")
+        plt.savefig(path, bbox_inches='tight')
+
+unit_sphere_path = "./unit_sphere_mesh/unit_sphere.obj"
+#nit_sphere_path = "./sphere.obj"
 
 pos1 = torch.tensor([0.0, 0.0, 0.0])
 pos2 = torch.tensor([0.0, 1.0, 0.0])
@@ -240,6 +275,7 @@ depth_renderer = DepthMapRenderer(device=device,
 
 depth = depth_renderer.render_depth_map()
 depth_renderer.save_depth_map("./depth_map.pdf", depth)
+depth_renderer.save_rendered_scene("./rendered_scene.pdf")
 
 
 print(f"R:\n {R}")
@@ -248,12 +284,12 @@ print(f'\nCamera position in world frame:\n {camera.get_camera_center()}')
 print(f"\nMin depth: {depth.min()}")
 print(f"\nMax depth: {depth.max()}")
 
-# #Time the rendering process fort 100 renders
-# import time
-# start = time.time()
-# n = 10000
-# for i in range(n):
-#     depth = depth_renderer.render_depth_map()
-# end = time.time()
-# print(f"Time taken for {n} renders: {end-start} seconds")
-# print(f"FPS: {n/(end-start)} seconds")
+#Time the rendering process fort 100 renders
+import time
+start = time.time()
+n = 100
+for i in range(n):
+    depth = depth_renderer.render_depth_map()
+end = time.time()
+print(f"Time taken for {n} renders: {end-start} seconds")
+print(f"FPS: {n/(end-start)} seconds")
