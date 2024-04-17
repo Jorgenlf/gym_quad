@@ -48,11 +48,25 @@ def pytorch3d_to_enu(pytorch3d_position: torch.Tensor) -> torch.Tensor:
     This function converts from ENU to Pytorch3D coordinate system.'''
     return torch.tensor([pytorch3d_position[2], pytorch3d_position[0], pytorch3d_position[1]])
 
-def np_to_torch(np_array: np.array) -> torch.Tensor:
-    return torch.tensor(np_array)
+def camera_R_T_from_quad_pos_orient(position: np.array, orientation: np.array) -> tuple:
+    '''Given a position and orientation of the quad in ENU frame, this function returns the R and T matrices for the camera object in Pytorch3D.'''
+    # Convert position and orientation to torch tensors
+    at = position + geom.Rzyx(*orientation) @ np.array([1, 0, 0])  # Look at the point in front of the camera along body x-axis
+    
+    at_torch = torch.from_numpy(at).to(device)
+    position_torch = torch.from_numpy(position).to(device)
 
-def torch_to_np(torch_tensor: torch.Tensor) -> np.array:
-    return torch_tensor.cpu().numpy()
+    at_pt3d = enu_to_pytorch3d(at).to(device).float()
+    position_pt3d = enu_to_pytorch3d(position_torch).to(device).float()
+    # orientation_torch = torch.from_numpy(orientation).to(device)
+    
+    # Calculate rotation matrix
+    Rstep = look_at_rotation(position_pt3d[None, :], device=device, at=at_pt3d[None, :])  # (1, 3, 3)
+    # Calculate translation vector
+    Tstep = -torch.bmm(Rstep.transpose(1, 2), position_pt3d[None, :, None])[:, :, 0]   # (1, 3)
+    
+    return Rstep, Tstep
+    
 
 # Camera globals
 IMG_SIZE = (240, 320)           # (H, W) of physical depth cam images AFTER the preprocessing pipeline
@@ -238,8 +252,8 @@ for i in range(n_steps):
     camera.R = Rstep.to(device)
 
     cam_pos = camera.get_camera_center()
-    actual_camera_positions_enu[i] = torch_to_np(pytorch3d_to_enu(cam_pos.reshape(3)))
-    cam_orientation = camera.get_world_to_view_transform().get_matrix()    
+    actual_camera_positions_enu[i] = pytorch3d_to_enu(cam_pos.reshape(3)).cpu().numpy()
+    # cam_orientation = camera.get_world_to_view_transform().get_matrix()    
 
     #Render depth map
     rasterizer.cameras = camera

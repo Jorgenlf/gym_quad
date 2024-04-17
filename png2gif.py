@@ -8,7 +8,7 @@ extension = '.png'
 #	    "image_name_0.png", "image_name_1.png", "image_name_2.png", ...
 # 	    n_imgs: known number of images
 n_imgs = 24
-path = "C:/Users/admin/Desktop/EirikJorgenMasterCode/gym_quad/gym_quad/objects/test_img/depth_maps/"
+path = "C:/Users/admin/Desktop/EirikJorgenMasterCode/gym_quad/gym_quad/tests/test_img/depth_maps/"
 filenames = [f"{path}depth_map{i}{extension}" for i in range(n_imgs)]
 
 # Option B: unknown filenames, but they are still ordered in ascending order by name:
