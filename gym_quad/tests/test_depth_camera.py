@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 from pytorch3d.io import load_objs_as_meshes, load_obj
 from pytorch3d.structures import Meshes, join_meshes_as_batch, join_meshes_as_scene
 from pytorch3d.vis.plotly_vis import AxisArgs, plot_batch_individually, plot_scene
@@ -56,7 +57,7 @@ def camera_R_T_from_quad_pos_orient(position: np.array, orientation: np.array) -
     at_torch = torch.from_numpy(at).to(device)
     position_torch = torch.from_numpy(position).to(device)
 
-    at_pt3d = enu_to_pytorch3d(at).to(device).float()
+    at_pt3d = enu_to_pytorch3d(at_torch).to(device).float()
     position_pt3d = enu_to_pytorch3d(position_torch).to(device).float()
     # orientation_torch = torch.from_numpy(orientation).to(device)
     
@@ -202,7 +203,7 @@ n_steps = 24
 positions = np.zeros((n_steps, 3)) # x, y, z in meters
 orientations = np.zeros((n_steps, 3)) # roll about x, pitch about y, yaw about z (ENU) in radians
 
-referencetype = 'line' # 'circle', 'line', 
+referencetype = 'circle' # 'circle', 'line', 
 
 for i in range (n_steps):
     param = n_steps/2
@@ -229,7 +230,7 @@ elif referencetype == 'line':
         meshes = spherescene.scene
 
 actual_camera_positions_enu = np.zeros((n_steps, 3))
-for i in range(n_steps):
+for i in tqdm(range(n_steps)):
     position = positions[i]
     orientation = orientations[i]
     
