@@ -8,6 +8,7 @@ from gym_quad.objects.quad import Quad
 from gym_quad.objects.IMU import IMU
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.obstacle3d import Obstacle
+from gym_quad.objects.depth_camera import *
 
 #TODO Implement depth camera and mesh for obstacles
 #TODO Set up curriculum learning
@@ -67,7 +68,10 @@ class LV_VAE(gym.Env):
         max_vertical_angle = self.sensor_span[1]/2
         self.sectors_horizontal = np.linspace(-max_horizontal_angle*np.pi/180, max_horizontal_angle*np.pi/180, self.sensor_suite[0])
         self.sectors_vertical =  np.linspace(-max_vertical_angle*np.pi/180, max_vertical_angle*np.pi/180, self.sensor_suite[1])
-
+        
+        #New init values for sensor using depth camera, mesh and pt3d
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        
         #Scenario set up
         self.scenario = scenario
         self.scenario_switch = {
