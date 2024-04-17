@@ -342,6 +342,7 @@ class ActivationMaximization:
         self.cnn_layer = cnn_layer
         self.cnn_filter = cnn_filter
         self.conv_output = 0
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     
     def hook_cnn_layer(self):
         def hook_fn(module, grad_in, grad_out):
@@ -360,7 +361,7 @@ class ActivationMaximization:
     
     def visualize_activation_maximization(self, savepath):
         self.hook_cnn_layer()
-        noisy_im = torch.randn(1, 1, 224, 224)
+        noisy_im = torch.randn(1, 1, 224, 224).to(self.device)
         #transform = transforms.Compose([
          #   transforms.Resize((224, 224)),
         #    transforms.GaussianBlur(kernel_size=(5, 5), sigma=(0.5, 1.5)),
@@ -390,7 +391,7 @@ class ActivationMaximization:
                 optimizer.step() # update weights
                 layer_img = processed_image # reconstruct image (no need img is already in 0,1 and good)
         
-                if e == self.epochs-1:# or e % 100 == 0:
+                if e == self.epochs-1 or e % 200 == 0:
                     img_path = f'{savepath}/activation_maximization_filter_{self.cnn_filter}_epoch_{e}.pdf'
                     fig = plt.figure()
                     plt.imshow(layer_img.detach().cpu().numpy().squeeze(), cmap='gray')
@@ -426,6 +427,7 @@ def interpolate(autoencoder, x_1, x_2, n, savepath):
     plt.axis('off')
     plt.savefig(f'{savepath}.pdf', bbox_inches='tight')
     plt.clf()
+    
     
 def plot_latent_distributions(model:nn.Module, dataloader:torch.utils.data.DataLoader, model_name:str, device:str, savepath:str, num_examples:int=7, save=True) -> None:
     """Plots num_examples latent distributions from the given dataloader, data is assumed shuffled"""

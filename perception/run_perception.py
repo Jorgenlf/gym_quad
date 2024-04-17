@@ -552,7 +552,7 @@ def main(args):
     if args.mode == 'test':
         seed = args.seed
         try:
-            full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}_dim{LATENT_DIMS}'
+            full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}_dim{LATENT_DIMS}_beta{int(BETA)}'
         except:
             full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}'
 
@@ -625,11 +625,14 @@ def main(args):
         
         if "reconstructions" in args.plot:
             savepath_recon = f'results/{model_name}/plots/reconstructions/exp{experiment_id}/latent_dim_{LATENT_DIMS}/'
+            if experiment_id == 20: savepath_recon = f'results/{model_name}/plots/reconstructions/exp{experiment_id}/latent_dim_{LATENT_DIMS}_beta{BETA}/'
             os.makedirs(savepath_recon, exist_ok=True)
+            test_numbers = [96, 74, 72, 45, 27, 26, 22]
             for i, x in enumerate(test_loader_rs):
                 if i == args.num_examples: break
-                img = x.to(device)
-                plotting.reconstruct_and_plot(img, vae, model_name, experiment_id, savepath_recon, i, cmap='magma', save=True)
+                if i in test_numbers:
+                    img = x.to(device)
+                    plotting.reconstruct_and_plot(img, vae, model_name, experiment_id, savepath_recon, i, cmap='magma', save=True)
                 
         if "kde" in args.plot:
             savepath_kde = f'results/{model_name}/plots/kde/exp{experiment_id}_realsense'

@@ -219,8 +219,8 @@ class DepthMapRenderer:
         plt.axis("off")
         plt.savefig(path, bbox_inches='tight')
 
+#unit_sphere_path = "./unit_sphere_mesh/unit_sphere_lower_poly.obj"
 unit_sphere_path = "./unit_sphere_mesh/unit_sphere.obj"
-#nit_sphere_path = "./sphere.obj"
 
 pos1 = torch.tensor([0.0, 0.0, 0.0])
 pos2 = torch.tensor([0.0, 1.0, 0.0])
@@ -284,12 +284,39 @@ print(f'\nCamera position in world frame:\n {camera.get_camera_center()}')
 print(f"\nMin depth: {depth.min()}")
 print(f"\nMax depth: {depth.max()}")
 
-#Time the rendering process fort 100 renders
+# #Time the rendering process fort 100 renders
 import time
-start = time.time()
-n = 100
+# start = time.time()
+# n = 10000
+# for i in range(n):
+#     depth = depth_renderer.render_depth_map()
+# end = time.time()
+# print(f"Time taken for {n} renders: {end-start} seconds")
+# print(f"FPS: {n/(end-start)} seconds")
+
+# Create a plot of time taken per render
+import matplotlib.pyplot as plt
+import numpy as np
+times = []
+n = 1000
 for i in range(n):
+    start = time.time()
     depth = depth_renderer.render_depth_map()
-end = time.time()
-print(f"Time taken for {n} renders: {end-start} seconds")
-print(f"FPS: {n/(end-start)} seconds")
+    end = time.time()
+    times.append(end-start)
+
+plt.clf()
+plt.plot(np.arange(n), times)
+plt.xlabel("Render number")
+plt.ylabel("Time taken (s)")
+plt.savefig("./render_times.pdf", bbox_inches='tight')
+
+#plot moving average of times with a window of 10
+times = np.convolve(times, np.ones(50), 'valid') / 50
+plt.clf()
+plt.plot(times)
+plt.xlabel("Render number")
+plt.ylabel("Time taken (s)")
+plt.savefig("./render_times_moving_avg.pdf", bbox_inches='tight')
+
+print(f'avg time: {np.mean(times)}')
