@@ -20,7 +20,7 @@ from pytorch3d.renderer import (
 
 # Camera globals
 IMG_SIZE = (240, 320)           # (H, W) of physical depth cam images AFTER the preprocessing pipeline
-FOV = 60                        # Field of view in degrees, init to correct value later
+FOV = 75                        # Field of view in degrees, init to correct value later
 MAX_MEASURABLE_DEPTH = 5.0      # Maximum measurable depth, initialized to k here but is 10 IRL
 
 # Get GPU if available (it should)
@@ -110,8 +110,8 @@ class DepthMapRenderer:
             raster_settings=raster_settings
         )
         # k is a scaling factor for the distortion correction and is a function of FOV, sensor size, and focal length, etc.
-        # Initilized to 62.5 for the default FoVPerspectiveCamera settings with a 60 degree FOV and image size of 240x320
-        self.k = 62.5
+        # Initilized to 46.6 for the default FoVPerspectiveCamera settings with a 75 degree FOV and image size of 240x320
+        self.k = 46.6
         self.img_size = img_size
     
     def render_depth_map(self):
@@ -157,7 +157,7 @@ class DepthMapRenderer:
         Renders the scene from the current camera position and orientation with the given point light location.
         Returns the rendered image (not the depth!)
         """
-        # Recreate scene with textures
+        # Recreate scene with textures 
         textured_scene = self.scene.update_scene(include_textures=True)
         # Basic rendering setup with point light and soft phong shader
         light_location = (light_location,)
@@ -223,7 +223,7 @@ class DepthMapRenderer:
 unit_sphere_path = "./unit_sphere_mesh/unit_sphere.obj"
 
 pos1 = torch.tensor([0.0, 0.0, 0.0])
-pos2 = torch.tensor([0.0, 1.0, 0.0])
+pos2 = torch.tensor([2.0, 0.0, 0.0])
 pos3 = torch.tensor([0.0, -2.0, 0.0])
 pos4 = torch.tensor([2.0, 0.0, 0.0])
 pos5 = torch.tensor([2.0, 2.0, 0.0])
@@ -247,7 +247,7 @@ R = torch.tensor([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]).unsqueeze(
 T = torch.zeros((1, 3)).to(device)
 T[0, 0] = 0.0 # Move camera x units in the +X direction (inwards)
 T[0, 1] = 0.0 # Move camera x units in the +Y direction (upwards)
-T[0, 2] = 5.0 # Move camera x units in the +Z direction (in/out)
+T[0, 2] = 1.5 # Move camera x units in the +Z direction (in/out)
 #T = -T
 
 camera = FoVPerspectiveCameras(device=device, R=R, T=T, fov=FOV)
@@ -273,6 +273,21 @@ depth_renderer = DepthMapRenderer(device=device,
                             img_size=IMG_SIZE)
 
 
+# ks = [33.3, 45, 46, 46.5, 46.7, 47, 48, 49, 50, 58.5, 62.5, 1000]
+# for k in ks:
+#     depth_renderer.k = k
+#     depth = depth_renderer.render_depth_map()
+#     # Black region of blobs at [0,2,0] etc. should be as large as possible without falling apart
+#     delta = 0.1
+#     lower_mask = torch.where(depth > 4.385 - delta, 1, 0)
+#     upper_mask = torch.where(depth < 4.385 + delta, 1, 0)
+#     mask = lower_mask * upper_mask
+#     mask = 1 - mask
+#     depth = depth * mask
+#     depth_renderer.save_depth_map(f"./depth_map_k{k}.pdf", depth)
+
+
+
 depth = depth_renderer.render_depth_map()
 depth_renderer.save_depth_map("./depth_map.pdf", depth)
 depth_renderer.save_rendered_scene("./rendered_scene.pdf")
@@ -295,28 +310,28 @@ import time
 # print(f"FPS: {n/(end-start)} seconds")
 
 # Create a plot of time taken per render
-import matplotlib.pyplot as plt
-import numpy as np
-times = []
-n = 1000
-for i in range(n):
-    start = time.time()
-    depth = depth_renderer.render_depth_map()
-    end = time.time()
-    times.append(end-start)
+# import matplotlib.pyplot as plt
+# import numpy as np
+# times = []
+# n = 1000
+# for i in range(n):
+#     start = time.time()
+#     depth = depth_renderer.render_depth_map()
+#     end = time.time()
+#     times.append(end-start)
 
-plt.clf()
-plt.plot(np.arange(n), times)
-plt.xlabel("Render number")
-plt.ylabel("Time taken (s)")
-plt.savefig("./render_times.pdf", bbox_inches='tight')
+# plt.clf()
+# plt.plot(np.arange(n), times)
+# plt.xlabel("Render number")
+# plt.ylabel("Time taken (s)")
+# plt.savefig("./render_times.pdf", bbox_inches='tight')
 
-#plot moving average of times with a window of 10
-times = np.convolve(times, np.ones(50), 'valid') / 50
-plt.clf()
-plt.plot(times)
-plt.xlabel("Render number")
-plt.ylabel("Time taken (s)")
-plt.savefig("./render_times_moving_avg.pdf", bbox_inches='tight')
+# #plot moving average of times with a window of 10
+# times = np.convolve(times, np.ones(50), 'valid') / 50
+# plt.clf()
+# plt.plot(times)
+# plt.xlabel("Render number")
+# plt.ylabel("Time taken (s)")
+# plt.savefig("./render_times_moving_avg.pdf", bbox_inches='tight')
 
-print(f'avg time: {np.mean(times)}')
+# print(f'avg time: {np.mean(times)}')
