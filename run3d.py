@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
     #----#----#For running of file without the need of command line arguments#----#----#
 
-    # args = Namespace(manual_control=True) 
+    args = Namespace(manual_control=True) 
 
     #----#----#NB uncomment when running actual agents#----#----#
 

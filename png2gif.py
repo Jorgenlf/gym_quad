@@ -21,3 +21,4 @@ with imageio.get_writer('my_image_animation.gif', mode='I', duration=0.01, loop=
     for filename in filenames:
         image = imageio.imread(filename)
         writer.append_data(image)
+#TODO make resolution of gif better?
