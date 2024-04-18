@@ -6,24 +6,25 @@ import stable_baselines3.common.results_plotter as results_plotter
 import numpy as np
 import torch
 import multiprocessing
-from typing import Callable
 import glob
 import re
+from typing import Callable
 
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback #Can remove if using tensorboard logger #TODO
+from gym_quad import lv_vae_config
 # from logger import TensorboardLogger #TODO uncomment when global n_steps is fixed
 
-from lidarCNN import *
+from PPO_feature_extractor import *
 from utils import parse_experiment_info
 
 print('CPU COUNT:', multiprocessing.cpu_count())
 
 # scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
-scenarios = ["proficient"]
+scenarios = ["helix"]
 
 '''
 From kulkarni paper:
@@ -56,10 +57,11 @@ We define a neural network architecture containing 3 fullyconnected layers consi
 512, 256 and 64 neurons each with an ELU activation layer, followed by a GRU with a hidden layer size of 64. 
 Given an observation vector ot, the policy outputs a 3-dimensional action command at = [at,1, at,2, at,3] with values in [-1, 1]
 '''
+
 policy_kwargs = dict(
     features_extractor_class = PerceptionIMUDomainExtractor,
-    features_extractor_kwargs = dict(sensor_dim_x=15,sensor_dim_y=15,features_dim=32), #TODO decide the features_dim
-    net_arch = [dict(pi=[128, 64, 32], vf=[128, 64, 32])]
+    features_extractor_kwargs = dict(img_size=lv_vae_config["compressed_depth_map_size"],features_dim=lv_vae_config["latent_dim"],lock_params=True),
+    net_arch = [dict(pi=[128, 64, 32], vf=[128, 64, 32])] #The PPO network architecture policy and value function
 )
 #From Ørjan:    net_arch = [dict(pi=[128, 64, 32], vf=[128, 64, 32])]
 #SB3 default:   net_arch = [dict(pi=[64, 64], vf=[64, 64])]
@@ -240,7 +242,8 @@ if __name__ == '__main__':
             if scen!="intermediate":
                 continue
 
-    num_envs = multiprocessing.cpu_count() - 2
+    num_envs = multiprocessing.cpu_count() - 16
+    print("USING", num_envs, "CORES FOR TRAINING") 
     print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...", end="")
     if num_envs > 1:
         env = SubprocVecEnv(
@@ -260,7 +263,7 @@ if __name__ == '__main__':
     else:
         continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
 
-    if scen == "proficient" and continual_step == 0: #TODO fix this so dont need to manually change scenario when training new agent(?)
+    if scen == "helix" and continual_step == 0: #TODO fix this so dont need to manually change scenario when training new agent(?)
         agent = PPO('MultiInputPolicy', env, **hyperparams,policy_kwargs=policy_kwargs,seed=seed) #To use homemade feature extractor and architecture
         # agent = PPO('MultiInputPolicy', env, **hyperparams,seed=seed)
     elif continual_step == 0:

@@ -59,10 +59,10 @@ class SphereMeshObstacle:
         self.path = path                                    # Assumes path points to UNIT sphere .obj file
         self.radius = radius
 
-        self.center_position = center_position.to(device)   # Centre of the sphere in world frame
+        self.center_position = center_position.to(device=self.device)   # Centre of the sphere in camera world frame
         #Not specified in name to simplify rewriting of code
 
-        self.position = pytorch3d_to_enu(center_position) # Centre of the sphere in ENU frame
+        self.position = pytorch3d_to_enu(center_position).to(device=self.device) # Centre of the sphere in ENU frame
         #Not specified in name to simplify rewriting of code
 
         self.mesh = load_objs_as_meshes([path], device=self.device)
@@ -144,7 +144,9 @@ class DepthMapRenderer:
         )
         # k is a scaling factor for the distortion correction and is a function of FOV, sensor size, and focal length, etc.
         # Initilized to 62.5 for the default FoVPerspectiveCamera settings with a 60 degree FOV and image size of 240x320
-        self.k = 62.5
+        # Initilized to 46.6 for the default FoVPerspectiveCamera settings with a 75 degree FOV and image size of 240x320
+
+        self.k = 46.6
         self.img_size = img_size
     
     def render_depth_map(self):
@@ -208,7 +210,9 @@ class DepthMapRenderer:
     
     # Function to find the R and T matrices for the camera object in Pytorch3D
     def camera_R_T_from_quad_pos_orient(self, position: np.array, orientation: np.array) -> tuple:
-        '''Given a position and orientation of the quadrotor in ENU frame, this function returns the R and T matrices for the camera object in Pytorch3D.'''
+        '''Given a position and orientation of the quadrotor in ENU frame, 
+        this function returns the R and T matrices for the camera object in Pytorch3D.
+        The camera is assumed to be looking at a point in front of the quadrotor along the body x-axis.'''
         # Convert position and orientation to torch tensors
         at = position + geom.Rzyx(*orientation) @ np.array([1, 0, 0])  # Look at the point in front of the camera along body x-axis
         

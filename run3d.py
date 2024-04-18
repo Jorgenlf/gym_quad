@@ -43,6 +43,7 @@ if __name__ == "__main__":
     #----#----#For running of file without the need of command line arguments#----#----#
 
     args = Namespace(manual_control=True) 
+    manual_scenario = "proficient" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert"
 
     #----#----#NB uncomment when running actual agents#----#----#
 
@@ -227,7 +228,7 @@ if __name__ == "__main__":
                     done = False
                     env.reset()
 
-        env = gym.make("LV_VAE-v0", scenario="helix",seed=0)
+        env = gym.make("LV_VAE-v0", scenario=manual_scenario, seed=0)
         _manual_control(env)
         exit()
 

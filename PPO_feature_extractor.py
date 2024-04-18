@@ -8,156 +8,138 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import time
-#TODO move this file to old folder when we are certain that PPO_feature_extractor.py is working as intended
-class LidarCNN(BaseFeaturesExtractor):
+import os
+
+class EncoderFeatureExtractor(BaseFeaturesExtractor):
     """
     :param observation_space: (gym.Space) of dimension (N_sensors x 1)
     :param features_dim: (int) Number of features extracted.
-        This corresponds to the number of unit for the last layer.
+        This corresponds to the number of latent dimensions
     """
+    def __init__(self, 
+                 observation_space: gym.spaces.Box, 
+                 image_size:int, 
+                 channels:int, 
+                 latent_dim:int,
+                 activation=nn.ReLU()):
+        super(EncoderFeatureExtractor, self).__init__(observation_space, features_dim=latent_dim)
 
-    def __init__(self, observation_space: gym.spaces.Box, sensor_dim_x : int = 15, sensor_dim_y: int = 15, features_dim: int = 32, kernel_overlap : float = 0.05):
-        super(LidarCNN, self).__init__(observation_space, features_dim=features_dim)
-        # We assume CxHxW images (channels first)
-        # Re-ordering will be done by pre-preprocessing or wrapper
+        self.name = 'conv1'
+        self.device = th.device("cuda" if th.cuda.is_available() else "cpu")
+        self.channels = channels
+        self.latent_dim = latent_dim
+        self.image_size = image_size
+        self.activation = activation
 
-        # Adjust kernel size for sensor density. (Default 180 sensors with 0.05 overlap --> kernel covers 9 sensors.\\225 sensors
-        self.in_channels = observation_space.shape[0]
-        self.kernel_size = 5
-        self.padding = 2
-        self.stride = 2
-        padding_mode='circular'
-        print("LIDAR_CNN CONFIG")
-        print("\tIN_CHANNELS =", self.in_channels)
-        print("\tKERNEL_SIZE =", self.kernel_size)
-        print("\tPADDING     =", self.padding)
-        print("\tSTRIDE      =", self.stride)
-
-        self.cnn = nn.Sequential(
-            nn.Conv2d(in_channels=self.in_channels, out_channels=1, kernel_size=self.kernel_size, padding=self.padding,
-                      padding_mode=padding_mode, stride=self.stride),
-            nn.Flatten()
+        # Convolutional block type 1
+        self.conv_block = nn.Sequential(
+            nn.Conv2d(self.channels, 32, kernel_size=3, stride=2, padding=1),
+            self.activation,
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+            self.activation,
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            self.activation,
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
+            self.activation,
         )
-        # self.cnn = nn.Sequential(
-        #     nn.Conv2d(in_channels=self.in_channels, out_channels=3, kernel_size=self.kernel_size, padding=self.padding,
-        #               padding_mode=padding_mode),
 
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels=3, out_channels=3, kernel_size=self.kernel_size, padding=self.padding,
-        #               padding_mode=padding_mode, stride=self.stride),
-        #     nn.ReLU(),
-        #     nn.Conv2d(in_channels=3, out_channels=1, kernel_size=self.kernel_size, padding=self.padding,
-        #               padding_mode=padding_mode, stride=self.stride),
-        #     nn.Flatten()
-        # )
+        self.flatten = nn.Flatten()
 
-        # Compute shape by doing one forward pass
-        self.n_flatten = 0
-        sample = th.as_tensor(observation_space.sample()).float()
-        sample = sample.reshape(1,1, sample.shape[1], sample.shape[2])
-        print(self.cnn)
+        # Calculate the size of the flattened feature maps
+        # Adjust the size calculations based on the number of convolution and pooling layers
+        self.flattened_size, self.dim_before_flatten = self._get_conv_output(image_size)
+        print(f'Encoder flattened size: {self.flattened_size}; Dim before flatten: {self.dim_before_flatten}')
+        
+        # Fully connected layers for mu and logvar
+        self.fc_mu = nn.Sequential(
+            nn.Linear(self.flattened_size, 512),
+            self.activation,
+            nn.Linear(512, latent_dim)
+        )
+        
+        self.fc_logvar = nn.Sequential(
+            nn.Linear(self.flattened_size, 512),
+            self.activation,
+            nn.Linear(512, latent_dim)
+        )
+
+    def _get_conv_output(self, image_size:int) -> int:
+        # Helper function to calculate size of the flattened feature maps as well as before the flatten layer
+        # Returns the size of the flattened feature maps and the output of the conv block before the flatten layer
         with th.no_grad():
-            print("LidarCNN initializing, CNN input is", sample.shape, "and", end=" ")
-            flatten = self.cnn(sample)
-            self.n_flatten = flatten.shape[1]
-            print("output is", flatten.shape)
-        #arr=2550*flatten.cpu().detach().numpy().reshape(4,4)
-        #print(arr)
-        #plt.imshow(arr, cmap='gray', vmin=0, vmax=255)
-        #plt.show()
-        #input_names = ['LIDAR Data']
-        #output_names = ['LIDAR Features']
-        #th.onnx.export(self.cnn, sample, 'cnn.onnx', input_names=input_names, output_names=output_names,opset_version=12)
-        self.linear = nn.Sequential(nn.Linear(self.n_flatten, features_dim), nn.ReLU())
+            input = th.zeros(1, self.channels, image_size, image_size)
+            output1 = self.flatten(self.conv_block(input))
+            output2 = self.conv_block(input)
+            return int(np.prod(output1.size())), output2.size()
+    
+    def reparameterize(self, mu, log_var, eps_weight=1):
+        """ Reparameterization trick from VAE paper (Kingma and Welling). 
+            Eps weight in [0,1] controls the amount of noise added to the latent space."""
+        # Note: log(x²) = 2log(x) -> divide by 2 to get std.dev.
+        # Thus, std = exp(log(var)/2) = exp(log(std²)/2) = exp(0.5*log(var))
+        std = th.exp(0.5*log_var)
+        epsilon = th.distributions.Normal(0, eps_weight).sample(mu.shape).to(self.device) # ~N(0,I)
+        z = mu + (epsilon * std)
+        return z
 
-    def forward(self, observations: th.Tensor) -> th.Tensor:
-        return self.linear(self.cnn(observations))
+    def forward(self, x:th.Tensor) -> tuple:
+        x = x.to(self.device)
+        x = self.conv_block(x)
+        x = self.flatten(x)
+        mu = self.fc_mu(x)
 
-    def get_features(self, observations: th.Tensor) -> list:
+        # We pass through mu during feature extraction - reparameterization is done in VAE training only
+
+        #logvar = self.fc_logvar(x)
+        #z = self.reparameterize(mu, logvar)
+        #return z, mu, logvar
+
+        return mu
+    
+    def get_features(self, observations:th.Tensor) -> list:
         feat = []
         out = observations
-        for layer in self.cnn:
+        for layer in self.conv_block:
             out = layer(out)
             if not isinstance(layer, nn.ReLU):
                 feat.append(out.cpu().detach().numpy())
-
-        #for layer in self.linear:
-        #    out = layer(out)
-        #    if not isinstance(layer, nn.ReLU):
-        #        feat.append(out.cpu().detach().numpy())
+        
+        # Usikker på om følgende to linjer trengs siden flatten ikek endrer annet enn formen
+        out = self.flatten(out)
+        feat.append(out.cpu().detach().numpy())
+        
+        for layer in self.fc_mu:
+            out = layer(out)
+            if not isinstance(layer, nn.ReLU):
+                feat.append(out.cpu().detach().numpy())
 
         return feat
 
     def get_activations(self, observations: th.Tensor) -> list:
         feat = []
         out = observations
-        for layer in self.cnn:
+        for layer in self.conv_block:
             out = layer(out)
             if isinstance(layer, nn.ReLU):
                 feat.append(out)
+        
+        # Tror ikke flatten laget trengs her siden ingen relu
 
-        for layer in self.linear:
+        for layer in self.fc_mu:
             out = layer(out)
             if isinstance(layer, nn.ReLU):
-                feat.append(out.detach().numpy())
+                feat.append(out.cpu().detach().numpy())
 
         return feat
+    
+    def load_params(self, path:str) -> None:
+        params = th.load(path)
+        self.load_state_dict(params)
 
-class NavigatioNN(BaseFeaturesExtractor):
-    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 6):
-        super(NavigatioNN, self).__init__(observation_space, features_dim=features_dim)
-
-        self.passthrough = nn.Identity()
-
-    def forward(self, observations: th.Tensor) -> th.Tensor:
-        shape = observations.shape
-        observations = observations[:,0,:].reshape(shape[0], shape[-1])
-        return self.passthrough(observations)
-
-class PerceptionNavigationExtractor(BaseFeaturesExtractor):
-    """
-    :param observation_space: (gym.Space) of dimension (1, 3, N_sensors)
-    :param features_dim: (int) Number of features extracted.
-        This corresponds to the number of unit for the last layer.
-    """
-
-    def __init__(self, observation_space: gym.spaces.Dict, sensor_dim_x : int = 25,sensor_dim_y : int = 25, features_dim: int = 32, kernel_overlap : float = 0.05):
-        # We do not know features-dim here before going over all the items,
-        # so put something dummy for now. PyTorch requires calling
-        # nn.Module.__init__ before adding modules
-        super(PerceptionNavigationExtractor, self).__init__(observation_space, features_dim=1)
-        # We assume CxHxW images (channels first)
-        # Re-ordering will be done by pre-preprocessing or wrapper
-
-        extractors = {}
-        total_concat_size = 0
-        # We need to know size of the output of this extractor,
-        # so go over all the spaces and compute output feature sizes
-        for key, subspace in observation_space.spaces.items():
-            if key == "perception":
-                # Pass sensor readings through CNN
-                extractors[key] = LidarCNN(subspace, sensor_dim_x=sensor_dim_x, sensor_dim_y=sensor_dim_y, features_dim=features_dim, kernel_overlap=kernel_overlap)
-                total_concat_size += features_dim  # extractors[key].n_flatten
-            elif key == "navigation":
-                # Pass navigation features straight through to the MlpPolicy.
-                extractors[key] = NavigatioNN(subspace, features_dim=subspace.shape[-1]) #nn.Identity()
-                total_concat_size += subspace.shape[-1]
-
-        self.extractors = nn.ModuleDict(extractors)
-
-        # Update the features dim manually
-        self._features_dim = total_concat_size
-
-    def forward(self, observations) -> th.Tensor:
-        encoded_tensor_list = []
-
-        # self.extractors contain nn.Modules that do all the processing.
-        for key, extractor in self.extractors.items():
-            encoded_tensor_list.append(extractor(observations[key]))
-        # Return a (B, self._features_dim) PyTorch tensor, where B is batch dimension.
-        return th.cat(encoded_tensor_list, dim=1)
-
-##My new classes for feature extraction 
+    def lock_params(self) -> None:
+        for param in self.parameters():
+            param.requires_grad = False
+        
 class IMU_NN(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 6):
         super(IMU_NN, self).__init__(observation_space, features_dim=features_dim)
@@ -184,16 +166,16 @@ class PerceptionIMUDomainExtractor(BaseFeaturesExtractor):
     """
     :param observation_space: (gym.Space) of dimension (1, 3, N_sensors)
     :param features_dim: (int) Number of features extracted.
-        This corresponds to the number of unit for the last layer.
+    This corresponds to the number of unit for the last layer.
     """
-
-    def __init__(self, observation_space: gym.spaces.Dict, sensor_dim_x : int = 25,sensor_dim_y : int = 25, features_dim: int = 32, kernel_overlap : float = 0.05):
+    def __init__(self, observation_space: gym.spaces.Dict, 
+                 img_size:int=224, 
+                 features_dim:int=32,
+                 lock_params:bool=True):
         # We do not know features-dim here before going over all the items,
         # so put something dummy for now. PyTorch requires calling
         # nn.Module.__init__ before adding modules
-        super(PerceptionIMUDomainExtractor, self).__init__(observation_space, features_dim=1)
-        # We assume CxHxW images (channels first)
-        # Re-ordering will be done by pre-preprocessing or wrapper
+        super(PerceptionIMUDomainExtractor, self).__init__(observation_space, features_dim=1) # JØRGEN hvorfor er features_dim=1 her?
 
         extractors = {}
         total_concat_size = 0
@@ -201,8 +183,13 @@ class PerceptionIMUDomainExtractor(BaseFeaturesExtractor):
         # so go over all the spaces and compute output feature sizes
         for key, subspace in observation_space.spaces.items():
             if key == "perception":
-                # Pass sensor readings through CNN
-                extractors[key] = LidarCNN(subspace, sensor_dim_x=sensor_dim_x, sensor_dim_y=sensor_dim_y, features_dim=features_dim, kernel_overlap=kernel_overlap)
+                encoder = EncoderFeatureExtractor(subspace, image_size=img_size, channels=1, latent_dim=features_dim)
+                # Get params from pre-trained encoder saved in file from path
+                param_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_73_seed0_dim32.json" 
+                encoder.load_params(param_path)
+                if lock_params:
+                    encoder.lock_params()
+                extractors[key] = encoder
                 total_concat_size += features_dim  # extractors[key].n_flatten
             elif key == "IMU":
                 #Pass IMU features straight through to the MlpPolicy.
@@ -226,7 +213,6 @@ class PerceptionIMUDomainExtractor(BaseFeaturesExtractor):
             encoded_tensor_list.append(extractor(observations[key]))
         # Return a (B, self._features_dim) PyTorch tensor, where B is batch dimension.
         return th.cat(encoded_tensor_list, dim=1)
-### END OF MY NEW CLASSES
 
 
 if __name__ == '__main__':

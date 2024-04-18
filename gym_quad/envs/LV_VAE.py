@@ -1,6 +1,7 @@
 import numpy as np
 import gymnasium as gym
 import matplotlib.pyplot as plt
+import torchvision.transforms as transforms
 
 import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
@@ -10,6 +11,7 @@ from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.depth_camera import *
 
 #TODO Set up curriculum learning
+#TODO add stochasticity to make sim2real robust
 
 class LV_VAE(gym.Env):
     '''Creates an environment where the actionspace consists of Linear velocity and yaw rate which will be passed to a PD or PID controller,
@@ -31,11 +33,11 @@ class LV_VAE(gym.Env):
 
     #Observationspace
         #Depth camera observation space
-        self.perception_space = gym.spaces.Box(
+        self.perception_space = gym.spaces.Box( #TODO 2x check the shape and type as this is a tensor want it to be a nice tensor for quick processing
             low = 0,
             high = 1,
-            shape = (1, self.depth_map_size[0], self.depth_map_size[1]),
-            dtype = np.float64
+            shape = (1, self.compressed_depth_map_size, self.compressed_depth_map_size),
+            dtype = np.float32
         )
 
         # IMU observation space
@@ -43,7 +45,7 @@ class LV_VAE(gym.Env):
             low = -1,
             high = 1,
             shape = (6,),
-            dtype = np.float64
+            dtype = np.float32
         )
 
         #Domain observation space (Angles, distances and coordinates in body frame)
@@ -51,7 +53,7 @@ class LV_VAE(gym.Env):
             low = -1,
             high = 1,
             shape = (16,),
-            dtype = np.float64
+            dtype = np.float32
         )
 
         self.observation_space = gym.spaces.Dict({
@@ -60,14 +62,6 @@ class LV_VAE(gym.Env):
         'domain': self.domain_space
         })
 
-        #Init values for sensor
-        #OLD
-        # self.n_sensor_readings = self.sensor_suite[0]*self.sensor_suite[1]
-        # max_horizontal_angle = self.sensor_span[0]/2
-        # max_vertical_angle = self.sensor_span[1]/2
-        # self.sectors_horizontal = np.linspace(-max_horizontal_angle*np.pi/180, max_horizontal_angle*np.pi/180, self.sensor_suite[0])
-        # self.sectors_vertical =  np.linspace(-max_vertical_angle*np.pi/180, max_vertical_angle*np.pi/180, self.sensor_suite[1])
-        
         #Scenario set up
         self.scenario = scenario
         self.obstacles = [] #Filled in the scenario functions
@@ -93,10 +87,10 @@ class LV_VAE(gym.Env):
         }
 
         #New init values for sensor using depth camera, mesh and pt3d
-        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu") #Attempt to use GPU if available
 
         scenario = self.scenario_switch.get(self.scenario, lambda: print("Invalid scenario"))
-        init_state = scenario()
+        init_state = scenario() #Called such that the obstacles are generated
 
         camera = FoVPerspectiveCameras(device = self.device,fov=self.FOV)
         raster_settings = RasterizationSettings(
@@ -118,7 +112,7 @@ class LV_VAE(gym.Env):
                                          scene=scene, 
                                          MAX_MEASURABLE_DEPTH=self.max_depth, 
                                          img_size=self.depth_map_size)
-
+        
         #Reset environment to init state
         self.reset()
 
@@ -138,19 +132,17 @@ class LV_VAE(gym.Env):
         self.upsilon_error = None
         self.waypoint_index = 0
         self.prog = 0
-        # self.path_prog = []
         self.success = False
         self.done = False
         self.LA_at_end = False
         self.cumulative_reward = 0
 
-
         #Obstacle variables
         self.nearby_obstacles = []
+        self.collided = False
 
         self.depth_map = torch.zeros((1, self.depth_map_size[0], self.depth_map_size[1]), dtype=torch.float32, device=self.device)
         
-        self.collided = False
 
         self.prev_position_error = [0, 0, 0]
         self.total_position_error = [0, 0, 0]
@@ -177,13 +169,15 @@ class LV_VAE(gym.Env):
         """
         Returns observations of the environment.
         """
+        #For saving and plotting
+        pure_obs = [] 
 
-        imu_measurement = np.zeros((6,))
+        #IMU measurements
+        imu_measurement = np.zeros((6,), dtype=np.float32) 
+        # I suppose this can be turned into a self variable and inited once in the init or reset fcn
+        #What is the best convention have many self variables to init once or have them in the fcn and init them every time? #TODO
         if self.total_t_steps > 0:
             imu_measurement = self.imu.measure(self.quadcopter)
-
-        pure_obs = [] #For saving and plotting
-        pure_obs.extend(imu_measurement)
 
         #The linear acceleration is not in [-1,1] clipping it using the max speed of the quadcopter
         imu_measurement[0:3] = self.m1to1(imu_measurement[0:3], -self.s_max*2, self.s_max*2)
@@ -191,26 +185,54 @@ class LV_VAE(gym.Env):
         imu_measurement[3:6] = self.m1to1(imu_measurement[3:6], -self.r_max*2, self.r_max*2)
         # print(np.round(imu_measurement,2))
 
-        # Update nearby obstacles and calculate distances PER NOW THESE FCN CALLED ONCE HERE SO DONT NEED TO BE FCNS
-        # (LIDAR sensor readings)
-        #OLD
-        # self.update_sensor_readings()
-        # sensor_readings = self.sensor_readings.reshape(1, self.sensor_suite[0], self.sensor_suite[1])
+        #Ensure dtype is float32
+        imu_measurement = imu_measurement.astype(np.float32)
 
-        #New depth camera sensor readings
-        #Make it update according to the FPS of the camera
-        if self.total_t_steps % (int(1/self.camera_FPS/self.step_size)) == 0: #TODO check if this is correct
+        pure_obs.extend(imu_measurement)
+
+        #Depth camera observation
+        if self.total_t_steps % (int((1/self.camera_FPS)/self.step_size)) == 0: #Only update the depth map at the camera FPS
             pos = self.quadcopter.position
             orientation = self.quadcopter.attitude
             Rcam,Tcam = self.renderer.camera_R_T_from_quad_pos_orient(pos, orientation)
             self.renderer.update_R(Rcam)
             self.renderer.update_T(Tcam)
             self.depth_map = self.renderer.render_depth_map()
-            sensor_readings = self.depth_map
+            temp_depth_map = self.depth_map
+            # temp_path = "gym_quad/envs/temp_depth_test_img" #Uncomment to save depth map images
+            # self.renderer.save_depth_map(f"{temp_path}/depth_map_{self.total_t_steps}", self.depth_map)
+            # print("\nTemp depth map type:", type(temp_depth_map), "  shape:", temp_depth_map.shape, "  dtype:", temp_depth_map.dtype)
         else:
-            sensor_readings = self.depth_map
+            temp_depth_map = self.depth_map #Use the previous depthmap 
+        
+        normalized_depth_map = temp_depth_map / self.max_depth
+        
+        #New
+        normalized_depth_map_PIL = transforms.ToPILImage()(normalized_depth_map)
 
-        domain_obs = np.zeros(16)
+        resize_transform = transforms.Compose([
+            transforms.Resize((self.compressed_depth_map_size, self.compressed_depth_map_size)),
+            transforms.ToTensor(),  # Convert back to tensor
+            transforms.Lambda(lambda x: torch.clamp(x, 0, 1))
+        ])        
+
+        resized_depth_map = resize_transform(normalized_depth_map_PIL)
+
+        # sensor_readings = resized_depth_map #Might rename sensorreadings to comp_normed_depth_map or VAE_ready_depth_map
+        #TODO throws warnings about wanting a np.array instead of a tensor
+        #Decide if we let the box change to np.array or if we change the tensor to a np.array here.
+        #Migh be unfortunate to change the tensor to np.array here as it will be done every time the observation is called
+        #Having to move the tensor to the cpu....
+        #Per now we cast to np.array here
+        sensor_readings = resized_depth_map.detach().cpu().numpy()
+        if max(sensor_readings.flatten()) > 1 or min(sensor_readings.flatten()) < 0:
+            print("\nMAX VALUE IN SENSORREADINGS:",max(sensor_readings.flatten()),"\nMIN VALUE IN SENSORREADINGS:", min(sensor_readings.flatten()))
+
+
+        # print("Sensor readings type:", type(sensor_readings), "  shape:", sensor_readings.shape, "  dtype:", sensor_readings.dtype)
+
+        #Domain observation
+        domain_obs = np.zeros(16, dtype=np.float32)
         # Heading angle error wrt. the path
         domain_obs[0] = np.sin(self.chi_error)
         domain_obs[1] = np.cos(self.chi_error)
@@ -220,7 +242,7 @@ class LV_VAE(gym.Env):
          
         pure_obs.extend([self.chi_error, self.upsilon_error])
 
-        # # Angle to velocity vector from body frame #PROBS NOT NEEDED :)
+        # # Angle to velocity vector from body frame #PROBS NOT NEEDED :) #TODO
         # domain_obs[4] = np.sin(self.quadcopter.aoa) #angle of attack
         # domain_obs[5] = np.cos(self.quadcopter.aoa)
         # domain_obs[6] = np.sin(self.quadcopter.beta) #sideslip angle
@@ -298,7 +320,12 @@ class LV_VAE(gym.Env):
         
         self.info['pure_obs'] = pure_obs
         # print(np.round(domain_obs,2))
-    
+
+        # if self.total_t_steps % 1000 == 0:
+        #     print("\nsensor_readings type:", type(sensor_readings), "  shape:", sensor_readings.shape, "  dtype:", sensor_readings.dtype)
+        #     print("IMU type:", type(imu_measurement), "  shape:", imu_measurement.shape, "  dtype:", imu_measurement.dtype)
+        #     print("domain_obs type:", type(domain_obs), "  shape:", domain_obs.shape, "  dtype:", domain_obs.dtype)
+
         return {'perception':sensor_readings,
                 'IMU':imu_measurement,
                 'domain':domain_obs}
@@ -311,6 +338,8 @@ class LV_VAE(gym.Env):
         self.update_errors()
 
         F = self.geom_ctrlv2(action)
+        #TODO maybe need some translation between input u and thrust F i.e translate u to propeller speed? 
+        #We currently skip this step for simplicity
         self.quadcopter.step(F)
 
         if self.path:
@@ -326,7 +355,8 @@ class LV_VAE(gym.Env):
         # Check collision
         self.update_nearby_obstacles()
         for obstacle in self.nearby_obstacles:
-            if np.linalg.norm(obstacle.position - self.quadcopter.position) <= obstacle.radius + self.quadcopter.safety_radius:
+            quad_pos_torch = torch.tensor(self.quadcopter.position, dtype=torch.float32, device=self.device)
+            if torch.norm(obstacle.position - quad_pos_torch) <= obstacle.radius + self.quadcopter.safety_radius:
                 self.collided = True
 
         end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad and self.waypoint_index == self.n_waypoints-2
@@ -370,7 +400,7 @@ class LV_VAE(gym.Env):
         domain_obs = self.observation['domain']
         self.info['domain_obs'] = domain_obs
 
-        # See stack overflow QnA or Sb3 documentation for how to use truncated
+        #TODO See stack overflow QnA or Sb3 documentation for how to use truncated
         truncated = False
         return self.observation, step_reward, self.done, truncated, self.info
 
@@ -410,13 +440,13 @@ class LV_VAE(gym.Env):
         ####Collision avoidance reward####
         #Find the closest obstacle
         reward_collision_avoidance = 0
-        if self.nearby_obstacles != []: #If there are no obstacles, no need to calculate the reward #TODO decide if this nearby or all obstacles should be used
+        if self.nearby_obstacles != []: #If there are no obstacles, no need to calculate the reward
 
             inv_abs_min_rew = self.abs_inv_CA_min_rew 
             danger_range = self.danger_range
             danger_angle = self.danger_angle            
-            
-            drone_closest_obs_dist = np.linalg.norm(self.nearby_obstacles[0].position - self.quadcopter.position)
+            quad_pos_torch = torch.tensor(self.quadcopter.position, dtype=torch.float32, device=self.device)
+            drone_closest_obs_dist = torch.norm(self.nearby_obstacles[0].position - quad_pos_torch)
             #Determine lambda reward for path following and path adherence based on the distance to the closest obstacle
             if (drone_closest_obs_dist < danger_range):
                 lambda_PA = (drone_closest_obs_dist/danger_range)/2
@@ -424,10 +454,10 @@ class LV_VAE(gym.Env):
                 lambda_CA = 1-lambda_PA
             
             #Determine the angle difference between the velocity vector and the vector to the closest obstacle
-            velocity_vec = self.quadcopter.velocity
-            drone_to_obstacle_vec = self.nearby_obstacles[0].position - self.quadcopter.position
+            velocity_vec_torch = torch.tensor(self.quadcopter.velocity, dtype=torch.float32, device=self.device)
+            drone_to_obstacle_vec = self.nearby_obstacles[0].position - quad_pos_torch
             #No worries to use this in simulation to do reward calculations as long as the observations allow for correlation between this reward and the actual world
-            angle_diff = np.arccos(np.dot(drone_to_obstacle_vec, velocity_vec)/(np.linalg.norm(drone_to_obstacle_vec)*np.linalg.norm(velocity_vec)))
+            angle_diff = torch.arccos(torch.dot(drone_to_obstacle_vec, velocity_vec_torch)/(torch.norm(drone_to_obstacle_vec)*torch.norm(velocity_vec_torch)))
 
             reward_collision_avoidance = 0
             if (drone_closest_obs_dist < danger_range) and (angle_diff < danger_angle):
@@ -453,10 +483,6 @@ class LV_VAE(gym.Env):
                 self.draw_red_velocity = False
                 self.draw_orange_obst_vec = False
             # print('reward_collision_avoidance', reward_collision_avoidance)
-
-            #OLD
-            # collision_avoidance_rew = self.penalize_obstacle_closeness()
-            # reward_collision_avoidance = - 2 * np.log(1 - collision_avoidance_rew)
             ####Collision avoidance reward done####
 
         #Collision reward
@@ -494,12 +520,12 @@ class LV_VAE(gym.Env):
         cmd_r = self.r_max * action[2]
         self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r]) #For plotting
 
-        #Gains, z-axis-basis=e3 and rotation matrix
+        #Gains, z-axis-basis=e3 and rotation matrix #TODO add stochasticity to make sim2real robust
         kv = 2.5
         kR = 0.8
         kangvel = 0.8
 
-        e3 = np.array([0, 0, 1])
+        e3 = np.array([0, 0, 1]) #z-axis basis
         R = geom.Rzyx(*self.quadcopter.attitude)
 
         #Essentially three different velocities that one can choose to track:
@@ -563,7 +589,7 @@ class LV_VAE(gym.Env):
 
 
     #### UTILS ####
-    def m1to1(self,value, min, max): #TODO should move these to a utils file
+    def m1to1(self,value, min, max): 
         '''
         Normalizes a value from the range [min,max] to the range [-1,1]
         If value is outside the range, it will be clipped to the min or max value
@@ -581,15 +607,15 @@ class LV_VAE(gym.Env):
 
     #### UPDATE FUNCTIONS ####
     def update_errors(self): #TODO these dont need to be self.variables and should rather be returned
-        '''Updates the corss track and vertical track errors, as well as the course and elevation errors.'''
-        self.e = 0.0
-        self.h = 0.0
-        self.chi_error = 0.0
-        self.upsilon_error = 0.0
+        '''Updates the cross track and vertical track errors, as well as the course and elevation errors.'''
+        self.e = 0.0 #Cross track error
+        self.h = 0.0 #Vertical track error
+        self.chi_error = 0.0 #Course angle error xy-plane
+        self.upsilon_error = 0.0 #Elevation angle error between z and xy-plane
 
         s = self.prog
 
-        chi_p, upsilon_p = self.path.get_direction_angles(s)
+        chi_p, upsilon_p = self.path.get_direction_angles(s) #Path direction angles also denoted by pi in some literature
         # Calculate tracking errors Serret Frenet frame
         SF_rotation = geom.Rzyx(0, upsilon_p, chi_p)
 
@@ -605,23 +631,48 @@ class LV_VAE(gym.Env):
         chi_d = chi_p - chi_r 
         upsilon_d = upsilon_p - upsilon_r 
 
-        self.chi_error = geom.ssa(chi_d - self.quadcopter.chi) #Course angle error xy-plane #THE clip is not needed
-        self.upsilon_error = geom.ssa(upsilon_d - self.quadcopter.upsilon) #Elevation angle error zx-plane
+        self.chi_error = geom.ssa(chi_d - self.quadcopter.chi) #Course angle error xy-plane 
+        self.upsilon_error = geom.ssa(upsilon_d - self.quadcopter.upsilon) #Elevation angle error between z and xy-plane
 
         # print("upsilon_d", np.round(upsilon_d*180/np.pi), "upsilon_quad", np.round(self.quadcopter.upsilon*180/np.pi), "upsilon_error", np.round(self.upsilon_error*180/np.pi),\
         #       "\n\nchi_d", np.round(chi_d*180/np.pi), "chi_quad", np.round(self.quadcopter.chi*180/np.pi), "chi_error", np.round(self.chi_error*180/np.pi))
 
-    def update_nearby_obstacles(self): #Keep as long as obstacles are spheres TODO may remove/redo when obstacles are more complex
+    # Numpy version     
+    # def update_nearby_obstacles(self): #Keep as long as obstacles are spheres TODO may remove/redo when obstacles are more complex
+    #     """
+    #     Updates the nearby_obstacles array.
+    #     """
+    #     self.nearby_obstacles = []
+    #     for obstacle in self.obstacles:
+    #         distance_vec_world = obstacle.position - self.quadcopter.position
+    #         distance = np.linalg.norm(distance_vec_world)
+    #         distance_vec_BODY = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(distance_vec_world)
+    #         heading_angle_BODY = np.arctan2(distance_vec_BODY[1], distance_vec_BODY[0])
+    #         pitch_angle_BODY = np.arctan2(distance_vec_BODY[2], np.sqrt(distance_vec_BODY[0]**2 + distance_vec_BODY[1]**2))
+
+    #         # check if the obstacle is inside the sonar window
+    #         if distance - self.quadcopter.safety_radius - obstacle.radius <= self.max_depth and abs(heading_angle_BODY) <= self.FOV_horizontal*np.pi/180 \
+    #         and abs(pitch_angle_BODY) <= self.FOV_vertical*np.pi/180:
+    #             self.nearby_obstacles.append(obstacle)
+    #         elif distance <= obstacle.radius + self.quadcopter.safety_radius:
+    #             self.nearby_obstacles.append(obstacle)
+    #     # Sort the obstacles such that the closest one is first
+    #     self.nearby_obstacles.sort(key=lambda x: np.linalg.norm(x.position - self.quadcopter.position)) 
+
+    #Tensor version
+    def update_nearby_obstacles(self): 
         """
-        Updates the nearby_obstacles array.
+        Updates the nearby_obstacles array. 
+        The closest obstacle is first in the list.
         """
         self.nearby_obstacles = []
+        quad_pos_torch = torch.tensor(self.quadcopter.position, device=self.device).float()
         for obstacle in self.obstacles:
-            distance_vec_world = obstacle.position - self.quadcopter.position
-            distance = np.linalg.norm(distance_vec_world)
-            distance_vec_BODY = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(distance_vec_world)
-            heading_angle_BODY = np.arctan2(distance_vec_BODY[1], distance_vec_BODY[0])
-            pitch_angle_BODY = np.arctan2(distance_vec_BODY[2], np.sqrt(distance_vec_BODY[0]**2 + distance_vec_BODY[1]**2))
+            distance_vec_world = obstacle.position - quad_pos_torch
+            distance = torch.norm(distance_vec_world)
+            distance_vec_BODY = torch.matmul(torch.tensor(geom.Rzyx(*self.quadcopter.attitude), device=self.device).float(), distance_vec_world)
+            heading_angle_BODY = torch.atan2(distance_vec_BODY[1], distance_vec_BODY[0])
+            pitch_angle_BODY = torch.atan2(distance_vec_BODY[2], torch.sqrt(distance_vec_BODY[0]**2 + distance_vec_BODY[1]**2))
 
             # check if the obstacle is inside the sonar window
             if distance - self.quadcopter.safety_radius - obstacle.radius <= self.max_depth and abs(heading_angle_BODY) <= self.FOV_horizontal*np.pi/180 \
@@ -630,7 +681,7 @@ class LV_VAE(gym.Env):
             elif distance <= obstacle.radius + self.quadcopter.safety_radius:
                 self.nearby_obstacles.append(obstacle)
         # Sort the obstacles such that the closest one is first
-        self.nearby_obstacles.sort(key=lambda x: np.linalg.norm(x.position - self.quadcopter.position)) 
+        self.nearby_obstacles.sort(key=lambda x: torch.norm(x.position - quad_pos_torch))
 
     #### PLOTTING ####
     def axis_equal3d(self, ax):
@@ -687,21 +738,37 @@ class LV_VAE(gym.Env):
 
     #### SCENARIOS #### 
         #Utility functions for scenarios
-    def check_object_overlap(self, new_obstacle):
+    #Numpy version: want to rewrite to torch to avoid moving data between cpu and gpu    
+    # def check_object_overlap(self, new_obstacle): #TODO larger task of rewriting np to torch
+    #     """
+    #     Checks if a new obstacle is overlapping one that already exists or the target position.
+    #     """
+    #     overlaps = False
+    #     # check if it overlaps target:
+    #     if np.linalg.norm(self.path.get_endpoint() - new_obstacle.position.numpy()) < new_obstacle.radius + 5:
+    #         return True
+    #     # check if it overlaps already placed objects
+    #     for obstacle in self.obstacles:
+    #         if np.linalg.norm(obstacle.position.numpy() - new_obstacle.position.numpy()) < new_obstacle.radius + obstacle.radius + 5:
+    #             overlaps = True
+    #     return overlaps
+    
+    def check_object_overlap(self, new_obstacle): 
         """
         Checks if a new obstacle is overlapping one that already exists or the target position.
         """
         overlaps = False
         # check if it overlaps target:
-        if np.linalg.norm(self.path.get_endpoint() - new_obstacle.position) < new_obstacle.radius + 5:
+        endpoint_torch = torch.tensor(self.path.get_endpoint(),device=self.device).float()
+        if torch.norm(endpoint_torch - new_obstacle.position) < new_obstacle.radius + 5:
             return True
         # check if it overlaps already placed objects
         for obstacle in self.obstacles:
-            if np.linalg.norm(obstacle.position - new_obstacle.position) < new_obstacle.radius + obstacle.radius + 5:
+            if torch.norm(obstacle.position - new_obstacle.position) < new_obstacle.radius + obstacle.radius + 5:
                 overlaps = True
         return overlaps
 
-
+    #No obstacles
     def scenario_line(self):
         initial_state = np.zeros(6)
         waypoints = generate_random_waypoints(self.n_waypoints,'line')
@@ -772,7 +839,7 @@ class LV_VAE(gym.Env):
         obstacle_radius = np.random.uniform(low=4,high=10)
         obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
         
-        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float()
+        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
         self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
         return initial_state
@@ -781,7 +848,7 @@ class LV_VAE(gym.Env):
         initial_state = self.scenario_3d_new()
         obstacle_radius = np.random.uniform(low=4,high=10)
         obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
-        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float()
+        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze() #go from [[x,y,z]] to [x,y,z]
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
         self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
 
@@ -789,7 +856,7 @@ class LV_VAE(gym.Env):
         for l in lengths:
             obstacle_radius = np.random.uniform(low=4,high=10)
             obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
-            obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float()
+            obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze() #TODO apply squeeze to all other obstacle_coords that are [[]] and not []
             pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
             obstacle = SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path)
             
@@ -817,7 +884,7 @@ class LV_VAE(gym.Env):
         initial_state = self.scenario_3d_new()
         obstacle_radius = np.random.uniform(low=4,high=10)
         obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
-        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float()
+        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
         self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
 
@@ -868,7 +935,7 @@ class LV_VAE(gym.Env):
         self.obstacles = []
         for i in range(7):
             y = -30+10*i
-            obstacle_coords = torch.tensor([50,y,0])
+            obstacle_coords = torch.tensor([50,y,0],device=self.device)
             pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
             self.obstacles.append(SphereMeshObstacle(radius = 5, center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
             
@@ -883,7 +950,7 @@ class LV_VAE(gym.Env):
         self.obstacles = []
         for i in range(7):
             z = -30+10*i
-            obstacle_coords = torch.tensor([50,0,z])
+            obstacle_coords = torch.tensor([50,0,z],device=self.device)
             pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
             self.obstacles.append(SphereMeshObstacle(radius = 5,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
         init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-5, high=5, size=(1,3))
@@ -903,7 +970,7 @@ class LV_VAE(gym.Env):
                 y = radius*np.cos(ang1)*np.sin(ang2)
                 z = -radius*np.sin(ang1)
                 
-                obstacle_coords = torch.tensor([x,y,z])
+                obstacle_coords = torch.tensor([x,y,z],device=self.device)
                 pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
                 self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
 
@@ -920,7 +987,7 @@ class LV_VAE(gym.Env):
         init_pos = np.array([110, 0, -26]) + np.random.uniform(low=-5, high=5, size=(1,3))
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos[0], init_attitude])
-        obstacle_coords = torch.tensor([0,0,0])
+        obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
         self.obstacles.append(SphereMeshObstacle(radius = 100,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
 
