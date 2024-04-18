@@ -6,3 +6,4 @@ seed.txt
 *.out
 test_sim.csv
 temp_depth_test_img
+VAE_encoders
