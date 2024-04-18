@@ -20,12 +20,13 @@ class EncoderFeatureExtractor(BaseFeaturesExtractor):
                  observation_space: gym.spaces.Box, 
                  image_size:int, 
                  channels:int, 
+                 device:str,
                  latent_dim:int,
                  activation=nn.ReLU()):
         super(EncoderFeatureExtractor, self).__init__(observation_space, features_dim=latent_dim)
 
         self.name = 'conv1'
-        self.device = th.device("cuda" if th.cuda.is_available() else "cpu")
+        self.device = th.device(device)
         self.channels = channels
         self.latent_dim = latent_dim
         self.image_size = image_size
@@ -48,7 +49,7 @@ class EncoderFeatureExtractor(BaseFeaturesExtractor):
         # Calculate the size of the flattened feature maps
         # Adjust the size calculations based on the number of convolution and pooling layers
         self.flattened_size, self.dim_before_flatten = self._get_conv_output(image_size)
-        print(f'Encoder flattened size: {self.flattened_size}; Dim before flatten: {self.dim_before_flatten}')
+        # print(f'Encoder flattened size: {self.flattened_size}; Dim before flatten: {self.dim_before_flatten}')
         
         # Fully connected layers for mu and logvar
         self.fc_mu = nn.Sequential(
@@ -171,6 +172,7 @@ class PerceptionIMUDomainExtractor(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Dict, 
                  img_size:int=224, 
                  features_dim:int=32,
+                 device:str="cuda",
                  lock_params:bool=True):
         # We do not know features-dim here before going over all the items,
         # so put something dummy for now. PyTorch requires calling
@@ -183,7 +185,7 @@ class PerceptionIMUDomainExtractor(BaseFeaturesExtractor):
         # so go over all the spaces and compute output feature sizes
         for key, subspace in observation_space.spaces.items():
             if key == "perception":
-                encoder = EncoderFeatureExtractor(subspace, image_size=img_size, channels=1, latent_dim=features_dim)
+                encoder = EncoderFeatureExtractor(subspace, image_size=img_size, channels=1, device=device, latent_dim=features_dim)
                 # Get params from pre-trained encoder saved in file from path
                 param_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_73_seed0_dim32.json" 
                 encoder.load_params(param_path)

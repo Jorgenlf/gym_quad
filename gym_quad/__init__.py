@@ -5,11 +5,10 @@ lv_vae_config = {
 #General parameters    
     "step_size"                 : 0.01,         # Step size of the simulation
     "max_t_steps"               : 40000,        # Maximum number of timesteps in the simulation before it is terminated
-    "mesh_path"                 : "C:/Users/admin/Desktop/EirikJorgenMasterCode/gym_quad/gym_quad/meshes/sphere.obj", # Path to the mesh of the quadcopter
+    "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the quadcopter
 #Depth camera parameters    
-    "FOV"                       : 75,           # Diagonal field of view of the depth camera
-    "FOV_vertical"              : 87,           # Vertical field of view of the depth camera
-    "FOV_horizontal"            : 58,           # Horizontal field of view of the depth camera
+    "FOV_vertical"              : 75,           # Vertical field of view of the depth camera
+    "FOV_horizontal"            : 62,           # Horizontal field of view of the depth camera
     "depth_map_size"            : (240, 320),   # Size of the depth map Earlier sensor suite
     "max_depth"                 : 10,           # Maximum depth of the depth camera
     "camera_FPS"                : 15,           # Frequency of the sensors

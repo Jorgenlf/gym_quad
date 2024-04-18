@@ -92,7 +92,7 @@ class LV_VAE(gym.Env):
         scenario = self.scenario_switch.get(self.scenario, lambda: print("Invalid scenario"))
         init_state = scenario() #Called such that the obstacles are generated
 
-        camera = FoVPerspectiveCameras(device = self.device,fov=self.FOV)
+        camera = FoVPerspectiveCameras(device = self.device,fov=self.FOV_vertical)
         raster_settings = RasterizationSettings(
                 image_size=self.depth_map_size, 
                 blur_radius=0.0, 

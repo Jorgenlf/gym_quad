@@ -21,6 +21,13 @@ from gym_quad import lv_vae_config
 from PPO_feature_extractor import *
 from utils import parse_experiment_info
 
+import warnings
+# Filter out the specific warning
+#NB this is a temporary fix to avoid the warning from pytorch3d
+#Need the mtl file if we want actual images.
+warnings.filterwarnings("ignore", message="No mtl file provided", category=UserWarning, module="pytorch3d.io.obj_io")
+
+
 print('CPU COUNT:', multiprocessing.cpu_count())
 
 # scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
@@ -46,10 +53,10 @@ hyperparams = {
     'clip_range': 0.2,
     'ent_coef': 0.001, 
     'verbose': 2,
+    'device':'cuda' #Will be used for both feature extractor and PPO
     # "optimizer_class":torch.optim.Adam, #Throws error 
     # "optimizer_kwargs":{"lr": 10e-4}
     # 'optimizer_class': torch.optim.Adam, #Throws error
-    # 'device':'cuda' #unsure if cuda wanted as default as dont have nvidia gpu
 }
 '''
 Kulkarni paper:
@@ -60,8 +67,8 @@ Given an observation vector ot, the policy outputs a 3-dimensional action comman
 
 policy_kwargs = dict(
     features_extractor_class = PerceptionIMUDomainExtractor,
-    features_extractor_kwargs = dict(img_size=lv_vae_config["compressed_depth_map_size"],features_dim=lv_vae_config["latent_dim"],lock_params=True),
-    net_arch = [dict(pi=[128, 64, 32], vf=[128, 64, 32])] #The PPO network architecture policy and value function
+    features_extractor_kwargs = dict(img_size=lv_vae_config["compressed_depth_map_size"],features_dim=lv_vae_config["latent_dim"],device = hyperparams['device'],lock_params=True),
+    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32]) #The PPO network architecture policy and value function
 )
 #From Ørjan:    net_arch = [dict(pi=[128, 64, 32], vf=[128, 64, 32])]
 #SB3 default:   net_arch = [dict(pi=[64, 64], vf=[64, 64])]
@@ -74,9 +81,9 @@ class TensorboardLogger(BaseCallback):
      A custom callback for tensorboard logging.
 
     :param verbose: Verbosity level: 0 for no output, 1 for info messages, 2 for debug messages
-    To open tensorboard after training run the following command in terminal:
-    tensorboard --logdir Path/to/tensorboard_dir
-    example path: 'C:/Users/jflin/Code/Drone3D/gym_quad/log/LV_VAE-v0/Experiment 6'
+    
+    To open tensorboard after/during training, run the following command in terminal:
+    tensorboard --logdir 'log/LV_VAE-v0/Experiment x'
     '''
 
     def __init__(self, agents_dir=None, verbose=0,):
@@ -242,9 +249,9 @@ if __name__ == '__main__':
             if scen!="intermediate":
                 continue
 
-    num_envs = multiprocessing.cpu_count() - 16
+    num_envs = multiprocessing.cpu_count() - 22 #TODO make it easier to change number of cores used potentially input argument
     print("USING", num_envs, "CORES FOR TRAINING") 
-    print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...", end="")
+    print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...")
     if num_envs > 1:
         env = SubprocVecEnv(
             [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir, allow_early_resets=True)
@@ -254,9 +261,9 @@ if __name__ == '__main__':
         env = DummyVecEnv(
             [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir,allow_early_resets=True)]
         )
-    print("DONE")
-    print("INITIALIZING AGENT...", end="")
+    print("DONE INITIALIZING ENVIRONMENTS")
 
+    print("INITIALIZING AGENT...")
     agents = glob.glob(os.path.join(experiment_dir, scen, "agents", "model_*.zip"))
     if agents == []:
         continual_step = 0
@@ -264,15 +271,14 @@ if __name__ == '__main__':
         continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
 
     if scen == "helix" and continual_step == 0: #TODO fix this so dont need to manually change scenario when training new agent(?)
-        agent = PPO('MultiInputPolicy', env, **hyperparams,policy_kwargs=policy_kwargs,seed=seed) #To use homemade feature extractor and architecture
-        # agent = PPO('MultiInputPolicy', env, **hyperparams,seed=seed)
+        agent = PPO('MultiInputPolicy', env, **hyperparams, policy_kwargs=policy_kwargs, seed=seed) #Policykwargs To use homemade feature extractor and architecture
     elif continual_step == 0:
         continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.zip")
         agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
     else:
         continual_model = os.path.join(experiment_dir, scen, "agents", f"model_{continual_step}.zip")
         agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
-    print("DONE")
+    print("DONE INITIALIZING AGENT")
 
     best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - num_envs*continual_step
     print("TRAINING FOR", timesteps, "TIMESTEPS")
