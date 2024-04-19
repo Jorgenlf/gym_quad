@@ -259,8 +259,11 @@ if __name__ == '__main__':
             print(experiment_dir, "ALREADY FINISHED TRAINING IN,", scen.upper(), "SKIPPING TO THE NEXT STAGE")
             if scen!="intermediate":
                 continue
+    
+    num_envs = args.n_cpu
+    assert num_envs > 0, "Number of cores must be greater than 0"
+    assert num_envs <= multiprocessing.cpu_count(), "Number of cores must be less than or equal to the number of cores available"
 
-    num_envs = multiprocessing.cpu_count() - 16 #TODO make it easier to change number of cores used potentially input argument
     print("USING", num_envs, "CORES FOR TRAINING") 
     print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...")
     if num_envs > 1:

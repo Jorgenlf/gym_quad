@@ -12,6 +12,7 @@ def parse_experiment_info():
     parser = argparse.ArgumentParser()
     # parser.add_argument("--env", default="WaypointPlanner-v0", type=str, help="Which environment to run/train/test")
     parser.add_argument("--env", default="LV_VAE-v0", type=str, help="Which environment to run/train/test")
+    parser.add_argument("--n_cpu", default=2, type=int, help="Number of CPUs to use")
     parser.add_argument("--exp_id", type=int, help="Which experiment number to run/train/test")
     parser.add_argument("--run_scenario", default="line", type=str, help="Which scenario to run")
     parser.add_argument("--trained_scenario", default=None, type=str, help="Which scenario the agent was trained in")
