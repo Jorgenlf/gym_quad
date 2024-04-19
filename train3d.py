@@ -45,7 +45,7 @@ We train this policy for approximately 26 × 10^6 environment steps aggregated o
 
 hyperparams = {
     'n_steps': 1024, # lv_vae_config["max_t_steps"] #TODO double check what is reasobale when considered against the time steps of the environment
-    'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old 
+    #'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old 
     'batch_size': 64,
     'gae_lambda': 0.95,
     'gamma': 0.99, #old:0.99,
@@ -53,10 +53,9 @@ hyperparams = {
     'clip_range': 0.2,
     'ent_coef': 0.001, 
     'verbose': 2,
-    'device':'cuda' #Will be used for both feature extractor and PPO
-    # "optimizer_class":torch.optim.Adam, #Throws error 
-    # "optimizer_kwargs":{"lr": 10e-4}
-    # 'optimizer_class': torch.optim.Adam, #Throws error
+    'device':'cuda', #Will be used for both feature extractor and PPO
+    "optimizer_class":torch.optim.Adam, #Throws error (not hos Eirik :)) 
+    "optimizer_kwargs":{"lr": 10e-4}
 }
 '''
 Kulkarni paper:
@@ -131,6 +130,14 @@ class TensorboardLogger(BaseCallback):
         """
         pass
 
+    # def _on_training_start(self):
+    #     self._log_freq = 1000  # log every 1000 calls
+
+    #     output_formats = self.logger.output_formats
+    #     # Save reference to tensorboard formatter object
+    #     # note: the failure case (not formatter found) is not handled here, should be done with try/except.
+    #     self.tb_formatter = next(formatter for formatter in output_formats if isinstance(formatter, TensorBoardOutputFormat))
+
     def _on_rollout_start(self) -> None:
         """
         A rollout is the collection of environment interaction
@@ -204,7 +211,7 @@ class TensorboardLogger(BaseCallback):
 
             #Can log error and state here if wanted
 
-        if (n_steps + 1) % 10000 == 0:
+        if (n_steps + 1) % 200000 == 0:
             _self = self.locals.get("self")
             _self.save(os.path.join(self.agents_dir, "model_" + str(n_steps+1) + ".zip"))
         n_steps += 1
