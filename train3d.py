@@ -31,7 +31,7 @@ warnings.filterwarnings("ignore", message="No mtl file provided", category=UserW
 print('CPU COUNT:', multiprocessing.cpu_count())
 
 # scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
-scenarios = ["helix"]
+scenarios = ["proficient"]
 
 '''
 From kulkarni paper:
@@ -274,7 +274,7 @@ if __name__ == '__main__':
     else:
         continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
 
-    if scen == "helix" and continual_step == 0: #TODO fix this so dont need to manually change scenario when training new agent(?)
+    if scen == "proficient" and continual_step == 0: #TODO fix this so dont need to manually change scenario when training new agent(?)
         agent = PPO('MultiInputPolicy', env, **hyperparams, policy_kwargs=policy_kwargs, seed=seed) #Policykwargs To use homemade feature extractor and architecture
     elif continual_step == 0:
         continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.zip")

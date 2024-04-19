@@ -17,21 +17,21 @@ class LV_VAE(gym.Env):
     '''Creates an environment where the actionspace consists of Linear velocity and yaw rate which will be passed to a PD or PID controller,
     while the observationspace uses a Varial AutoEncoder "plus more" for observations of environment.'''
 
-    def __init__(self, env_config, scenario="line", seed=None):
+    def __init__(self, env_config, scenario="line"):
         # np.random.seed(0) #Uncomment to make the environment deterministic
 
         # Set all the parameters from GYM_QUAD/qym_quad/__init__.py as attributes of the class
         for key in env_config:
             setattr(self, key, env_config[key])
 
-    #Actionspace mapped to speed, inclination of velocity vector wrt x-axis and yaw rate
+        #Actionspace mapped to speed, inclination of velocity vector wrt x-axis and yaw rate
         self.action_space = gym.spaces.Box(
             low = np.array([-1,-1,-1], dtype=np.float32),
             high = np.array([1, 1, 1], dtype=np.float32),
             dtype = np.float32
         )
 
-    #Observationspace
+        #Observationspace
         #Depth camera observation space
         self.perception_space = gym.spaces.Box( #TODO 2x check the shape and type as this is a tensor want it to be a nice tensor for quick processing
             low = 0,
@@ -89,9 +89,52 @@ class LV_VAE(gym.Env):
         #New init values for sensor using depth camera, mesh and pt3d
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu") #Attempt to use GPU if available
 
+        #Reset environment to init state
+        self.reset()
+
+
+    def reset(self,**kwargs):
+        """
+        Resets environment to initial state.
+        """
+        seed = kwargs.get('seed', None)
+        super().reset(seed=seed)
+        print("PRINTING SEED WHEN RESETTING:", seed) 
+        
+        self.quadcopter = None
+        self.path = None
+        self.path_generated = None
+        self.e = None
+        self.h = None
+        self.chi_error = None
+        self.upsilon_error = None
+        self.waypoint_index = 0
+        self.prog = 0
+        self.success = False
+        self.done = False
+        self.LA_at_end = False
+        self.cumulative_reward = 0
+
+        #Obstacle variables
+        self.nearby_obstacles = []
+        self.obstacles = []
+        self.collided = False
+
+        self.depth_map = torch.zeros((1, self.depth_map_size[0], self.depth_map_size[1]), dtype=torch.float32, device=self.device)
+        
+
+        self.prev_position_error = [0, 0, 0]
+        self.total_position_error = [0, 0, 0]
+
+        self.passed_waypoints = np.zeros((1, 3), dtype=np.float32)
+        self.total_t_steps = 0
+
+        ### Path and obstacle generation based on scenario
         scenario = self.scenario_switch.get(self.scenario, lambda: print("Invalid scenario"))
         init_state = scenario() #Called such that the obstacles are generated
 
+
+        ## Regenerate camera, scene and renderer
         camera = FoVPerspectiveCameras(device = self.device,fov=self.FOV_vertical)
         raster_settings = RasterizationSettings(
                 image_size=self.depth_map_size, 
@@ -112,47 +155,9 @@ class LV_VAE(gym.Env):
                                          scene=scene, 
                                          MAX_MEASURABLE_DEPTH=self.max_depth, 
                                          img_size=self.depth_map_size)
-        
-        #Reset environment to init state
-        self.reset()
 
 
-    def reset(self,**kwargs):
-        """
-        Resets environment to initial state.
-        """
-        seed = kwargs.get('seed', None)
-        print("PRINTING SEED WHEN RESETTING:", seed) 
-        self.quadcopter = None
-        self.path = None
-        self.path_generated = None
-        self.e = None
-        self.h = None
-        self.chi_error = None
-        self.upsilon_error = None
-        self.waypoint_index = 0
-        self.prog = 0
-        self.success = False
-        self.done = False
-        self.LA_at_end = False
-        self.cumulative_reward = 0
 
-        #Obstacle variables
-        self.nearby_obstacles = []
-        self.collided = False
-
-        self.depth_map = torch.zeros((1, self.depth_map_size[0], self.depth_map_size[1]), dtype=torch.float32, device=self.device)
-        
-
-        self.prev_position_error = [0, 0, 0]
-        self.total_position_error = [0, 0, 0]
-
-        self.passed_waypoints = np.zeros((1, 3), dtype=np.float32)
-        self.total_t_steps = 0
-
-        ### Path and obstacle generation based on scenario
-        scenario = self.scenario_switch.get(self.scenario, lambda: print("Invalid scenario"))
-        init_state = scenario()
         # Generate Quadcopter
         self.quadcopter = Quad(self.step_size, init_state)
         
