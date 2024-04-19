@@ -175,7 +175,8 @@ class PerceptionIMUDomainExtractor(BaseFeaturesExtractor):
                  img_size:int=224, 
                  features_dim:int=32,
                  device:str="cuda",
-                 lock_params:bool=True):
+                 lock_params:bool=True,
+                 pretrained_encoder_path:str=None):
         # We do not know features-dim here before going over all the items,
         # so put something dummy for now. PyTorch requires calling
         # nn.Module.__init__ before adding modules
@@ -189,8 +190,8 @@ class PerceptionIMUDomainExtractor(BaseFeaturesExtractor):
             if key == "perception":
                 encoder = EncoderFeatureExtractor(subspace, image_size=img_size, channels=1, device=device, latent_dim=features_dim)
                 # Get params from pre-trained encoder saved in file from path
-                param_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_73_seed0_dim32.json" 
-                encoder.load_params(param_path)
+                if pretrained_encoder_path is not None:
+                    encoder.load_params(pretrained_encoder_path)
                 if lock_params:
                     encoder.lock_params()
                 extractors[key] = encoder

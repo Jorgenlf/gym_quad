@@ -44,7 +44,7 @@ We train this policy for approximately 26 × 10^6 environment steps aggregated o
 #TODO implement the above hyperparameters
 
 hyperparams = {
-    'n_steps': lv_vae_config["max_t_steps"],#1024, #TODO double check what is reasobale when considered against the time steps of the environment
+    'n_steps': 1024, # lv_vae_config["max_t_steps"] #TODO double check what is reasobale when considered against the time steps of the environment
     'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old 
     'batch_size': 64,
     'gae_lambda': 0.95,
@@ -67,7 +67,11 @@ Given an observation vector ot, the policy outputs a 3-dimensional action comman
 
 policy_kwargs = dict(
     features_extractor_class = PerceptionIMUDomainExtractor,
-    features_extractor_kwargs = dict(img_size=lv_vae_config["compressed_depth_map_size"],features_dim=lv_vae_config["latent_dim"],device = hyperparams['device'],lock_params=True),
+    features_extractor_kwargs = dict(img_size=lv_vae_config["compressed_depth_map_size"],
+                                     features_dim=lv_vae_config["latent_dim"],
+                                     device = hyperparams['device'],
+                                     lock_params=True,
+                                     pretrained_encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_73_seed0_dim32.json"),
     net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32]) #The PPO network architecture policy and value function
 )
 #From Ørjan:    net_arch = [dict(pi=[128, 64, 32], vf=[128, 64, 32])]
