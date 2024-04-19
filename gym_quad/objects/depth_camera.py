@@ -292,7 +292,7 @@ if __name__ == "__main__":
     camera = FoVPerspectiveCameras(device=device, fov=FOV)
 
     #init scene
-    unit_sphere_path = "gym_quad/objects/sphere.obj"
+    unit_sphere_path = "gym_quad/meshes/sphere.obj"
     obs1 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.0, center_position=torch.tensor([4, 0, 8]))
     obs2 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=4.0, center_position=torch.tensor([2, 4, 5]))
     obs3 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.3, center_position=torch.tensor([-4, 0, 12]))

@@ -12,7 +12,7 @@ import time
 from gym_quad.objects.quad import Quad
 from old.current3d import Current
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
-from gym_quad.objects.obstacle3d import Obstacle
+from old.obstacle3d import Obstacle
 
 from gymnasium.spaces import Box
 
