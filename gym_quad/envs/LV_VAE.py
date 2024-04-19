@@ -325,6 +325,7 @@ class LV_VAE(gym.Env):
         #     print("\nsensor_readings type:", type(sensor_readings), "  shape:", sensor_readings.shape, "  dtype:", sensor_readings.dtype)
         #     print("IMU type:", type(imu_measurement), "  shape:", imu_measurement.shape, "  dtype:", imu_measurement.dtype)
         #     print("domain_obs type:", type(domain_obs), "  shape:", domain_obs.shape, "  dtype:", domain_obs.dtype)
+        
 
         return {'perception':sensor_readings,
                 'IMU':imu_measurement,
@@ -446,7 +447,7 @@ class LV_VAE(gym.Env):
             danger_range = self.danger_range
             danger_angle = self.danger_angle            
             quad_pos_torch = torch.tensor(self.quadcopter.position, dtype=torch.float32, device=self.device)
-            drone_closest_obs_dist = torch.norm(self.nearby_obstacles[0].position - quad_pos_torch)
+            drone_closest_obs_dist = torch.norm(self.nearby_obstacles[0].position - quad_pos_torch).item()
             #Determine lambda reward for path following and path adherence based on the distance to the closest obstacle
             if (drone_closest_obs_dist < danger_range):
                 lambda_PA = (drone_closest_obs_dist/danger_range)/2
@@ -457,7 +458,7 @@ class LV_VAE(gym.Env):
             velocity_vec_torch = torch.tensor(self.quadcopter.velocity, dtype=torch.float32, device=self.device)
             drone_to_obstacle_vec = self.nearby_obstacles[0].position - quad_pos_torch
             #No worries to use this in simulation to do reward calculations as long as the observations allow for correlation between this reward and the actual world
-            angle_diff = torch.arccos(torch.dot(drone_to_obstacle_vec, velocity_vec_torch)/(torch.norm(drone_to_obstacle_vec)*torch.norm(velocity_vec_torch)))
+            angle_diff = torch.arccos(torch.dot(drone_to_obstacle_vec, velocity_vec_torch)/(torch.norm(drone_to_obstacle_vec)*torch.norm(velocity_vec_torch))).item()
 
             reward_collision_avoidance = 0
             if (drone_closest_obs_dist < danger_range) and (angle_diff < danger_angle):
@@ -470,9 +471,9 @@ class LV_VAE(gym.Env):
                 self.draw_red_velocity = True
                 self.draw_orange_obst_vec = True
             elif drone_closest_obs_dist <danger_range:
-                range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1)
-                angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
-                if angle_rew > 0: angle_rew = 0 #In this case the angle reward may become positive as anglediff may !< danger_angle
+                range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) - 1)
+                angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) - 1)
+                if angle_rew > 0: angle_rew = 0 #In this case the angle reward may become positive as anglediff may < danger_angle
                 if range_rew > 0: range_rew = 0
                 reward_collision_avoidance = range_rew + angle_rew
                 
@@ -482,7 +483,6 @@ class LV_VAE(gym.Env):
                 reward_collision_avoidance = 0
                 self.draw_red_velocity = False
                 self.draw_orange_obst_vec = False
-            # print('reward_collision_avoidance', reward_collision_avoidance)
             ####Collision avoidance reward done####
 
         #Collision reward
@@ -496,7 +496,7 @@ class LV_VAE(gym.Env):
         if self.success:
             reach_end_reward = self.rew_reach_end
 
-        #Existencial reward (penalty for being alive to encourage the quadcopter to reach the end of the path quickly)
+        #Existential reward (penalty for being alive to encourage the quadcopter to reach the end of the path quickly)
         ex_reward = self.existence_reward 
 
         tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression + reach_end_reward + ex_reward

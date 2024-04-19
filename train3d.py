@@ -44,7 +44,7 @@ We train this policy for approximately 26 × 10^6 environment steps aggregated o
 #TODO implement the above hyperparameters
 
 hyperparams = {
-    'n_steps': 1024, #TODO double check what is reasobale when considered against the time steps of the environment
+    'n_steps': lv_vae_config["max_t_steps"],#1024, #TODO double check what is reasobale when considered against the time steps of the environment
     'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old 
     'batch_size': 64,
     'gae_lambda': 0.95,
@@ -249,7 +249,7 @@ if __name__ == '__main__':
             if scen!="intermediate":
                 continue
 
-    num_envs = multiprocessing.cpu_count() - 22 #TODO make it easier to change number of cores used potentially input argument
+    num_envs = multiprocessing.cpu_count() - 16 #TODO make it easier to change number of cores used potentially input argument
     print("USING", num_envs, "CORES FOR TRAINING") 
     print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...")
     if num_envs > 1:

@@ -103,16 +103,16 @@ class EncoderFeatureExtractor(BaseFeaturesExtractor):
         for layer in self.conv_block:
             out = layer(out)
             if not isinstance(layer, nn.ReLU):
-                feat.append(out.cpu().detach().numpy())
+                feat.append(out.detach().cpu().numpy())
         
         # Usikker på om følgende to linjer trengs siden flatten ikek endrer annet enn formen
         out = self.flatten(out)
-        feat.append(out.cpu().detach().numpy())
+        feat.append(out.detach().cpu().numpy())
         
         for layer in self.fc_mu:
             out = layer(out)
             if not isinstance(layer, nn.ReLU):
-                feat.append(out.cpu().detach().numpy())
+                feat.append(out.detach().cpu().numpy())
 
         return feat
 
@@ -122,14 +122,16 @@ class EncoderFeatureExtractor(BaseFeaturesExtractor):
         for layer in self.conv_block:
             out = layer(out)
             if isinstance(layer, nn.ReLU):
-                feat.append(out)
+                feat.append(out.detach().cpu().numpy())
         
         # Tror ikke flatten laget trengs her siden ingen relu
+        out = self.flatten(out)
+        feat.append(out.detach().cpu().numpy())
 
         for layer in self.fc_mu:
             out = layer(out)
             if isinstance(layer, nn.ReLU):
-                feat.append(out.cpu().detach().numpy())
+                feat.append(out.detach().cpu().numpy())
 
         return feat
     

@@ -4,7 +4,7 @@ import numpy as np
 lv_vae_config = {
 #General parameters    
     "step_size"                 : 0.01,         # Step size of the simulation
-    "max_t_steps"               : 40000,        # Maximum number of timesteps in the simulation before it is terminated
+    "max_t_steps"               : 10000,        # Maximum number of timesteps in the simulation before it is terminated
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the quadcopter
 #Depth camera parameters    
     "FOV_vertical"              : 75,           # Vertical field of view of the depth camera
