@@ -5,12 +5,11 @@ from mpl_toolkits.mplot3d import proj3d
 import numpy as np
 import pandas as pd
 from cycler import cycler
-
+from stable_baselines3 import PPO
 
 def parse_experiment_info():
     """Parser for the flags that can be passed with the run/train/test scripts."""
     parser = argparse.ArgumentParser()
-    # parser.add_argument("--env", default="WaypointPlanner-v0", type=str, help="Which environment to run/train/test")
     parser.add_argument("--env", default="LV_VAE-v0", type=str, help="Which environment to run/train/test")
     parser.add_argument("--n_cpu", default=2, type=int, help="Number of CPUs to use")
     parser.add_argument("--exp_id", type=int, help="Which experiment number to run/train/test")
@@ -51,7 +50,20 @@ def calculate_IAE(sim_df):
     return IAE_cross, IAE_vertical
 
 
-def simulate_environment(episode, env, agent):
+def simulate_environment(episode, env, agent: PPO):
+    """
+    Input 
+        episode:    episode number to run
+        env:        environment to run
+        agent:      agent to run
+
+    Output
+        df:         pandas DataFrame with simulation data
+        env:        environment after simulation
+
+    Simulates an environment for with the provided agent and returns the simulation data as a pandas DataFrame
+    """
+
     state_labels = [r"$X$", r"$Y$", r"$Z$", r"$\phi$", r"$\theta$", r"$\psi$", r"$u$", r"$v$", r"$w$", r"$p$", r"$q$", r"$r$"]
     action_labels = [r"$\v_{cmd}$", r"$\incline_{cmd}$",r"$\r_{cmd}$"]
     error_labels = [r"$e$",r"$h$"]
@@ -77,7 +89,8 @@ def simulate_environment(episode, env, agent):
     pure_observations = []
     normed_domain_observations = []
 
-    while not done:
+    while not done: #TODO IMPORTANT MUST WE USE THE CUSTOM FEATURE EXTRACTOR HERE 
+                    #SUCH THAT THE DEPTH OBSERVATIONS GET PASSED THROGUH THE VAE???
         action = agent.predict(env.observation, deterministic=True)[0]
         _, _, done, _, info = env.step(action)
         

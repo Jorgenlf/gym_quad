@@ -42,7 +42,7 @@ We train this policy for approximately 26 × 10^6 environment steps aggregated o
 '''
 #TODO implement the above hyperparameters
 
-hyperparams = {
+PPO_hyperparams = {
     'n_steps': 1024, # lv_vae_config["max_t_steps"] #TODO double check what is reasobale when considered against the time steps of the environment
     #'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old 
     'batch_size': 64,
@@ -67,7 +67,7 @@ policy_kwargs = dict(
     features_extractor_class = PerceptionIMUDomainExtractor,
     features_extractor_kwargs = dict(img_size=lv_vae_config["compressed_depth_map_size"],
                                      features_dim=lv_vae_config["latent_dim"],
-                                     device = hyperparams['device'],
+                                     device = PPO_hyperparams['device'],
                                      lock_params=True,
                                      pretrained_encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_73_seed0_dim32.json"),
     net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32]) #The PPO network architecture policy and value function
@@ -231,7 +231,7 @@ class TensorboardLogger(BaseCallback):
 
 """
 To train the agent, run the following command in terminal exchange x for the experiment id you want to train:
-python train3d.py --exp_id x
+python train3d.py --exp_id x --n_cpu x
 """
 
 if __name__ == '__main__':
@@ -244,7 +244,7 @@ if __name__ == '__main__':
         os.makedirs(experiment_dir, exist_ok=True)
         os.makedirs(agents_dir, exist_ok=True)
         os.makedirs(tensorboard_dir, exist_ok=True)
-        hyperparams["tensorboard_log"] = tensorboard_dir
+        PPO_hyperparams["tensorboard_log"] = tensorboard_dir
         seed=np.random.randint(0,10000)
         try:
             with open(f'{experiment_dir}/{scen}/seed.txt', 'r') as file:
@@ -284,13 +284,13 @@ if __name__ == '__main__':
         continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
 
     if scen == "proficient" and continual_step == 0: #TODO fix this so dont need to manually change scenario when training new agent(?)
-        agent = PPO('MultiInputPolicy', env, **hyperparams, policy_kwargs=policy_kwargs, seed=seed) #Policykwargs To use homemade feature extractor and architecture
+        agent = PPO('MultiInputPolicy', env, **PPO_hyperparams, policy_kwargs=policy_kwargs, seed=seed) #Policykwargs To use homemade feature extractor and architecture
     elif continual_step == 0:
         continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.zip")
-        agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
+        agent = PPO.load(continual_model, _init_setup_model=True, env=env, **PPO_hyperparams)
     else:
         continual_model = os.path.join(experiment_dir, scen, "agents", f"model_{continual_step}.zip")
-        agent = PPO.load(continual_model, _init_setup_model=True, env=env, **hyperparams)
+        agent = PPO.load(continual_model, _init_setup_model=True, env=env, **PPO_hyperparams)
     print("DONE INITIALIZING AGENT")
 
     best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - num_envs*continual_step
