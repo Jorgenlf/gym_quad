@@ -899,7 +899,7 @@ class LV_VAE(gym.Env):
         for l in lengths:
             obstacle_radius = np.random.uniform(low=4,high=10)
             obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
-            obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float()
+            obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
             pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
 
             obstacle = SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords[2],device=self.device,path=self.mesh_path)
@@ -922,7 +922,7 @@ class LV_VAE(gym.Env):
 
         obstacle_radius = 10
         obstacle_coords = self.path(20)
-        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float()
+        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
         self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
         return initial_state
@@ -931,7 +931,7 @@ class LV_VAE(gym.Env):
         initial_state = self.scenario_test_path()
         obstacle_radius = 10
         obstacle_coords = self.path(self.path.length/2)
-        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float()
+        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
         self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
         return initial_state
@@ -977,7 +977,7 @@ class LV_VAE(gym.Env):
                 y = radius*np.cos(ang1)*np.sin(ang2)
                 z = -radius*np.sin(ang1)
                 
-                obstacle_coords = torch.tensor([x,y,z],device=self.device)
+                obstacle_coords = torch.tensor([x,y,z],device=self.device).float().squeeze()
                 pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
                 self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
 
