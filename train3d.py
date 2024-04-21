@@ -27,7 +27,6 @@ import warnings
 warnings.filterwarnings("ignore", message="No mtl file provided", category=UserWarning, module="pytorch3d.io.obj_io")
 
 
-print('CPU COUNT:', multiprocessing.cpu_count())
 
 # scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
 scenarios = ["proficient"]
@@ -44,7 +43,7 @@ We train this policy for approximately 26 × 10^6 environment steps aggregated o
 
 PPO_hyperparams = {
     'n_steps': 1024, # lv_vae_config["max_t_steps"] #TODO double check what is reasobale when considered against the time steps of the environment
-    #'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old 
+    'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old 
     'batch_size': 64,
     'gae_lambda': 0.95,
     'gamma': 0.99, #old:0.99,
@@ -53,8 +52,8 @@ PPO_hyperparams = {
     'ent_coef': 0.001, 
     'verbose': 2,
     'device':'cuda', #Will be used for both feature extractor and PPO
-    "optimizer_class":torch.optim.Adam, #Throws error (not hos Eirik :)) 
-    "optimizer_kwargs":{"lr": 10e-4}
+    # "optimizer_class":torch.optim.Adam, #Throws error (not hos Eirik :)) Now it does idk why sorry man
+    # "optimizer_kwargs":{"lr": 10e-4}
 }
 '''
 Kulkarni paper:
@@ -235,7 +234,9 @@ python train3d.py --exp_id x --n_cpu x
 """
 
 if __name__ == '__main__':
-    
+
+    print('\nTOTAL CPU CORE COUNT:', multiprocessing.cpu_count(),"\n")
+
     experiment_dir, _, args = parse_experiment_info()
         
     for i, scen in enumerate(scenarios):
