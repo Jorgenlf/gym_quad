@@ -841,6 +841,7 @@ class LV_VAE(gym.Env):
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
 
+    #With obstacles
     def scenario_intermediate(self):
         initial_state = self.scenario_3d_new()
         obstacle_radius = np.random.uniform(low=4,high=10)

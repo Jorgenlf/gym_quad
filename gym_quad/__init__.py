@@ -21,7 +21,7 @@ lv_vae_config = {
     "n_waypoints"               : 7,            # Number of waypoints to be generated
 #Drone controller parameters
     "s_max"                     : 3.5,          # Maximum speed of the quadcopter m/s
-    "i_max"                     : np.pi/2,      # Maximum inclination angle of commanded velocity wrt x-axis
+    "i_max"                     : 75/2 * np.pi/180,      # Maximum inclination angle of commanded velocity wrt x-axis #TODO decide this now set it to half of vertical sensor span
     "r_max"                     : 0.5,          # Maximum commanded yaw rate rad/s
 #Reward parameters
     "min_reward"                : -7e4,         # Minimum reward before the simulation is terminated
@@ -33,9 +33,9 @@ lv_vae_config = {
     'rew_collision'             : -50,          # reward for collision
     'rew_reach_end'             : 30,           # reward for reaching the end of the path
     'existence_reward'          : -0.001,       # reward for existing
-    'danger_range'              : 150,          # Range between quadcopter and obstacle within which the quadcopter is in danger
+    'danger_range'              : 100,          # Range between quadcopter and obstacle within which the quadcopter is in danger
     'danger_angle'              : 20,           # Angle between quadcopter and obstacle within which the quadcopter is in danger
-    'abs_inv_CA_min_rew'        : 1/8,          #1/2 -> -2 is min reward per CA fcn range and angle --> rangefcn + anglefcn = -4
+    'abs_inv_CA_min_rew'        : 1/8,          #1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x
 }
 
 register(
