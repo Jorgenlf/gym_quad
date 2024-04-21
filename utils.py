@@ -19,6 +19,7 @@ def parse_experiment_info():
     parser.add_argument("--episodes", default=1, type=int, help="How many episodes to run when testing the quadcopter")
     parser.add_argument("--manual_control", default=False, type=bool, help="Whether to use manual control or not")
     parser.add_argument("--RT_vis", default=False, type=bool, help="Whether to visualize in realtime training or not")
+    parser.add_argument("--save_depth_maps", default=False, type=bool, help="Whether to save depth maps or not")
     args = parser.parse_args()
     
     #Renaming: 
@@ -50,13 +51,14 @@ def calculate_IAE(sim_df):
     return IAE_cross, IAE_vertical
 
 
-def simulate_environment(episode, env, agent: PPO, test_dir):
+def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
     """
     Input 
         episode:    episode number to run
         env:        environment to run
         agent:      agent to run
         test_dir:   directory to save the simulation data
+        sdm:        save depth maps flag
 
     Output
         df:         pandas DataFrame with simulation data
@@ -94,8 +96,9 @@ def simulate_environment(episode, env, agent: PPO, test_dir):
                     #SUCH THAT THE DEPTH OBSERVATIONS GET PASSED THROGUH THE VAE???
         action = agent.predict(env.observation, deterministic=True)[0]
         _, _, done, _, info = env.step(action)
-
-        save_depth_maps(env, test_dir)  #Now this saves depthmaps online per timestep when obstacle is close, might be better to save up all then save all at once
+        
+        if sdm:
+            save_depth_maps(env, test_dir)  #Now this saves depthmaps online per timestep when obstacle is close, might be better to save up all then save all at once
         
         total_t_steps = info['env_steps']
         progression.append(info['progression'])
