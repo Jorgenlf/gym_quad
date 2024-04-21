@@ -50,12 +50,13 @@ def calculate_IAE(sim_df):
     return IAE_cross, IAE_vertical
 
 
-def simulate_environment(episode, env, agent: PPO):
+def simulate_environment(episode, env, agent: PPO, test_dir):
     """
     Input 
         episode:    episode number to run
         env:        environment to run
         agent:      agent to run
+        test_dir:   directory to save the simulation data
 
     Output
         df:         pandas DataFrame with simulation data
@@ -73,7 +74,7 @@ def simulate_environment(episode, env, agent: PPO):
                           r"$x_{cpp}^b$", r"$y_{cpp}^b$", r"$z_{cpp}^b$",\
                           r"$\upsilon_{cpp}^b$", r"$\chi_{cpp}^b$",\
                           r"$d_{nwp}$",r"$d_{end}$",\
-                          r"la_{x}$", r"la_{y}$", r"la_{z}$"
+                          r"$la_{x}$", r"$la_{y}$", r"$la_{z}$"
                         # r"$u_o$", r"$v_o$", r"$w_o$",\
                         ]
     
@@ -93,6 +94,8 @@ def simulate_environment(episode, env, agent: PPO):
                     #SUCH THAT THE DEPTH OBSERVATIONS GET PASSED THROGUH THE VAE???
         action = agent.predict(env.observation, deterministic=True)[0]
         _, _, done, _, info = env.step(action)
+
+        save_depth_maps(env, test_dir)  #Now this saves depthmaps online per timestep when obstacle is close, might be better to save up all then save all at once
         
         total_t_steps = info['env_steps']
         progression.append(info['progression'])
@@ -126,6 +129,17 @@ def simulate_environment(episode, env, agent: PPO):
     df = pd.DataFrame(sim_data, columns=labels)
     return df, env
 
+#saving depth maps
+def save_depth_maps(env, test_dir):
+    path = os.path.join(test_dir, "depth_maps")
+    if not os.path.exists(path):
+        os.mkdir(path)
+    else:
+        pass
+    if env.nearby_obstacles != []: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
+        env.renderer.save_depth_map(f"{path}/depth_map_{env.total_t_steps}", env.depth_map)
+    else:
+        pass
 
 def set_default_plot_rc():
     """Sets the style for the plots report-ready"""
@@ -235,7 +249,7 @@ def plot_observation_body_velocities(sim_df):
 def plot_observation_LA(sim_df):
     """Plots the lookahead vector in body frame from the observation"""
     set_default_plot_rc()
-    ax = sim_df.plot(x="Time", y=[r"la_{x}$", r"la_{y}$", r"la_{z}$"], kind="line")
+    ax = sim_df.plot(x="Time", y=[r"$la_{x}$", r"$la_{y}$", r"$la_{z}$"], kind="line")
     ax.set_xlabel(xlabel="Time [s]", fontsize=14)
     ax.set_ylabel(ylabel="Position [m]", fontsize=14)
     ax.legend(loc="lower right", fontsize=14)

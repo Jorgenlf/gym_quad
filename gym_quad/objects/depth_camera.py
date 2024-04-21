@@ -85,9 +85,9 @@ class SphereMeshObstacle:
 
     def return_plot_variables(self):
         u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
-        x = self.position[0] + self.radius*np.cos(u)*np.sin(v)
-        y = self.position[1] + self.radius*np.sin(u)*np.sin(v)
-        z = self.position[2] + self.radius*np.cos(v)
+        x = self.position[0].item() + self.radius*np.cos(u)*np.sin(v)
+        y = self.position[1].item() + self.radius*np.sin(u)*np.sin(v)
+        z = self.position[2].item() + self.radius*np.cos(v)
         return [x,y,z]
     
 
@@ -263,6 +263,7 @@ class DepthMapRenderer:
         plt.colorbar(label="Depth [m]", aspect=30, orientation="vertical", fraction=0.0235, pad=0.04)
         plt.axis("off")
         plt.savefig(path, bbox_inches='tight')
+        plt.close()
     
     def save_rendered_scene(self, path:str):
         img = self.render_scene()
@@ -300,6 +301,9 @@ if __name__ == "__main__":
     obs5 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=3.2, center_position=torch.tensor([0, -4, 17]))
     obs6 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.3, center_position=torch.tensor([-2.7, 0, 18]))
     obs7 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=1.0, center_position=torch.tensor([-0, 0, 26]))
+
+    #Test of returning plot variables
+    x,y,z = obs1.return_plot_variables()
 
     spherescene = SphereScene(device=device, sphere_obstacles=[obs1, obs2, obs3, obs4, obs5, obs6, obs7])
 
@@ -342,5 +346,4 @@ if __name__ == "__main__":
         renderer.update_R(R)
         renderer.update_T(T)
         depth_map = renderer.render_depth_map()
-        renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)
-        
+        renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)        

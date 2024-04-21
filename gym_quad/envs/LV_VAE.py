@@ -204,7 +204,8 @@ class LV_VAE(gym.Env):
             self.renderer.update_T(Tcam)
             self.depth_map = self.renderer.render_depth_map()
             temp_depth_map = self.depth_map
-            # temp_path = "gym_quad/envs/temp_depth_test_img" #Uncomment to save depth map images
+
+            # temp_path = "gym_quad/envs/temp_depth_test_img" #Uncomment to save depth map images for testing
             # self.renderer.save_depth_map(f"{temp_path}/depth_map_{self.total_t_steps}", self.depth_map)
             # print("\nTemp depth map type:", type(temp_depth_map), "  shape:", temp_depth_map.shape, "  dtype:", temp_depth_map.dtype)
         else:
@@ -680,11 +681,12 @@ class LV_VAE(gym.Env):
             pitch_angle_BODY = torch.atan2(distance_vec_BODY[2], torch.sqrt(distance_vec_BODY[0]**2 + distance_vec_BODY[1]**2))
 
             # check if the obstacle is inside the sonar window
-            if distance - self.quadcopter.safety_radius - obstacle.radius <= self.max_depth and abs(heading_angle_BODY) <= self.FOV_horizontal*np.pi/180 \
+            if distance - self.quadcopter.safety_radius - obstacle.radius <= self.max_depth \
+            and abs(heading_angle_BODY) <= self.FOV_horizontal*np.pi/180 \
             and abs(pitch_angle_BODY) <= self.FOV_vertical*np.pi/180:
                 self.nearby_obstacles.append(obstacle)
-            elif distance <= obstacle.radius + self.quadcopter.safety_radius:
-                self.nearby_obstacles.append(obstacle)
+            # elif distance <= obstacle.radius + self.quadcopter.safety_radius: #This essentially gives 360 degree FOV which we do not have.
+            #     self.nearby_obstacles.append(obstacle)
         # Sort the obstacles such that the closest one is first
         self.nearby_obstacles.sort(key=lambda x: torch.norm(x.position - quad_pos_torch))
 
