@@ -1,10 +1,10 @@
 __pycache__/
 venv/
 log/
-
 seed.txt
 *.out
 test_sim.csv
 temp_depth_test_img
 VAE_encoders
 perception
+gym_quad/gym_quad/tests/test_img/depth_maps/
