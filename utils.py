@@ -92,8 +92,7 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
     pure_observations = []
     normed_domain_observations = []
 
-    while not done: #TODO IMPORTANT MUST WE USE THE CUSTOM FEATURE EXTRACTOR HERE 
-                    #SUCH THAT THE DEPTH OBSERVATIONS GET PASSED THROGUH THE VAE???
+    while not done: 
         action = agent.predict(env.observation, deterministic=True)[0]
         _, _, done, _, info = env.step(action)
         

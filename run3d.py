@@ -64,6 +64,8 @@ if __name__ == "__main__":
         env = gym.make(args.env, scenario=args.run_scenario)
         agent = PPO.load(agent_path)
 
+        print("Feature extractor:\n", agent.policy.features_extractor)
+
         if args.RT_vis == False:
             for episode in range(args.episodes):
                 try:
