@@ -548,6 +548,49 @@ def plot_lidar():
     
     plt.show()
 
+def plot_collision_avoidance_reward_function(obsdists:np.array, 
+                                             angle_diffs:np.array,
+                                             danger_range:int, 
+                                             danger_angle:int,  
+                                             inv_abs_min_rew:float):
+    reward_collision_avoidance = []
+    for i in range(len(obsdists)):
+        
+        drone_closest_obs_dist = obsdists[i]
+        angle_diff = angle_diffs[i]
+
+        if (drone_closest_obs_dist < danger_range) and (angle_diff < danger_angle):
+            range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1) #same fcn in if and elif, but need this structure to color red and orange correctly
+            angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
+            if angle_rew > 0: angle_rew = 0 
+            if range_rew > 0: range_rew = 0
+            reward_collision_avoidance.append(range_rew + angle_rew)
+
+        elif drone_closest_obs_dist <danger_range:
+            range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) - 1)
+            angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) - 1)
+            if angle_rew > 0: angle_rew = 0 #In this case the angle reward may become positive as anglediff may < danger_angle
+            if range_rew > 0: range_rew = 0
+            reward_collision_avoidance.append(range_rew + angle_rew)
+            
+        else:
+            reward_collision_avoidance.append(0)
+
+    set_default_plot_rc()
+    plt.plot(reward_collision_avoidance)
+    plt.xlabel("Time [s]")
+    plt.ylabel("Reward")
+    plt.title("Collision Avoidance Reward Function")
+    plt.show()
+
+
 
 if __name__ == "__main__":
-    plot_lidar()
+    # plot_lidar()
+    datapoints = 50
+    obsdists = np.linspace(50, 0, datapoints)
+    angle_diffs = np.linspace(40, 0, datapoints)
+    danger_range = 10 #m
+    danger_angle = 20 #deg
+    inv_abs_min_rew = 1/4
+    plot_collision_avoidance_reward_function(obsdists, angle_diffs, danger_range, danger_angle, inv_abs_min_rew)
