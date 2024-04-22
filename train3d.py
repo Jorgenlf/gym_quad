@@ -39,6 +39,7 @@ def event_with_probability(x):
 
 
 # scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
+mode = None
 scenarios = ["proficient"]
 
 mode = "curriculum"
