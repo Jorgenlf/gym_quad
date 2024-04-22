@@ -27,7 +27,7 @@ To run a trained agent, run the following command in terminal, exchange x for th
 
 python run3d.py --env "" --exp_id x --run_scenario "" --trained_scenario "" --agent x --episodes x --manual_control False --RT_vis True
 
-python run3d.py --exp_id 3 --run_scenario "line" --trained_scenario "line" --agent 800000 --episodes 1 --RT_vis False --save_depth_maps True
+python run3d.py --exp_id 3 --run_scenario "line" --trained_scenario "line" --agent 800000 --episodes 1 --save_depth_maps True
 
 --manual_control and --RT_vis are False by default
 --env "" is set to LV_VAE-v0 by default

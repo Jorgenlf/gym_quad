@@ -27,10 +27,24 @@ import warnings
 #Need the mtl file if we want actual images.
 warnings.filterwarnings("ignore", message="No mtl file provided", category=UserWarning, module="pytorch3d.io.obj_io")
 
+def event_with_probability(x):
+    # Generate a random number between 0 and 1
+    random_number = np.random.rand()
+    
+    # Check if the random number is less than or equal to the probability threshold x
+    if random_number <= x:
+        return True
+    else:
+        return False
 
 
 # scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
 scenarios = ["proficient"]
+
+mode = "curriculum"
+stages = ["line_new","3d_new","intermediate","proficient","expert"]
+#TODO add a scenario where theres one obstacle close to path, but not on path which we insert after 3d_new before intermediate
+
 
 '''
 From kulkarni paper:
@@ -164,6 +178,7 @@ class TensorboardLogger(BaseCallback):
         # Only log if any workers are actually at the end of an episode
 
         global n_steps
+        global avg_reach_end_reward        
         ###From stats callback end###
 
         if n_done > 0:
@@ -242,77 +257,181 @@ if __name__ == '__main__':
     print('\nTOTAL CPU CORE COUNT:', multiprocessing.cpu_count(),"\n")
 
     experiment_dir, _, args = parse_experiment_info()
-        
-    for i, scen in enumerate(scenarios):
+    avg_reach_end_reward = 0
 
-        agents_dir = os.path.join(experiment_dir, scen, "agents")
-        tensorboard_dir = os.path.join(experiment_dir, scen, "tensorboard")
-        scenario_dir = os.path.join(experiment_dir, scen)
-
-        os.makedirs(scenario_dir, exist_ok=True)
+    if mode == "curriculum":
+        #Folder setup
+        agents_dir = os.path.join(experiment_dir, mode, "agents")
+        tensorboard_dir = os.path.join(experiment_dir, mode, "tensorboard")
         os.makedirs(experiment_dir, exist_ok=True)
         os.makedirs(agents_dir, exist_ok=True)
         os.makedirs(tensorboard_dir, exist_ok=True)
-
-        with open(os.path.join(scenario_dir, 'lv_vae_config.json'), 'w') as file:
-            json.dump(lv_vae_config, file)
-        with open(os.path.join(scenario_dir, 'ppo_config.json'), 'w') as file:
-            json.dump(PPO_hyperparams, file)
-
         PPO_hyperparams["tensorboard_log"] = tensorboard_dir
         seed=np.random.randint(0,10000)
         try:
-            with open(f'{experiment_dir}/{scen}/seed.txt', 'r') as file:
+            with open(f'{experiment_dir}/{mode}/seed.txt', 'r') as file:
                 seed = int(file.read())
         except FileNotFoundError: 
-            with open(f'{experiment_dir}/{scen}/seed.txt', 'w') as file:
+            with open(f'{experiment_dir}/{mode}/seed.txt', 'w') as file:
                 file.write(str(seed))
         print("set seed"+" "+ experiment_dir) 
-
-        if os.path.exists(os.path.join(experiment_dir, scen, "agents", "last_model.zip")):
-            print(experiment_dir, "ALREADY FINISHED TRAINING IN,", scen.upper(), "SKIPPING TO THE NEXT STAGE")
-            if scen!="intermediate":
-                continue
         
+        scen = stages.pop(0)
+
+        prev_scen = []
+        sprinkle_in_prev_scen = False
+        last_stage = stages[-1]
+        firstiter = True
+
+        while stages != []:            
+            if firstiter: 
+                firstiter = False
+                #Initial setup of the first scenario
+                #N core training setup
+                num_envs = args.n_cpu
+                assert num_envs > 0, "Number of cores must be greater than 0"
+                assert num_envs <= multiprocessing.cpu_count(), "Number of cores must be less than or equal to the number of cores available"
+                print("USING", num_envs, "CORES FOR TRAINING") 
+                print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...")
+                env = SubprocVecEnv(
+                    [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir, allow_early_resets=True)
+                    for i in range(num_envs)]
+                )
+                print("DONE INITIALIZING ENVIRONMENTS")
+
+                #Agent setup
+                print("INITIALIZING AGENT...")
+                agent = PPO('MultiInputPolicy', env, **PPO_hyperparams, policy_kwargs=policy_kwargs, seed=seed) #Policykwargs To use homemade feature extractor and architecture
+                print("DONE INITIALIZING AGENT")
+
+                #Training
+                timesteps = int(15e6) 
+                n_steps = 0
+                print("TRAINING FOR", timesteps, "TIMESTEPS")
+                agent.learn(total_timesteps=timesteps, tb_log_name="PPO",callback=TensorboardLogger(agents_dir=agents_dir),progress_bar=True)
+        
+
+            # if prev_scen != []: #If there is a previous scenario #TODO decide wether to use this or not
+            #     sprinkle_in_prev_scen = event_with_probability(0.1) #20% chance of sprinkling in a previous scenario 
+            #     #TODO decide if this should be timestep dependepent or random
+
+            print("avg_reach_end_reward", avg_reach_end_reward)
+
+            if (avg_reach_end_reward > lv_vae_config["rew_reach_end"]*0.8 and scen != last_stage):
+                print("REACHED TARGET REWARD AT TIMESTEP:", continual_step,"\nIN STAGE", scen, "\nMOVING ON TO NEXT STAGE:", stages[0].upper())
+                scen = stages.pop(0)
+                prev_scen.append(scen)
+
+                #N core training setup
+                num_envs = args.n_cpu
+                assert num_envs > 0, "Number of cores must be greater than 0"
+                assert num_envs <= multiprocessing.cpu_count(), "Number of cores must be less than or equal to the number of cores available"
+                print("USING", num_envs, "CORES FOR TRAINING") 
+                print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...")
+                env = SubprocVecEnv(
+                    [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir, allow_early_resets=True)
+                    for i in range(num_envs)]
+                )
+                print("DONE INITIALIZING ENVIRONMENTS")
+
+                #Agent setup
+                print("INITIALIZING AGENT...")
+                agents = glob.glob(os.path.join(experiment_dir, mode, "agents", "model_*.zip"))
+                if agents == []:
+                    continual_step = 0
+                else:
+                    continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
+
+                if continual_step == 0: 
+                    agent = PPO('MultiInputPolicy', env, **PPO_hyperparams, policy_kwargs=policy_kwargs, seed=seed) #Policykwargs To use homemade feature extractor and architecture
+                else:
+                    continual_model = os.path.join(experiment_dir, mode, "agents", f"model_{continual_step}.zip")
+                    agent = PPO.load(continual_model, _init_setup_model=True, env=env, **PPO_hyperparams)
+                print("DONE INITIALIZING AGENT")
+
+                #Training
+                best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - num_envs*continual_step
+
+                print("TRAINING FOR", timesteps, "TIMESTEPS")
+                agent.learn(total_timesteps=timesteps, tb_log_name="PPO",callback=TensorboardLogger(agents_dir=agents_dir),progress_bar=True)
+                
+                print("FINISHED TRAINING AGENT IN", scen.upper())
+                save_path = os.path.join(agents_dir, "last_model.zip")
+                agent.save(save_path)
+                print("SAVE SUCCESSFUL")
     
-    num_envs = args.n_cpu
-    assert num_envs > 0, "Number of cores must be greater than 0"
-    assert num_envs <= multiprocessing.cpu_count(), "Number of cores must be less than or equal to the number of cores available"
+    #Old mode each scen trained separately and saved 15mill timesteps each easiest to train one at a time scenarios = ["line"]                  
+    else:         
+        for i, scen in enumerate(scenarios):
 
-    print("USING", num_envs, "CORES FOR TRAINING") 
-    print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...")
-    if num_envs > 1:
-        env = SubprocVecEnv(
-            [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir, allow_early_resets=True)
-            for i in range(num_envs)]
-        )
-    else:
-        env = DummyVecEnv(
-            [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir,allow_early_resets=True)]
-        )
-    print("DONE INITIALIZING ENVIRONMENTS")
+            agents_dir = os.path.join(experiment_dir, scen, "agents")
+            tensorboard_dir = os.path.join(experiment_dir, scen, "tensorboard")
+            scenario_dir = os.path.join(experiment_dir, scen)
 
-    print("INITIALIZING AGENT...")
-    agents = glob.glob(os.path.join(experiment_dir, scen, "agents", "model_*.zip"))
-    if agents == []:
-        continual_step = 0
-    else:
-        continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
+            os.makedirs(scenario_dir, exist_ok=True)
+            os.makedirs(experiment_dir, exist_ok=True)
+            os.makedirs(agents_dir, exist_ok=True)
+            os.makedirs(tensorboard_dir, exist_ok=True)
 
-    if scen == "proficient" and continual_step == 0: #TODO fix this so dont need to manually change scenario when training new agent(?)
-        agent = PPO('MultiInputPolicy', env, **PPO_hyperparams, policy_kwargs=policy_kwargs, seed=seed) #Policykwargs To use homemade feature extractor and architecture
-    elif continual_step == 0:
-        continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.zip")
-        agent = PPO.load(continual_model, _init_setup_model=True, env=env, **PPO_hyperparams)
-    else:
-        continual_model = os.path.join(experiment_dir, scen, "agents", f"model_{continual_step}.zip")
-        agent = PPO.load(continual_model, _init_setup_model=True, env=env, **PPO_hyperparams)
-    print("DONE INITIALIZING AGENT")
+            with open(os.path.join(scenario_dir, 'lv_vae_config.json'), 'w') as file:
+                json.dump(lv_vae_config, file)
+            with open(os.path.join(scenario_dir, 'ppo_config.json'), 'w') as file:
+                json.dump(PPO_hyperparams, file)
 
-    best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - num_envs*continual_step
-    print("TRAINING FOR", timesteps, "TIMESTEPS")
-    agent.learn(total_timesteps=timesteps, tb_log_name="PPO",callback=TensorboardLogger(agents_dir=agents_dir),progress_bar=True)
-    print("FINISHED TRAINING AGENT IN", scen.upper())
-    save_path = os.path.join(agents_dir, "last_model.zip")
-    agent.save(save_path)
-    print("SAVE SUCCESSFUL")
+            PPO_hyperparams["tensorboard_log"] = tensorboard_dir
+            seed=np.random.randint(0,10000)
+            try:
+                with open(f'{experiment_dir}/{scen}/seed.txt', 'r') as file:
+                    seed = int(file.read())
+            except FileNotFoundError: 
+                with open(f'{experiment_dir}/{scen}/seed.txt', 'w') as file:
+                    file.write(str(seed))
+            print("set seed"+" "+ experiment_dir) 
+
+            if os.path.exists(os.path.join(experiment_dir, scen, "agents", "last_model.zip")):
+                print(experiment_dir, "ALREADY FINISHED TRAINING IN,", scen.upper(), "SKIPPING TO THE NEXT STAGE")
+                if scen!="intermediate":
+                    continue
+            
+        
+        num_envs = args.n_cpu
+        assert num_envs > 0, "Number of cores must be greater than 0"
+        assert num_envs <= multiprocessing.cpu_count(), "Number of cores must be less than or equal to the number of cores available"
+
+        print("USING", num_envs, "CORES FOR TRAINING") 
+        print("INITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...")
+        if num_envs > 1:
+            env = SubprocVecEnv(
+                [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir, allow_early_resets=True)
+                for i in range(num_envs)]
+            )
+        else:
+            env = DummyVecEnv(
+                [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir,allow_early_resets=True)]
+            )
+        print("DONE INITIALIZING ENVIRONMENTS")
+
+        print("INITIALIZING AGENT...")
+        agents = glob.glob(os.path.join(experiment_dir, scen, "agents", "model_*.zip"))
+        if agents == []:
+            continual_step = 0
+        else:
+            continual_step = max([int(*re.findall(r'\d+', os.path.basename(os.path.normpath(file)))) for file in agents])
+
+        if scen == "proficient" and continual_step == 0: #TODO fix this so dont need to manually change scenario when training new agent(?)
+            agent = PPO('MultiInputPolicy', env, **PPO_hyperparams, policy_kwargs=policy_kwargs, seed=seed) #Policykwargs To use homemade feature extractor and architecture
+        elif continual_step == 0:
+            continual_model = os.path.join(experiment_dir, scenarios[i-1], "agents", "last_model.zip")
+            agent = PPO.load(continual_model, _init_setup_model=True, env=env, **PPO_hyperparams)
+        else:
+            continual_model = os.path.join(experiment_dir, scen, "agents", f"model_{continual_step}.zip")
+            agent = PPO.load(continual_model, _init_setup_model=True, env=env, **PPO_hyperparams)
+        print("DONE INITIALIZING AGENT")
+
+        best_mean_reward, n_steps, timesteps = -np.inf, continual_step, int(15e6) - num_envs*continual_step
+        print("TRAINING FOR", timesteps, "TIMESTEPS")
+        agent.learn(total_timesteps=timesteps, tb_log_name="PPO",callback=TensorboardLogger(agents_dir=agents_dir),progress_bar=True)
+        print("FINISHED TRAINING AGENT IN", scen.upper())
+        save_path = os.path.join(agents_dir, "last_model.zip")
+        agent.save(save_path)
+        print("SAVE SUCCESSFUL")
