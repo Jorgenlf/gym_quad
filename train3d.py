@@ -1,4 +1,5 @@
 import os
+import json
 import gymnasium as gym
 import gym_quad
 import stable_baselines3.common.results_plotter as results_plotter
@@ -43,17 +44,17 @@ We train this policy for approximately 26 × 10^6 environment steps aggregated o
 
 PPO_hyperparams = {
     'n_steps': 1024, # lv_vae_config["max_t_steps"] #TODO double check what is reasobale when considered against the time steps of the environment
-    'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old 
+    #'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old # Try default (3e-4)
     'batch_size': 64,
     'gae_lambda': 0.95,
     'gamma': 0.99, #old:0.99,
     'n_epochs': 4,
-    'clip_range': 0.2,
+    #'clip_range': 0.2,
     'ent_coef': 0.001, 
     'verbose': 2,
     'device':'cuda', #Will be used for both feature extractor and PPO
-    # "optimizer_class":torch.optim.Adam, #Throws error (not hos Eirik :)) Now it does idk why sorry man
-    # "optimizer_kwargs":{"lr": 10e-4}
+    #"optimizer_class":torch.optim.Adam, #Throws error (not hos Eirik :)) Now it does idk why sorry man
+    #"optimizer_kwargs":{"lr": 10e-4}
 }
 '''
 Kulkarni paper:
@@ -62,18 +63,21 @@ We define a neural network architecture containing 3 fullyconnected layers consi
 Given an observation vector ot, the policy outputs a 3-dimensional action command at = [at,1, at,2, at,3] with values in [-1, 1]
 '''
 
+#encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_73_seed0_dim32.json"
+encoder_path = None
+
 policy_kwargs = dict(
     features_extractor_class = PerceptionIMUDomainExtractor,
     features_extractor_kwargs = dict(img_size=lv_vae_config["compressed_depth_map_size"],
                                      features_dim=lv_vae_config["latent_dim"],
                                      device = PPO_hyperparams['device'],
-                                     lock_params=True,
-                                     pretrained_encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_73_seed0_dim32.json"),
-    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32]) #The PPO network architecture policy and value function
+                                     lock_params=False,
+                                     pretrained_encoder_path = encoder_path),
+    net_arch = dict(pi=[64, 64], vf=[64, 64])#The PPO network architecture policy and value function
 )
-#From Ørjan:    net_arch = [dict(pi=[128, 64, 32], vf=[128, 64, 32])]
-#SB3 default:   net_arch = [dict(pi=[64, 64], vf=[64, 64])]
-#From Kulkarni: net_arch = [dict(pi=[512, 256, 64], vf=[512, 256, 64])] #NB: GRU is not included in this
+#From Ørjan:    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32])
+#SB3 default:   net_arch = dict(pi=[64, 64], vf=[64, 64])
+#From Kulkarni: net_arch = dict(pi=[512, 256, 64], vf=[512, 256, 64]) #NB: GRU is not included in this
 #There exists a recurrent PPO using LSTM which could be used as replacement for the GRU
 
 #-----#------#-----#Temp fix to make the global n_steps variable work pasting the tensorboardlogger class here#-----#------#-----#
@@ -209,7 +213,7 @@ class TensorboardLogger(BaseCallback):
 
             #Can log error and state here if wanted
 
-        if (n_steps + 1) % 200000 == 0:
+        if (n_steps + 1) % 20000 == 0:
             _self = self.locals.get("self")
             _self.save(os.path.join(self.agents_dir, "model_" + str(n_steps+1) + ".zip"))
         n_steps += 1
@@ -240,11 +244,21 @@ if __name__ == '__main__':
     experiment_dir, _, args = parse_experiment_info()
         
     for i, scen in enumerate(scenarios):
+
         agents_dir = os.path.join(experiment_dir, scen, "agents")
         tensorboard_dir = os.path.join(experiment_dir, scen, "tensorboard")
+        scenario_dir = os.path.join(experiment_dir, scen)
+
+        os.makedirs(scenario_dir, exist_ok=True)
         os.makedirs(experiment_dir, exist_ok=True)
         os.makedirs(agents_dir, exist_ok=True)
         os.makedirs(tensorboard_dir, exist_ok=True)
+
+        with open(os.path.join(scenario_dir, 'lv_vae_config.json'), 'w') as file:
+            json.dump(lv_vae_config, file)
+        with open(os.path.join(scenario_dir, 'ppo_config.json'), 'w') as file:
+            json.dump(PPO_hyperparams, file)
+
         PPO_hyperparams["tensorboard_log"] = tensorboard_dir
         seed=np.random.randint(0,10000)
         try:
@@ -259,6 +273,7 @@ if __name__ == '__main__':
             print(experiment_dir, "ALREADY FINISHED TRAINING IN,", scen.upper(), "SKIPPING TO THE NEXT STAGE")
             if scen!="intermediate":
                 continue
+        
     
     num_envs = args.n_cpu
     assert num_envs > 0, "Number of cores must be greater than 0"

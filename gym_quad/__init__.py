@@ -18,7 +18,7 @@ lv_vae_config = {
 #Path planner parameters
     "la_dist"                   : 5,            # Look ahead distance aka distance to the point on path to be followed
     "accept_rad"                : 2,            # Acceptance radius for the quadcopter to consider the end as reached
-    "n_waypoints"               : 7,            # Number of waypoints to be generated
+    "n_waypoints"               : 5,            # Number of waypoints to be generated
 #Drone controller parameters
     "s_max"                     : 3.5,          # Maximum speed of the quadcopter m/s
     "i_max"                     : 75/2 * np.pi/180,      # Maximum inclination angle of commanded velocity wrt x-axis #TODO decide this now set it to half of vertical sensor span
@@ -33,7 +33,7 @@ lv_vae_config = {
     'rew_collision'             : -50,          # reward for collision
     'rew_reach_end'             : 30,           # reward for reaching the end of the path
     'existence_reward'          : -0.001,       # reward for existing
-    'danger_range'              : 100,          # Range between quadcopter and obstacle within which the quadcopter is in danger #TODO change this to the max_depth?
+    'danger_range'              : 10,          # Range between quadcopter and obstacle within which the quadcopter is in danger #TODO change this to the max_depth?
     'danger_angle'              : 20,           # Angle between quadcopter and obstacle within which the quadcopter is in danger
     'abs_inv_CA_min_rew'        : 1/8,          #1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x
 }

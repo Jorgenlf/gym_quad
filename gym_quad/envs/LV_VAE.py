@@ -456,7 +456,7 @@ class LV_VAE(gym.Env):
             danger_range = self.danger_range
             danger_angle = self.danger_angle            
             quad_pos_torch = torch.tensor(self.quadcopter.position, dtype=torch.float32, device=self.device)
-            drone_closest_obs_dist = torch.norm(self.nearby_obstacles[0].position - quad_pos_torch).item()
+            drone_closest_obs_dist = torch.norm(self.nearby_obstacles[0].position - quad_pos_torch).item() - self.nearby_obstacles[0].radius
             #Determine lambda reward for path following and path adherence based on the distance to the closest obstacle
             if (drone_closest_obs_dist < danger_range):
                 lambda_PA = (drone_closest_obs_dist/danger_range)/2
