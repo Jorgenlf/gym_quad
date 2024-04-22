@@ -14,7 +14,10 @@ extension = '.png'
 # Option B: unknown filenames, but they are still ordered in ascending order by name:
 import glob
 
-filenames = sorted(glob.glob('log/LV_VAE-v0/Experiment 1/test24/depth_maps/depth_map_*.png'))
+exp_id = 2
+test_id = 5
+
+filenames = sorted(glob.glob(f'log/LV_VAE-v0/Experiment {exp_id}/test{test_id}/depth_maps/depth_map_*.png'))
 print("there are ", len(filenames), " images in the folder\nBeginning to create gif... ",end="")
 
 # Read, compose and write images to .gif:
@@ -25,3 +28,4 @@ with imageio.get_writer('my_image_animation.gif', mode='I', duration=0.01, loop=
 
 print("GIF created successfully!")
 #TODO make resolution of gif better?
+#TODO can make a call to this after calling run such that the gif is created automatically can then delete all the depthmaps if we want to save space

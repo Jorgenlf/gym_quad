@@ -259,7 +259,7 @@ class DepthMapRenderer:
 
         plt.figure(figsize=(8, 6))
         plt.imshow(depth.cpu().numpy(), cmap="magma")
-        plt.clim(0.0, 10.0)
+        plt.clim(0.0, self.max_measurable_depth)
         plt.colorbar(label="Depth [m]", aspect=30, orientation="vertical", fraction=0.0235, pad=0.04)
         plt.axis("off")
         plt.savefig(path, bbox_inches='tight')

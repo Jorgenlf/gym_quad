@@ -33,7 +33,7 @@ lv_vae_config = {
     'rew_collision'             : -50,          # reward for collision
     'rew_reach_end'             : 30,           # reward for reaching the end of the path
     'existence_reward'          : -0.001,       # reward for existing
-    'danger_range'              : 100,          # Range between quadcopter and obstacle within which the quadcopter is in danger
+    'danger_range'              : 100,          # Range between quadcopter and obstacle within which the quadcopter is in danger #TODO change this to the max_depth?
     'danger_angle'              : 20,           # Angle between quadcopter and obstacle within which the quadcopter is in danger
     'abs_inv_CA_min_rew'        : 1/8,          #1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x
 }

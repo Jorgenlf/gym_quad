@@ -120,7 +120,7 @@ class LV_VAE(gym.Env):
         self.obstacles = []
         self.collided = False
 
-        self.depth_map = torch.zeros((1, self.depth_map_size[0], self.depth_map_size[1]), dtype=torch.float32, device=self.device)
+        self.depth_map = torch.zeros((self.depth_map_size[0], self.depth_map_size[1]), dtype=torch.float32, device=self.device)
         
 
         self.prev_position_error = [0, 0, 0]
@@ -131,33 +131,33 @@ class LV_VAE(gym.Env):
 
         ### Path and obstacle generation based on scenario
         scenario = self.scenario_switch.get(self.scenario, lambda: print("Invalid scenario"))
-        init_state = scenario() #Called such that the obstacles are generated
+        init_state = scenario() #Called such that the obstacles are generated and the init state of the quadcopter is set
 
 
-        ## Regenerate camera, scene and renderer
-        camera = FoVPerspectiveCameras(device = self.device,fov=self.FOV_vertical)
-        raster_settings = RasterizationSettings(
-                image_size=self.depth_map_size, 
-                blur_radius=0.0, 
-                faces_per_pixel=1, # Keep at 1, dont change
-                perspective_correct=True, # Doesn't do anything(??), but seems to improve speed
-                cull_backfaces=True # Do not render backfaces. MAKE SURE THIS IS OK WITH THE GIVEN MESH.
-            )
-        
+        ## Generate camera, scene and renderer
         if self.obstacles!=[]:
+
+            camera = FoVPerspectiveCameras(device = self.device,fov=self.FOV_vertical)
+            raster_settings = RasterizationSettings(
+                    image_size=self.depth_map_size, 
+                    blur_radius=0.0, 
+                    faces_per_pixel=1, # Keep at 1, dont change
+                    perspective_correct=True, # Doesn't do anything(??), but seems to improve speed
+                    cull_backfaces=True # Do not render backfaces. MAKE SURE THIS IS OK WITH THE GIVEN MESH.
+                )
+
             scene = SphereScene(device = self.device, sphere_obstacles=self.obstacles)
-        else:
-            scene = SphereScene(device = self.device)
-        
-        self.renderer = DepthMapRenderer(device=self.device, 
-                                         raster_settings=raster_settings, 
-                                         camera=camera, 
-                                         scene=scene, 
-                                         MAX_MEASURABLE_DEPTH=self.max_depth, 
-                                         img_size=self.depth_map_size)
 
-
-
+            self.renderer = DepthMapRenderer(device=self.device, 
+                                            raster_settings=raster_settings, 
+                                            camera=camera, 
+                                            scene=scene, 
+                                            MAX_MEASURABLE_DEPTH=self.max_depth, 
+                                            img_size=self.depth_map_size)
+        else: 
+            self.depth_map.fill_(self.max_depth)    # IF there are no obstacles then we know that the depthmap always will display max_depth
+                                                    # Aditionally we dont need the rasterizer and renderer if there are no obstacles
+            
         # Generate Quadcopter
         self.quadcopter = Quad(self.step_size, init_state)
         
@@ -196,24 +196,24 @@ class LV_VAE(gym.Env):
         pure_obs.extend(imu_measurement)
 
         #Depth camera observation
-        if self.total_t_steps % (int((1/self.camera_FPS)/self.step_size)) == 0: #Only update the depth map at the camera FPS
-            pos = self.quadcopter.position
-            orientation = self.quadcopter.attitude
-            Rcam,Tcam = self.renderer.camera_R_T_from_quad_pos_orient(pos, orientation)
-            self.renderer.update_R(Rcam)
-            self.renderer.update_T(Tcam)
-            self.depth_map = self.renderer.render_depth_map()
-            temp_depth_map = self.depth_map
+        if self.obstacles!=[]:
+            if self.total_t_steps % (int((1/self.camera_FPS)/self.step_size)) == 0: #Only update the depth map at the camera FPS
+                pos = self.quadcopter.position
+                orientation = self.quadcopter.attitude
+                Rcam,Tcam = self.renderer.camera_R_T_from_quad_pos_orient(pos, orientation)
+                self.renderer.update_R(Rcam)
+                self.renderer.update_T(Tcam)
+                self.depth_map = self.renderer.render_depth_map()
+                temp_depth_map = self.depth_map
 
-            # temp_path = "gym_quad/envs/temp_depth_test_img" #Uncomment to save depth map images for testing
-            # self.renderer.save_depth_map(f"{temp_path}/depth_map_{self.total_t_steps}", self.depth_map)
-            # print("\nTemp depth map type:", type(temp_depth_map), "  shape:", temp_depth_map.shape, "  dtype:", temp_depth_map.dtype)
+                # print("\nTemp depth map type:", type(temp_depth_map), "  shape:", temp_depth_map.shape, "  dtype:", temp_depth_map.dtype)
+            else:
+                temp_depth_map = self.depth_map #Handles the case where there are obstacles and the camera is not updated (inbetween fps)
         else:
-            temp_depth_map = self.depth_map #Use the previous depthmap 
-        
+            temp_depth_map = self.depth_map #Handles the case where there are no obstacles
+
         normalized_depth_map = temp_depth_map / self.max_depth
         
-        #New
         normalized_depth_map_PIL = transforms.ToPILImage()(normalized_depth_map)
 
         resize_transform = transforms.Compose([
@@ -230,10 +230,10 @@ class LV_VAE(gym.Env):
         #Migh be unfortunate to change the tensor to np.array here as it will be done every time the observation is called
         #Having to move the tensor to the cpu....
         #Per now we cast to np.array here
+
         sensor_readings = resized_depth_map.detach().cpu().numpy()
         if max(sensor_readings.flatten()) > 1 or min(sensor_readings.flatten()) < 0:
             print("\nMAX VALUE IN SENSORREADINGS:",max(sensor_readings.flatten()),"\nMIN VALUE IN SENSORREADINGS:", min(sensor_readings.flatten()))
-
 
         # print("Sensor readings type:", type(sensor_readings), "  shape:", sensor_readings.shape, "  dtype:", sensor_readings.dtype)
 
@@ -367,19 +367,22 @@ class LV_VAE(gym.Env):
                 self.collided = True
 
         end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad and self.waypoint_index == self.n_waypoints-2
-        end_cond_2 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
+        # end_cond_2 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
         end_cond_3 = self.total_t_steps >= self.max_t_steps
         end_cond_4 = self.cumulative_reward < self.min_reward
         # end_cond_4 = False
-        if end_cond_1 or end_cond_2 or end_cond_3 or self.collided or end_cond_4:
+        if end_cond_1 or end_cond_3 or self.collided or end_cond_4: # or end_cond_2
             if end_cond_1:
                 print("Quadcopter reached target!")
+                print("Endpoint position", self.path.waypoints[-1], "\tquad position:", self.quadcopter.position) #might need the format line?
                 self.success = True
             elif self.collided:
                 print("Quadcopter collided!")
                 self.success = False
-            elif end_cond_2: #I think this Should be removed such that the quadcopter can fly past the endpoint and come back #TODO
-                print("Passed endpoint without hitting")
+            # elif end_cond_2: #I think this Should be removed such that the quadcopter can fly past the endpoint and come back #TODO
+            #     print("Passed endpoint without hitting")
+                # print("Endpoint position", self.path.waypoints[-1], "\tquad position:", self.quadcopter.position) #might need the format line?
+
             elif end_cond_3:
                 print("Exceeded time limit") #Should maybe set done = truncated = True here? #TODO
             elif end_cond_4:
@@ -901,9 +904,8 @@ class LV_VAE(gym.Env):
             obstacle_radius = np.random.uniform(low=4,high=10)
             obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
             obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
-            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
-
-            obstacle = SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords[2],device=self.device,path=self.mesh_path)
+            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)            
+            obstacle = SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path)
             if self.check_object_overlap(obstacle):
                 continue
             else:

@@ -27,7 +27,7 @@ To run a trained agent, run the following command in terminal, exchange x for th
 
 python run3d.py --env "" --exp_id x --run_scenario "" --trained_scenario "" --agent x --episodes x --manual_control False --RT_vis True
 
-python run3d.py --exp_id 3 --run_scenario "line" --trained_scenario "line" --agent 60000 --episodes 1 --RT_vis True
+python run3d.py --exp_id 3 --run_scenario "line" --trained_scenario "line" --agent 800000 --episodes 1 --RT_vis False --save_depth_maps True
 
 --manual_control and --RT_vis are False by default
 --env "" is set to LV_VAE-v0 by default
@@ -74,26 +74,35 @@ if __name__ == "__main__":
                 except NameError:
                     sim_df = episode_df
                 
+                #Creates folders for plots
+                create_plot_folders(test_dir)
+
                 #Path and quadcopter travel
                 plot_3d(env, sim_df[sim_df['Episode']==episode], test_dir)
+                plt.show()
+
                 # Observations
-                # plot_all_normed_domain_observations(sim_df)
-                
-                plot_observation_body_accl(sim_df)
-                plot_observation_body_angvel(sim_df)
-                plot_observation_cpp(sim_df)
-                plot_observation_cpp_azi_ele(sim_df)
-                plot_observation_e_azi_ele(sim_df)
-                plot_observation_dists(sim_df)
-                # plot_observation_body_velocities(sim_df)
-                plot_observation_LA(sim_df)
+                #normalized
+                plot_all_normed_domain_observations(sim_df,test_dir)
+                #original (pure)
+                plot_observation_body_accl(sim_df,test_dir)
+                plot_observation_body_angvel(sim_df,test_dir)
+                plot_observation_cpp(sim_df,test_dir)
+                plot_observation_cpp_azi_ele(sim_df,test_dir)
+                plot_observation_e_azi_ele(sim_df,test_dir)
+                plot_observation_dists(sim_df,test_dir)
+                plot_observation_LA(sim_df,test_dir)
                 
                 # States
-                # plot_angular_velocity(sim_df)
-                # plot_attitude(sim_df)
-                # plot_velocity(sim_df)
-                    
+                plot_angular_velocity(sim_df,test_dir)
+                plot_attitude(sim_df,test_dir)
+                plot_velocity(sim_df,test_dir)
+                
+                plt.close('all')
+
                 write_report(test_dir, sim_df, env, episode)
+
+
 
         elif args.RT_vis == True: 
             for episode in range(args.episodes):
