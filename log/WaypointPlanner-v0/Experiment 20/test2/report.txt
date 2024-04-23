@@ -1,8 +1,0 @@
-# PERFORMANCE METRICS (LAST 1 EPISODES AVG.)
-Avg. Number of Timesteps      8906.00                       
-Avg. Absolute Path Error [m]  0.67                          
-Avg. IAE Cross Track [m]      4236.94                       
-Avg. IAE Verical Track [m]    3148.32                       
-Avg. Progression [%]          46.31                         
-Success Rate [%]              0.00                          
-Collision Rate [%]            100.00                        

@@ -1,1 +1,0 @@
-python run3d.py --exp_id 29 --controller_scenario intermediate --controller 1240000 --scenario intermediate --episodes 100
