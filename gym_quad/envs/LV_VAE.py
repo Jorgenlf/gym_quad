@@ -99,7 +99,7 @@ class LV_VAE(gym.Env):
         """
         seed = kwargs.get('seed', None)
         super().reset(seed=seed)
-        print("PRINTING SEED WHEN RESETTING:", seed) 
+        # print("PRINTING SEED WHEN RESETTING:", seed) 
         
         self.quadcopter = None
         self.path = None
@@ -170,7 +170,8 @@ class LV_VAE(gym.Env):
         return (self.observation,self.info)
 
 
-    def observe(self): 
+    def observe(self):  #TODO we need to grant the agent some form of memory of where obstacles were 
+                        # Suggestion: do as Kulkarni and let it observe the previous action.
         """
         Returns observations of the environment.
         """
