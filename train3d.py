@@ -28,9 +28,9 @@ import warnings
 warnings.filterwarnings("ignore", message="No mtl file provided", category=UserWarning, module="pytorch3d.io.obj_io")
 
 # scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
-total_timesteps = 10e4 #15e6
-scenarios = {"line"         :   total_timesteps*0.1,
-             "3d_new"       :   total_timesteps*0.1,
+total_timesteps = 10e6 #15e6
+scenarios = {"line"         :   2.5e5, #Experimental result see Exp 4 on "Jørgen PC"
+             "3d_new"       :   2.5e5,
              "intermediate" :   total_timesteps*0.2,
              "proficient"   :   total_timesteps*0.3,
              "expert"       :   total_timesteps*0.3}
@@ -165,8 +165,8 @@ class TensorboardLogger(BaseCallback):
         # Logging data at the end of an episode - must check if the environment is done
         done_array = self.locals["dones"]
         n_done = np.sum(done_array).item()
-    
         # Only log if any workers are actually at the end of an episode
+    
 
         global n_steps
         ###From stats callback end###
@@ -176,7 +176,7 @@ class TensorboardLogger(BaseCallback):
             self.n_episodes += n_done
             self.logger.record('time/episodes', self.n_episodes)
 
-            # Fetch data from the info dictionary in the environment (convert tuple->np.ndarray for easy indexing)
+            # Fetch data from the info dictionary of the environments that have reached a done condition (convert tuple->np.ndarray for easy indexing)
             infos = np.array(self.locals["infos"])[done_array]
 
             avg_reward = 0
@@ -218,7 +218,7 @@ class TensorboardLogger(BaseCallback):
 
             #Can log error and state here if wanted
 
-        if (n_steps + 1) % 2000 == 0:
+        if (n_steps + 1) % 10000 == 0:
             _self = self.locals.get("self")
             _self.save(os.path.join(self.agents_dir, "model_" + str(n_steps+1) + ".zip"))
         n_steps += 1
@@ -245,8 +245,10 @@ python train3d.py --exp_id x --n_cpu x
 """
 
 if __name__ == '__main__':
+    
+    _s = time.time() #For tracking training time
 
-    print('\nTOTAL CPU CORE COUNT:', multiprocessing.cpu_count(),"\n")
+    print('\nTOTAL CPU CORE COUNT:', multiprocessing.cpu_count())
     experiment_dir, _, args = parse_experiment_info()
     scenario_list = list(scenarios.keys())
     done_training = False
@@ -264,7 +266,7 @@ if __name__ == '__main__':
                 break
         if done_training:
             break
-                
+
         agents_dir = os.path.join(experiment_dir, scen, "agents")
         tensorboard_dir = os.path.join(experiment_dir, scen, "tensorboard")
         config_dir = os.path.join(experiment_dir, scen,"configs")
@@ -351,3 +353,4 @@ if __name__ == '__main__':
         save_path = os.path.join(agents_dir, "last_model.zip")
         agent.save(save_path)
         print("SAVE SUCCESSFUL")
+    print(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
