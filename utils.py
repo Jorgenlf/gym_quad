@@ -548,7 +548,17 @@ def plot_lidar():
     
     plt.show()
 
-def plot_collision_avoidance_reward_function(obsdists:np.array, 
+
+def rew_from_dist(danger_range, drone_closest_obs_dist, inv_abs_min_rew):
+    r = -(((danger_range + inv_abs_min_rew*danger_range)/(drone_closest_obs_dist + inv_abs_min_rew*danger_range))-1)
+    return r
+
+def rew_from_angle(danger_angle, angle_diff, inv_abs_min_rew):
+    r = -(((danger_angle + inv_abs_min_rew*danger_angle)/(angle_diff + inv_abs_min_rew*danger_angle))-1)
+    return r
+
+
+def collision_avoidance_reward_function(obsdists:np.array, 
                                              angle_diffs:np.array,
                                              danger_range:int, 
                                              danger_angle:int,  
@@ -560,37 +570,61 @@ def plot_collision_avoidance_reward_function(obsdists:np.array,
         angle_diff = angle_diffs[i]
 
         if (drone_closest_obs_dist < danger_range) and (angle_diff < danger_angle):
-            range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1) #same fcn in if and elif, but need this structure to color red and orange correctly
-            angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
-            if angle_rew > 0: angle_rew = 0 
+            range_rew = rew_from_dist(danger_range, drone_closest_obs_dist, inv_abs_min_rew)
+            angle_rew = rew_from_angle(danger_angle, angle_diff, inv_abs_min_rew)
+            
+            if angle_rew > 0: angle_rew = 0 #Might not be necessary here but ensures that the reward is always negative 
             if range_rew > 0: range_rew = 0
             reward_collision_avoidance.append(range_rew + angle_rew)
 
-        elif drone_closest_obs_dist <danger_range:
-            range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) - 1)
-            angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) - 1)
+        elif drone_closest_obs_dist < danger_range:
+            range_rew = rew_from_dist(danger_range, drone_closest_obs_dist, inv_abs_min_rew)
+            angle_rew = rew_from_angle(danger_angle, angle_diff, inv_abs_min_rew)
+
             if angle_rew > 0: angle_rew = 0 #In this case the angle reward may become positive as anglediff may < danger_angle
-            if range_rew > 0: range_rew = 0
+            if range_rew > 0: range_rew = 0 #So the capping is necessary
+
             reward_collision_avoidance.append(range_rew + angle_rew)
             
         else:
             reward_collision_avoidance.append(0)
 
-    set_default_plot_rc()
-    plt.plot(reward_collision_avoidance)
-    plt.xlabel("Time [s]")
-    plt.ylabel("Reward")
-    plt.title("Collision Avoidance Reward Function")
-    plt.show()
-
+    return reward_collision_avoidance
 
 
 if __name__ == "__main__":
+
     # plot_lidar()
+
+    ###Plotting of the collision avoidance reward###
     datapoints = 50
-    obsdists = np.linspace(50, 0, datapoints)
-    angle_diffs = np.linspace(40, 0, datapoints)
+    obsdists = np.linspace(0, 50, datapoints)
+    angle_diffs = np.linspace(0, 50, datapoints)
     danger_range = 10 #m
     danger_angle = 20 #deg
-    inv_abs_min_rew = 1/4
-    plot_collision_avoidance_reward_function(obsdists, angle_diffs, danger_range, danger_angle, inv_abs_min_rew)
+    inv_abs_min_rew = 1/8
+    dist_rew = []
+    angle_rew = []
+    for i in range(len(obsdists)):
+        dist_rew.append(rew_from_dist(danger_range, obsdists[i], inv_abs_min_rew))
+        angle_rew.append(rew_from_angle(danger_angle, angle_diffs[i], inv_abs_min_rew))
+    
+    capped_rew = collision_avoidance_reward_function(obsdists, angle_diffs, danger_range, danger_angle, inv_abs_min_rew)
+
+    set_default_plot_rc()
+    plt.plot(dist_rew)
+    plt.plot(angle_rew)
+    plt.plot(capped_rew)
+    plt.plot(np.array(dist_rew) + np.array(angle_rew))
+    plt.axhline(y=0, color='gray', linewidth=1)
+    plt.plot(np.argwhere(np.diff(np.sign(dist_rew)))[0], 0, 'ro')
+    plt.text(np.argwhere(np.diff(np.sign(dist_rew)))[0], 0, f"({np.argwhere(np.diff(np.sign(dist_rew)))[0][0]},{0})", fontsize=12)
+    plt.plot(np.argwhere(np.diff(np.sign(angle_rew)))[0], 0, 'ro')
+    plt.text(np.argwhere(np.diff(np.sign(angle_rew)))[0], 0, f"({np.argwhere(np.diff(np.sign(angle_rew)))[0][0]},{0})", fontsize=12)
+    plt.text(datapoints/2, -1/inv_abs_min_rew, f"danger range: {danger_range}m\n danger angle: {danger_angle}deg", fontsize=12)
+    plt.xlabel("Distance or angle [m or deg]")
+    plt.ylabel("Reward")
+    plt.legend(["Distance reward", "Angle reward", "Capped total reward", "Total reward"])
+    plt.title("Collision Avoidance Reward Parts")
+    plt.show()
+    ###Plotting of the collision avoidance reward###
