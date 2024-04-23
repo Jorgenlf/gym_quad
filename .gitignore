@@ -6,5 +6,10 @@ seed.txt
 test_sim.csv
 temp_depth_test_img
 VAE_encoders
-perception
 gym_quad/gym_quad/tests/test_img/depth_maps/
+**/data/*
+*.out
+test_sim.csv
+**/models/*
+*.zip
+**/results/*
