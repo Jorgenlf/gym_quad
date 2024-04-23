@@ -1,7 +1,10 @@
 __pycache__/
 venv/
 log/
-
+**/data/*
 seed.txt
 *.out
 test_sim.csv
+**/models/*
+*.zip
+**/results/*
