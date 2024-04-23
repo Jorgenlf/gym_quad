@@ -12,7 +12,7 @@ import time
 from gym_quad.objects.quad import Quad
 from old.current3d import Current
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
-from gym_quad.objects.obstacle3d import Obstacle
+from old.obstacle3d import Obstacle
 
 from gymnasium.spaces import Box
 
@@ -363,7 +363,7 @@ class WaypointPlanner(gym.Env):
             # print(f"sensor_readings shape: {self.sensor_readings.shape}")
             # print(f"obs shape: {obs.shape}")
 
-            return {'perception':sensor_readings, 'navigation': obs} #TODO fix this
+            return {'perception':sensor_readings, 'navigation': obs} 
             
         elif self.rl_mode == "desired_acc":
             sensor_readings = self.sensor_readings.reshape(1, self.sensor_suite[0], self.sensor_suite[1])
