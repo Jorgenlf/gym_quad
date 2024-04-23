@@ -48,25 +48,6 @@ def pytorch3d_to_enu(pytorch3d_position: torch.Tensor) -> torch.Tensor:
     This function converts from ENU to Pytorch3D coordinate system.'''
     return torch.tensor([pytorch3d_position[2], pytorch3d_position[0], pytorch3d_position[1]])
 
-# Function to find the R and T matrices for the camera object in Pytorch3D
-def camera_R_T_from_quad_pos_orient(position: np.array, orientation: np.array) -> tuple:
-    '''Given a position and orientation of the quad in ENU frame, this function returns the R and T matrices for the camera object in Pytorch3D.'''
-    # Convert position and orientation to torch tensors
-    at = position + geom.Rzyx(*orientation) @ np.array([1, 0, 0])  # Look at the point in front of the camera along body x-axis
-    
-    at_torch = torch.from_numpy(at).to(device)
-    position_torch = torch.from_numpy(position).to(device)
-
-    at_pt3d = enu_to_pytorch3d(at_torch).to(device).float()
-    position_pt3d = enu_to_pytorch3d(position_torch).to(device).float()
-    # orientation_torch = torch.from_numpy(orientation).to(device)
-    
-    # Calculate rotation matrix
-    Rstep = look_at_rotation(position_pt3d[None, :], device=device, at=at_pt3d[None, :])  # (1, 3, 3)
-    # Calculate translation vector
-    Tstep = -torch.bmm(Rstep.transpose(1, 2), position_pt3d[None, :, None])[:, :, 0]   # (1, 3)
-    
-    return Rstep, Tstep
 
 class SphereMeshObstacle:
     def __init__(self, 
@@ -77,7 +58,12 @@ class SphereMeshObstacle:
         self.device = device
         self.path = path                                    # Assumes path points to UNIT sphere .obj file
         self.radius = radius
-        self.center_position = center_position.to(device)   # Centre of the sphere in world frame
+
+        self.center_position = center_position.to(device=self.device)   # Centre of the sphere in camera world frame
+        #Not specified in name to simplify rewriting of code
+
+        self.position = pytorch3d_to_enu(center_position).to(device=self.device) # Centre of the sphere in ENU frame
+        #Not specified in name to simplify rewriting of code
 
         self.mesh = load_objs_as_meshes([path], device=self.device)
         self.mesh.scale_verts_(scale=self.radius)
@@ -96,6 +82,13 @@ class SphereMeshObstacle:
         self.device = new_device
         self.mesh.to(new_device)
         self.center_position.to(new_device)
+
+    def return_plot_variables(self):
+        u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
+        x = self.position[0].item() + self.radius*np.cos(u)*np.sin(v)
+        y = self.position[1].item() + self.radius*np.sin(u)*np.sin(v)
+        z = self.position[2].item() + self.radius*np.cos(v)
+        return [x,y,z]
     
 
 class SphereScene:
@@ -151,7 +144,9 @@ class DepthMapRenderer:
         )
         # k is a scaling factor for the distortion correction and is a function of FOV, sensor size, and focal length, etc.
         # Initilized to 62.5 for the default FoVPerspectiveCamera settings with a 60 degree FOV and image size of 240x320
-        self.k = 62.5
+        # Initilized to 46.6 for the default FoVPerspectiveCamera settings with a 75 degree FOV and image size of 240x320
+
+        self.k = 46.6
         self.img_size = img_size
     
     def render_depth_map(self):
@@ -213,6 +208,29 @@ class DepthMapRenderer:
         img = renderer_rgb(textured_scene)
         return img
     
+    # Function to find the R and T matrices for the camera object in Pytorch3D
+    def camera_R_T_from_quad_pos_orient(self, position: np.array, orientation: np.array) -> tuple:
+        '''Given a position and orientation of the quadrotor in ENU frame, 
+        this function returns the R and T matrices for the camera object in Pytorch3D.
+        The camera is assumed to be looking at a point in front of the quadrotor along the body x-axis.'''
+        # Convert position and orientation to torch tensors
+        at = position + geom.Rzyx(*orientation) @ np.array([1, 0, 0])  # Look at the point in front of the camera along body x-axis
+        
+        at_torch = torch.from_numpy(at).to(self.device)
+        position_torch = torch.from_numpy(position).to(self.device)
+
+        at_pt3d = enu_to_pytorch3d(at_torch).to(self.device).float()
+        position_pt3d = enu_to_pytorch3d(position_torch).to(self.device).float()
+        # orientation_torch = torch.from_numpy(orientation).to(device)
+        
+        # Calculate rotation matrix
+        Rstep = look_at_rotation(position_pt3d[None, :], device=self.device, at=at_pt3d[None, :])  # (1, 3, 3)
+        # Calculate translation vector
+        Tstep = -torch.bmm(Rstep.transpose(1, 2), position_pt3d[None, :, None])[:, :, 0]   # (1, 3)
+        
+        return Rstep, Tstep
+
+
     def set_device(self, new_device: torch.device):
         self.device = new_device
         self.scene.set_device(new_device)
@@ -241,9 +259,11 @@ class DepthMapRenderer:
 
         plt.figure(figsize=(8, 6))
         plt.imshow(depth.cpu().numpy(), cmap="magma")
+        plt.clim(0.0, self.max_measurable_depth)
         plt.colorbar(label="Depth [m]", aspect=30, orientation="vertical", fraction=0.0235, pad=0.04)
         plt.axis("off")
         plt.savefig(path, bbox_inches='tight')
+        plt.close()
     
     def save_rendered_scene(self, path:str):
         img = self.render_scene()
@@ -273,7 +293,7 @@ if __name__ == "__main__":
     camera = FoVPerspectiveCameras(device=device, fov=FOV)
 
     #init scene
-    unit_sphere_path = "gym_quad/objects/sphere.obj"
+    unit_sphere_path = "gym_quad/meshes/sphere.obj"
     obs1 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.0, center_position=torch.tensor([4, 0, 8]))
     obs2 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=4.0, center_position=torch.tensor([2, 4, 5]))
     obs3 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.3, center_position=torch.tensor([-4, 0, 12]))
@@ -281,6 +301,9 @@ if __name__ == "__main__":
     obs5 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=3.2, center_position=torch.tensor([0, -4, 17]))
     obs6 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.3, center_position=torch.tensor([-2.7, 0, 18]))
     obs7 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=1.0, center_position=torch.tensor([-0, 0, 26]))
+
+    #Test of returning plot variables
+    x,y,z = obs1.return_plot_variables()
 
     spherescene = SphereScene(device=device, sphere_obstacles=[obs1, obs2, obs3, obs4, obs5, obs6, obs7])
 
@@ -319,14 +342,8 @@ if __name__ == "__main__":
         position = positions[i]
         orientation = orientations[i]
 
-        R, T = camera_R_T_from_quad_pos_orient(position, orientation)
+        R, T = renderer.camera_R_T_from_quad_pos_orient(position, orientation)
         renderer.update_R(R)
         renderer.update_T(T)
         depth_map = renderer.render_depth_map()
-        
-        #Comment/uncomment to save depth maps without our perspective fixer
-        renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)
-        
-        #Comment/Uncomment to save scene with our perspective fixer
-        # perspective_corrected_depth_map = renderer.correct_distorion(depth_map)
-        # renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", perspective_corrected_depth_map) #Does seem like perspective is correct now???
+        renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)        

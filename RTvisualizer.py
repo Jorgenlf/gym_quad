@@ -104,6 +104,8 @@ class EnvironmentVisualizer(app.Canvas):
         self.waypoints_visual = waypoints_markers
 
     def create_obstacle_visual(self, position, radius):
+        # Move the tensor from GPU to CPU
+        position = position.cpu().numpy() #Not too big of a deal as this is the visualizer so wont run when training
         u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
         x = position[0] + radius * np.cos(u) * np.sin(v)
         y = position[1] + radius * np.sin(u) * np.sin(v)

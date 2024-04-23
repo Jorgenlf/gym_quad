@@ -5,20 +5,21 @@ from mpl_toolkits.mplot3d import proj3d
 import numpy as np
 import pandas as pd
 from cycler import cycler
-
+from stable_baselines3 import PPO
 
 def parse_experiment_info():
     """Parser for the flags that can be passed with the run/train/test scripts."""
     parser = argparse.ArgumentParser()
-    # parser.add_argument("--env", default="WaypointPlanner-v0", type=str, help="Which environment to run/train/test")
     parser.add_argument("--env", default="LV_VAE-v0", type=str, help="Which environment to run/train/test")
+    parser.add_argument("--n_cpu", default=2, type=int, help="Number of CPUs to use")
     parser.add_argument("--exp_id", type=int, help="Which experiment number to run/train/test")
     parser.add_argument("--run_scenario", default="line", type=str, help="Which scenario to run")
     parser.add_argument("--trained_scenario", default=None, type=str, help="Which scenario the agent was trained in")
-    parser.add_argument("--agent", default=None, type=int, help="Which agent/model to load as main controller. Requires only integer")
+    parser.add_argument("--agent", default=None, type=int, help="Which agent/model to load as main controller. Requires only integer. If None, the last model will be loaded.")
     parser.add_argument("--episodes", default=1, type=int, help="How many episodes to run when testing the quadcopter")
     parser.add_argument("--manual_control", default=False, type=bool, help="Whether to use manual control or not")
     parser.add_argument("--RT_vis", default=False, type=bool, help="Whether to visualize in realtime training or not")
+    parser.add_argument("--save_depth_maps", default=False, type=bool, help="Whether to save depth maps or not")
     args = parser.parse_args()
     
     #Renaming: 
@@ -50,7 +51,22 @@ def calculate_IAE(sim_df):
     return IAE_cross, IAE_vertical
 
 
-def simulate_environment(episode, env, agent):
+def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
+    """
+    Input 
+        episode:    episode number to run
+        env:        environment to run
+        agent:      agent to run
+        test_dir:   directory to save the simulation data
+        sdm:        save depth maps flag
+
+    Output
+        df:         pandas DataFrame with simulation data
+        env:        environment after simulation
+
+    Simulates an environment for with the provided agent and returns the simulation data as a pandas DataFrame
+    """
+
     state_labels = [r"$X$", r"$Y$", r"$Z$", r"$\phi$", r"$\theta$", r"$\psi$", r"$u$", r"$v$", r"$w$", r"$p$", r"$q$", r"$r$"]
     action_labels = [r"$\v_{cmd}$", r"$\incline_{cmd}$",r"$\r_{cmd}$"]
     error_labels = [r"$e$",r"$h$"]
@@ -60,7 +76,7 @@ def simulate_environment(episode, env, agent):
                           r"$x_{cpp}^b$", r"$y_{cpp}^b$", r"$z_{cpp}^b$",\
                           r"$\upsilon_{cpp}^b$", r"$\chi_{cpp}^b$",\
                           r"$d_{nwp}$",r"$d_{end}$",\
-                          r"la_{x}$", r"la_{y}$", r"la_{z}$"
+                          r"$la_{x}$", r"$la_{y}$", r"$la_{z}$"
                         # r"$u_o$", r"$v_o$", r"$w_o$",\
                         ]
     
@@ -76,9 +92,12 @@ def simulate_environment(episode, env, agent):
     pure_observations = []
     normed_domain_observations = []
 
-    while not done:
+    while not done: 
         action = agent.predict(env.observation, deterministic=True)[0]
         _, _, done, _, info = env.step(action)
+        
+        if sdm:
+            save_depth_maps(env, test_dir)  #Now this saves depthmaps online per timestep when obstacle is close, might be better to save up all then save all at once
         
         total_t_steps = info['env_steps']
         progression.append(info['progression'])
@@ -112,11 +131,66 @@ def simulate_environment(episode, env, agent):
     df = pd.DataFrame(sim_data, columns=labels)
     return df, env
 
+#saving depth maps
+def save_depth_maps(env, test_dir):
+    path = os.path.join(test_dir, "depth_maps")
+    if not os.path.exists(path):
+        os.mkdir(path)
+
+    if env.nearby_obstacles != []: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
+        env.renderer.save_depth_map(f"{path}/depth_map_{env.total_t_steps}", env.depth_map)
+    else:
+        pass
+        #Comment/uncomment if you want to save the empty depth maps from envs without obstacles
+        # depth=env.depth_map
+        # path = f"{path}/depth_map_{env.total_t_steps}"
+        # plt.style.use('ggplot')
+        # plt.rc('font', family='serif')
+        # plt.rc('xtick', labelsize=12)
+        # plt.rc('ytick', labelsize=12)
+        # plt.rc('axes', labelsize=12)
+
+        # plt.figure(figsize=(8, 6))
+        # plt.imshow(depth.cpu().numpy(), cmap="magma")
+        # plt.clim(0.0, env.max_depth)
+        # plt.colorbar(label="Depth [m]", aspect=30, orientation="vertical", fraction=0.0235, pad=0.04)
+        # plt.axis("off")
+        # plt.savefig(path, bbox_inches='tight')
+        # plt.close()
+
+#PLOTTING UTILITY FUNCTIONS#
+
+#TODO add another layer of folders based on the episode number (when we start running multiple episodes)
+def create_plot_folders(test_dir):
+    """Creates the folders to save the plots in"""
+    
+    #The main folder
+    if not os.path.exists(os.path.join(test_dir, "plots")):
+        os.makedirs(os.path.join(test_dir, "plots"))
+    
+    #The observations
+    if not os.path.exists(os.path.join(test_dir, "plots/observations")):
+        os.makedirs(os.path.join(test_dir, "plots/observations"))
+    
+    #The normalized observations
+    if not os.path.exists(os.path.join(test_dir, "plots/observations/normalized")):
+        os.makedirs(os.path.join(test_dir, "plots/observations/normalized"))
+    
+    #The pure observations
+    if not os.path.exists(os.path.join(test_dir, "plots/observations/pure")):
+        os.makedirs(os.path.join(test_dir, "plots/observations/pure"))
+    
+    #The states
+    if not os.path.exists(os.path.join(test_dir, "plots/states")):
+        os.makedirs(os.path.join(test_dir, "plots/states"))
+
 
 def set_default_plot_rc():
     """Sets the style for the plots report-ready"""
     colors = (cycler(color= ['#EE6666', '#3388BB', '#88DD89', '#EECC55', '#88BB44', '#FFBBBB']) +
                 cycler(linestyle=['-',       '-',      '-',     '--',      ':',       '-.']))
+    plt.style.use('ggplot')
+    plt.rc('font', family='serif')
     plt.rc('axes', facecolor='#ffffff', edgecolor='black',
         axisbelow=True, grid=True, prop_cycle=colors)
     plt.rc('grid', color='gray', linestyle='--')
@@ -125,8 +199,8 @@ def set_default_plot_rc():
     plt.rc('patch', edgecolor='#ffffff')
     plt.rc('lines', linewidth=4)
 
-#OBSERVATION PLOTTING#
-def plot_all_normed_domain_observations(sim_df):
+#OBSERVATION PLOTTING# 
+def plot_all_normed_domain_observations(sim_df,test_dir):
     """Plots all normalized domain observations"""
     set_default_plot_rc()
     #Find largest observation index to use as range
@@ -140,11 +214,11 @@ def plot_all_normed_domain_observations(sim_df):
             ax.set_ylabel(ylabel="Normalized Observation", fontsize=14)
             ax.legend(loc="lower right", fontsize=14)
             ax.set_ylim([-1.25,1.25])
-        plt.show()
+            plt.savefig(os.path.join(test_dir, "plots/observations/normalized", f"normed_obs{i}_episode{int(sim_df['Episode'].iloc[0])}.pdf"))
     except KeyError:
         print("Keyerror or All obs plotted or no normalized domain observations to plot")
 
-def plot_observation_body_accl(sim_df):
+def plot_observation_body_accl(sim_df,test_dir):
     """Plots body frame acceleration from the observation"""
     set_default_plot_rc()
     ax = sim_df.plot(x="Time", y=[r"$\dot{u}^b$",r"$\dot{v}^b$", r"$\dot{w}^b$"], kind="line")
@@ -152,9 +226,9 @@ def plot_observation_body_accl(sim_df):
     ax.set_ylabel(ylabel="Acceleration [m/s^2]", fontsize=14)
     ax.legend(loc="lower right", fontsize=14)
     ax.set_ylim([-1.25,1.25])
-    plt.show()
+    plt.savefig(os.path.join(test_dir, "plots/observations/pure", f"body_accl_episode{int(sim_df['Episode'].iloc[0])}.pdf"))
 
-def plot_observation_body_angvel(sim_df):
+def plot_observation_body_angvel(sim_df,test_dir):
     """Plots body frame angular velocity from the observation"""
     set_default_plot_rc()
     ax = sim_df.plot(x="Time", y=[r"$p_o$",r"$q_o$", r"$r_o$"], kind="line")
@@ -162,9 +236,9 @@ def plot_observation_body_angvel(sim_df):
     ax.set_ylabel(ylabel="Angular Velocity [rad/s]", fontsize=14)
     ax.legend(loc="lower right", fontsize=14)
     ax.set_ylim([-1,1])
-    plt.show()
+    plt.savefig(os.path.join(test_dir, "plots/observations/pure", f"body_angvel_episode{int(sim_df['Episode'].iloc[0])}.pdf"))
 
-def plot_observation_cpp(sim_df):
+def plot_observation_cpp(sim_df,test_dir):
     """Plots the closest point on path in body frame from the observation"""
     set_default_plot_rc()
     ax = sim_df.plot(x="Time", y=[r"$x_{cpp}^b$",r"$y_{cpp}^b$", r"$z_{cpp}^b$"], kind="line")
@@ -172,9 +246,9 @@ def plot_observation_cpp(sim_df):
     ax.set_ylabel(ylabel="Position [m]", fontsize=14)
     ax.legend(loc="lower right", fontsize=14)
     ax.set_ylim([-1.25,1.25])
-    plt.show()
+    plt.savefig(os.path.join(test_dir, "plots/observations/pure", f"cpp_episode{int(sim_df['Episode'].iloc[0])}.pdf"))
 
-def plot_observation_cpp_azi_ele(sim_df):
+def plot_observation_cpp_azi_ele(sim_df,test_dir):
     """Plots the aziumuth (chi) and elevation (upslion) of the closest point on path in body frame from the observation in degrees"""
     set_default_plot_rc()
     sim_df[r"$\chi_{cpp}^b$"] = np.rad2deg(sim_df[r"$\chi_{cpp}^b$"])
@@ -184,9 +258,9 @@ def plot_observation_cpp_azi_ele(sim_df):
     ax.set_ylabel(ylabel="Direction from body x to CPP [deg]", fontsize=14)
     ax.legend(loc="lower right", fontsize=14)
     ax.set_ylim([-180,180])
-    plt.show()
+    plt.savefig(os.path.join(test_dir, "plots/observations/pure", f"cpp_azi_ele_episode{int(sim_df['Episode'].iloc[0])}.pdf"))
 
-def plot_observation_e_azi_ele(sim_df):
+def plot_observation_e_azi_ele(sim_df,test_dir):
     """Plots the aziumuth (chi) and elevation (upslion) error between lookahead vector and velocity vector in world (i think) from the observation"""
     set_default_plot_rc()
     sim_df[r"$\chi_e$"] = np.rad2deg(sim_df[r"$\chi_e$"])
@@ -196,9 +270,9 @@ def plot_observation_e_azi_ele(sim_df):
     ax.set_ylabel(ylabel="Error between velocity vec and LA [Deg]", fontsize=14)
     ax.legend(loc="lower right", fontsize=14)
     ax.set_ylim([-180,180])
-    plt.show()
+    plt.savefig(os.path.join(test_dir, "plots/observations/pure", f"e_azi_ele_episode{int(sim_df['Episode'].iloc[0])}.pdf"))
 
-def plot_observation_dists(sim_df):
+def plot_observation_dists(sim_df,test_dir):
     """Plots the distance to the next waypoint and the distance to the end of the path from the observation"""
     set_default_plot_rc()
     ax = sim_df.plot(x="Time", y=[r"$d_{nwp}$", r"$d_{end}$"], kind="line")
@@ -206,30 +280,31 @@ def plot_observation_dists(sim_df):
     ax.set_ylabel(ylabel="Distance [m]", fontsize=14)
     ax.legend(loc="lower right", fontsize=14)
     ax.set_ylim([0,100])
-    plt.show()
+    plt.savefig(os.path.join(test_dir, "plots/observations/pure", f"d_wp_d_end_episode{int(sim_df['Episode'].iloc[0])}.pdf"))
 
-def plot_observation_body_velocities(sim_df):
-    """Plots the body frame velocities from the observation"""
-    set_default_plot_rc()
-    ax = sim_df.plot(x="Time", y=[r"$u_o$",r"$v_o$", r"$w_o$"], kind="line")
-    ax.set_xlabel(xlabel="Time [s]", fontsize=14)
-    ax.set_ylabel(ylabel="Velocity [m/s]", fontsize=14)
-    ax.legend(loc="lower right", fontsize=14)
-    ax.set_ylim([-1.25,1.25])
-    plt.show()
+#PER NOW THE BODY VELOCITIES ARE NOT IN THE OBSERVATION
+# def plot_observation_body_velocities(sim_df,test_dir): 
+#     """Plots the body frame velocities from the observation"""
+#     set_default_plot_rc()
+#     ax = sim_df.plot(x="Time", y=[r"$u_o$",r"$v_o$", r"$w_o$"], kind="line")
+#     ax.set_xlabel(xlabel="Time [s]", fontsize=14)
+#     ax.set_ylabel(ylabel="Velocity [m/s]", fontsize=14)
+#     ax.legend(loc="lower right", fontsize=14)
+#     ax.set_ylim([-1.25,1.25])
+#     plt.savefig(os.path.join(test_dir, "plots/observations/pure", f"episode{int(sim_df['Episode'].iloc[0])}.pdf"))
 
-def plot_observation_LA(sim_df):
+def plot_observation_LA(sim_df,test_dir):
     """Plots the lookahead vector in body frame from the observation"""
     set_default_plot_rc()
-    ax = sim_df.plot(x="Time", y=[r"la_{x}$", r"la_{y}$", r"la_{z}$"], kind="line")
+    ax = sim_df.plot(x="Time", y=[r"$la_{x}$", r"$la_{y}$", r"$la_{z}$"], kind="line")
     ax.set_xlabel(xlabel="Time [s]", fontsize=14)
     ax.set_ylabel(ylabel="Position [m]", fontsize=14)
     ax.legend(loc="lower right", fontsize=14)
     ax.set_ylim([-10,10])
-    plt.show()
+    plt.savefig(os.path.join(test_dir, "plots/observations/pure", f"LA_episode{int(sim_df['Episode'].iloc[0])}.pdf"))
 
 #STATE PLOTTING#
-def plot_attitude(sim_df):
+def plot_attitude(sim_df,test_dir):
     """Plots the state trajectories for the simulation data"""
     set_default_plot_rc()
     ax = sim_df.plot(x="Time", y=[r"$\phi$",r"$\theta$", r"$\psi$"], kind="line")
@@ -237,10 +312,10 @@ def plot_attitude(sim_df):
     ax.set_ylabel(ylabel="Angular position [rad]",fontsize=14)
     ax.legend(loc="lower right", fontsize=14)
     ax.set_ylim([-np.pi,np.pi])
-    plt.show()
+    plt.savefig(os.path.join(test_dir, "plots/states", f"attitude_episode{int(sim_df['Episode'].iloc[0])}.pdf"))
 
 
-def plot_velocity(sim_df):
+def plot_velocity(sim_df,test_dir):
     """Plots the velocity trajectories for the simulation data"""
     set_default_plot_rc()
     ax = sim_df.plot(x="Time", y=[r"$u$",r"$v$"], kind="line")
@@ -250,10 +325,10 @@ def plot_velocity(sim_df):
     ax.set_ylabel(ylabel="Velocity [m/s]", fontsize=14)
     ax.legend(loc="lower right", fontsize=14)
     ax.set_ylim([-0.25,2.25])
-    plt.show()
+    plt.savefig(os.path.join(test_dir, "plots/states", f"velocity_episode{int(sim_df['Episode'].iloc[0])}.pdf"))
 
 
-def plot_angular_velocity(sim_df):
+def plot_angular_velocity(sim_df,test_dir):
     """Plots the angular velocity trajectories for the simulation data"""
     set_default_plot_rc()
     ax = sim_df.plot(x="Time", y=[r"$p$",r"$q$", r"$r$"], kind="line")
@@ -261,9 +336,16 @@ def plot_angular_velocity(sim_df):
     ax.set_ylabel(ylabel="Angular Velocity [rad/s]", fontsize=14)
     ax.legend(loc="lower right", fontsize=14)
     ax.set_ylim([-1,1])
-    plt.show()
+    plt.savefig(os.path.join(test_dir, "plots/states", f"ang_vel_episode{int(sim_df['Episode'].iloc[0])}.pdf"))
 
-#Outdated #TODO update to our case 
+#TODO add plotting of rewards yes
+#REWARD PLOTTING#
+
+
+#TODO add plotting of control inputs maybe??
+
+
+#Outdated #TODO update to our case maybe??
 # def plot_control_inputs(sim_dfs):
 #     """ Plot control inputs from simulation data"""
 #     set_default_plot_rc()
@@ -466,6 +548,49 @@ def plot_lidar():
     
     plt.show()
 
+def plot_collision_avoidance_reward_function(obsdists:np.array, 
+                                             angle_diffs:np.array,
+                                             danger_range:int, 
+                                             danger_angle:int,  
+                                             inv_abs_min_rew:float):
+    reward_collision_avoidance = []
+    for i in range(len(obsdists)):
+        
+        drone_closest_obs_dist = obsdists[i]
+        angle_diff = angle_diffs[i]
+
+        if (drone_closest_obs_dist < danger_range) and (angle_diff < danger_angle):
+            range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1) #same fcn in if and elif, but need this structure to color red and orange correctly
+            angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
+            if angle_rew > 0: angle_rew = 0 
+            if range_rew > 0: range_rew = 0
+            reward_collision_avoidance.append(range_rew + angle_rew)
+
+        elif drone_closest_obs_dist <danger_range:
+            range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) - 1)
+            angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) - 1)
+            if angle_rew > 0: angle_rew = 0 #In this case the angle reward may become positive as anglediff may < danger_angle
+            if range_rew > 0: range_rew = 0
+            reward_collision_avoidance.append(range_rew + angle_rew)
+            
+        else:
+            reward_collision_avoidance.append(0)
+
+    set_default_plot_rc()
+    plt.plot(reward_collision_avoidance)
+    plt.xlabel("Time [s]")
+    plt.ylabel("Reward")
+    plt.title("Collision Avoidance Reward Function")
+    plt.show()
+
+
 
 if __name__ == "__main__":
-    plot_lidar()
+    # plot_lidar()
+    datapoints = 50
+    obsdists = np.linspace(50, 0, datapoints)
+    angle_diffs = np.linspace(40, 0, datapoints)
+    danger_range = 10 #m
+    danger_angle = 20 #deg
+    inv_abs_min_rew = 1/4
+    plot_collision_avoidance_reward_function(obsdists, angle_diffs, danger_range, danger_angle, inv_abs_min_rew)

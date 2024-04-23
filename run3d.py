@@ -27,7 +27,7 @@ To run a trained agent, run the following command in terminal, exchange x for th
 
 python run3d.py --env "" --exp_id x --run_scenario "" --trained_scenario "" --agent x --episodes x --manual_control False --RT_vis True
 
-python run3d.py --exp_id 3 --run_scenario "line" --trained_scenario "line" --agent 60000 --episodes 1 --RT_vis True
+python run3d.py --exp_id 3 --run_scenario "line" --trained_scenario "line" --agent 800000 --episodes 1 --save_depth_maps True
 
 --manual_control and --RT_vis are False by default
 --env "" is set to LV_VAE-v0 by default
@@ -43,6 +43,7 @@ if __name__ == "__main__":
     #----#----#For running of file without the need of command line arguments#----#----#
 
     # args = Namespace(manual_control=True) 
+    manual_scenario = "proficient" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert"
 
     #----#----#NB uncomment when running actual agents#----#----#
 
@@ -63,35 +64,45 @@ if __name__ == "__main__":
         env = gym.make(args.env, scenario=args.run_scenario)
         agent = PPO.load(agent_path)
 
+        print("Feature extractor:\n", agent.policy.features_extractor) #TODO would be nice if we could get the compressed depth maps from the VAE
+
         if args.RT_vis == False:
             for episode in range(args.episodes):
                 try:
-                    episode_df, env = simulate_environment(episode, env, agent)
+                    episode_df, env = simulate_environment(episode, env, agent, test_dir, args.save_depth_maps)
                     sim_df = pd.concat([sim_df, episode_df], ignore_index=True)
                 except NameError:
                     sim_df = episode_df
                 
+                #Creates folders for plots
+                create_plot_folders(test_dir)
+
                 #Path and quadcopter travel
                 plot_3d(env, sim_df[sim_df['Episode']==episode], test_dir)
-                
+                plt.show()
+
                 # Observations
-                # plot_all_normed_domain_observations(sim_df)
-                
-                plot_observation_body_accl(sim_df)
-                plot_observation_body_angvel(sim_df)
-                plot_observation_cpp(sim_df)
-                plot_observation_cpp_azi_ele(sim_df)
-                plot_observation_e_azi_ele(sim_df)
-                plot_observation_dists(sim_df)
-                # plot_observation_body_velocities(sim_df)
-                plot_observation_LA(sim_df)
+                #normalized
+                plot_all_normed_domain_observations(sim_df,test_dir)
+                #original (pure)
+                plot_observation_body_accl(sim_df,test_dir)
+                plot_observation_body_angvel(sim_df,test_dir)
+                plot_observation_cpp(sim_df,test_dir)
+                plot_observation_cpp_azi_ele(sim_df,test_dir)
+                plot_observation_e_azi_ele(sim_df,test_dir)
+                plot_observation_dists(sim_df,test_dir)
+                plot_observation_LA(sim_df,test_dir)
                 
                 # States
-                # plot_angular_velocity(sim_df)
-                # plot_attitude(sim_df)
-                # plot_velocity(sim_df)
-                    
+                plot_angular_velocity(sim_df,test_dir)
+                plot_attitude(sim_df,test_dir)
+                plot_velocity(sim_df,test_dir)
+                
+                plt.close('all')
+
                 write_report(test_dir, sim_df, env, episode)
+
+
 
         elif args.RT_vis == True: 
             for episode in range(args.episodes):
@@ -227,7 +238,7 @@ if __name__ == "__main__":
                     done = False
                     env.reset()
 
-        env = gym.make("LV_VAE-v0", scenario="helix",seed=0)
+        env = gym.make("LV_VAE-v0", scenario=manual_scenario, seed=0)
         _manual_control(env)
         exit()
 
