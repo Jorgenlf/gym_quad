@@ -2,23 +2,18 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from pytorch3d.io import load_objs_as_meshes, load_obj
-from pytorch3d.structures import Meshes, join_meshes_as_batch, join_meshes_as_scene
-from pytorch3d.vis.plotly_vis import AxisArgs, plot_batch_individually, plot_scene
-from pytorch3d.vis.texture_vis import texturesuv_image_matplotlib
+from pytorch3d.io import load_objs_as_meshes
+from pytorch3d.structures import join_meshes_as_scene
+# from pytorch3d.vis.plotly_vis import AxisArgs, plot_batch_individually, plot_scene
+# from pytorch3d.vis.texture_vis import texturesuv_image_matplotlib
 from pytorch3d.renderer.mesh.textures import Textures
-from pytorch3d.transforms import euler_angles_to_matrix
 from pytorch3d.renderer import (
-    FoVPerspectiveCameras, look_at_view_transform, look_at_rotation,
-    PerspectiveCameras,
+    FoVPerspectiveCameras, look_at_rotation,
     PointLights,
     MeshRenderer,
     MeshRasterizer,
     RasterizationSettings,
-    SoftSilhouetteShader,
     SoftPhongShader,
-    Materials,
-    TexturesVertex,
 )
 
 import sys
@@ -33,7 +28,7 @@ grand_parent_dir = os.path.dirname(parent_dir)
 sys.path.append(grand_parent_dir)
 
 import gym_quad.utils.geomutils as geom
-
+from gym_quad.objects.mesh_obstacles import SphereMeshObstacle, Scene
 
 # Helper functions to transform between ENU and pytorch3D coordinate systems
 def enu_to_pytorch3d(enu_position: torch.Tensor) -> torch.Tensor:
@@ -49,86 +44,86 @@ def pytorch3d_to_enu(pytorch3d_position: torch.Tensor) -> torch.Tensor:
     return torch.tensor([pytorch3d_position[2], pytorch3d_position[0], pytorch3d_position[1]])
 
 
-class SphereMeshObstacle:
-    def __init__(self, 
-                 device: torch.device, 
-                 path: str,
-                 radius: float,
-                 center_position: torch.Tensor):
-        self.device = device
-        self.path = path                                    # Assumes path points to UNIT sphere .obj file
-        self.radius = radius
+# class SphereMeshObstacle: #TODO THESE WORKS REMOVE WHEN mesh_obstacles.py IS DONE
+#     def __init__(self, 
+#                  device: torch.device, 
+#                  path: str,
+#                  radius: float,
+#                  center_position: torch.Tensor):
+#         self.device = device
+#         self.path = path                                    # Assumes path points to UNIT sphere .obj file
+#         self.radius = radius
 
-        self.center_position = center_position.to(device=self.device)   # Centre of the sphere in camera world frame
-        #Not specified in name to simplify rewriting of code
+#         self.center_position = center_position.to(device=self.device)   # Centre of the sphere in camera world frame
+#         #Not specified in name to simplify rewriting of code
 
-        self.position = pytorch3d_to_enu(center_position).to(device=self.device) # Centre of the sphere in ENU frame
-        #Not specified in name to simplify rewriting of code
+#         self.position = pytorch3d_to_enu(center_position).to(device=self.device) # Centre of the sphere in ENU frame
+#         #Not specified in name to simplify rewriting of code
 
-        self.mesh = load_objs_as_meshes([path], device=self.device)
-        self.mesh.scale_verts_(scale=self.radius)
-        self.mesh.offset_verts_(vert_offsets_packed=self.center_position)
+#         self.mesh = load_objs_as_meshes([path], device=self.device)
+#         self.mesh.scale_verts_(scale=self.radius)
+#         self.mesh.offset_verts_(vert_offsets_packed=self.center_position)
     
-    def resize(self, new_radius: float):
-        self.mesh.scale_verts_(scale=new_radius/self.radius)
-        self.radius = new_radius
+#     def resize(self, new_radius: float):
+#         self.mesh.scale_verts_(scale=new_radius/self.radius)
+#         self.radius = new_radius
     
-    def move(self, new_center_position: torch.Tensor):
-        new_center_position = new_center_position.to(self.device)
-        self.mesh.offset_verts_(vert_offsets_packed=new_center_position-self.center_position)
-        self.center_position = new_center_position
+#     def move(self, new_center_position: torch.Tensor):
+#         new_center_position = new_center_position.to(self.device)
+#         self.mesh.offset_verts_(vert_offsets_packed=new_center_position-self.center_position)
+#         self.center_position = new_center_position
 
-    def set_device(self, new_device: torch.device):
-        self.device = new_device
-        self.mesh.to(new_device)
-        self.center_position.to(new_device)
+#     def set_device(self, new_device: torch.device):
+#         self.device = new_device
+#         self.mesh.to(new_device)
+#         self.center_position.to(new_device)
 
-    def return_plot_variables(self):
-        u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
-        x = self.position[0].item() + self.radius*np.cos(u)*np.sin(v)
-        y = self.position[1].item() + self.radius*np.sin(u)*np.sin(v)
-        z = self.position[2].item() + self.radius*np.cos(v)
-        return [x,y,z]
+#     def return_plot_variables(self):
+#         u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
+#         x = self.position[0].item() + self.radius*np.cos(u)*np.sin(v)
+#         y = self.position[1].item() + self.radius*np.sin(u)*np.sin(v)
+#         z = self.position[2].item() + self.radius*np.cos(v)
+#         return [x,y,z]
     
 
-class SphereScene:
-    def __init__(self, 
-                 device: torch.device, 
-                 sphere_obstacles: list):
-        self.device = device
-        self.sphere_obstacles = sphere_obstacles # List of SphereMeshObstacle objects
-        self.meshes = [sphere.mesh for sphere in sphere_obstacles]
-        self.joined_scene = self.update_scene() # Textures not included by default
+# class SphereScene:
+#     def __init__(self, 
+#                  device: torch.device, 
+#                  sphere_obstacles: list):
+#         self.device = device
+#         self.sphere_obstacles = sphere_obstacles # List of SphereMeshObstacle objects
+#         self.meshes = [sphere.mesh for sphere in sphere_obstacles]
+#         self.joined_scene = self.update_scene() # Textures not included by default
     
-    def update_scene(self, include_textures: bool = False):
-        return join_meshes_as_scene(meshes=self.meshes, include_textures=include_textures)
+#     def update_scene(self, include_textures: bool = False):
+#         return join_meshes_as_scene(meshes=self.meshes, include_textures=include_textures)
 
-    def resize_sphere(self, sphere_idx: int, new_radius: float):
-        self.sphere_obstacles[sphere_idx].resize(new_radius)
+#     def resize_sphere(self, sphere_idx: int, new_radius: float):
+#         self.sphere_obstacles[sphere_idx].resize(new_radius)
     
-    def move_sphere(self, sphere_idx: int, new_center_position: torch.Tensor):
-        self.sphere_obstacles[sphere_idx].move(new_center_position)
+#     def move_sphere(self, sphere_idx: int, new_center_position: torch.Tensor):
+#         self.sphere_obstacles[sphere_idx].move(new_center_position)
     
-    def add_sphere(self, new_sphere: SphereMeshObstacle):
-        self.sphere_obstacles.append(new_sphere)
-        self.meshes.append(new_sphere.mesh)
-        self.joined_scene = join_meshes_as_scene(meshes=self.meshes, include_textures=False)
+#     def add_sphere(self, new_sphere: SphereMeshObstacle):
+#         self.sphere_obstacles.append(new_sphere)
+#         self.meshes.append(new_sphere.mesh)
+#         self.joined_scene = join_meshes_as_scene(meshes=self.meshes, include_textures=False)
     
-    def remove_sphere(self, sphere_idx: int):
-        self.sphere_obstacles.pop(sphere_idx)
-        self.meshes.pop(sphere_idx)
-        self.joined_scene = join_meshes_as_scene(meshes=self.meshes, include_textures=False)
+#     def remove_sphere(self, sphere_idx: int):
+#         self.sphere_obstacles.pop(sphere_idx)
+#         self.meshes.pop(sphere_idx)
+#         self.joined_scene = join_meshes_as_scene(meshes=self.meshes, include_textures=False)
     
-    def set_device(self, new_device: torch.device):
-        self.device = new_device
-        for sphere in self.sphere_obstacles:
-            sphere.set_device(new_device)
+#     def set_device(self, new_device: torch.device):
+#         self.device = new_device
+#         for sphere in self.sphere_obstacles:
+#             sphere.set_device(new_device)
 
 
 class DepthMapRenderer:
     def __init__(self, 
                  device: torch.device, 
-                 scene: SphereScene, 
+                 scene:  Scene, 
                  camera: FoVPerspectiveCameras, 
                  raster_settings: RasterizationSettings,
                  MAX_MEASURABLE_DEPTH: float = 10.0,
@@ -305,7 +300,7 @@ if __name__ == "__main__":
     #Test of returning plot variables
     x,y,z = obs1.return_plot_variables()
 
-    spherescene = SphereScene(device=device, sphere_obstacles=[obs1, obs2, obs3, obs4, obs5, obs6, obs7])
+    spherescene = Scene(device=device, obstacles=[obs1, obs2, obs3, obs4, obs5, obs6, obs7])
 
     #Init rasterizer
     raster_settings = RasterizationSettings(
