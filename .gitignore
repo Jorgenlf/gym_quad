@@ -1,6 +1,6 @@
 __pycache__/
 venv/
-log/LV_VAE-v0/
+log/
 seed.txt
 *.out
 test_sim.csv
