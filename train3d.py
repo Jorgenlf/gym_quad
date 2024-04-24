@@ -29,11 +29,14 @@ warnings.filterwarnings("ignore", message="No mtl file provided", category=UserW
 
 # scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
 total_timesteps = 10e6 #15e6
-scenarios = {"line"         :   2.5e5, #Experimental result see Exp 4 on "Jørgen PC"
-             "3d_new"       :   2.5e5,
-             "intermediate" :   total_timesteps*0.2,
-             "proficient"   :   total_timesteps*0.3,
-             "expert"       :   total_timesteps*0.3}
+# scenarios = {"line"         :   2.5e5, #Experimental result see Exp 4 on "Jørgen PC"
+#              "3d_new"       :   2.5e5,
+#              "intermediate" :   total_timesteps*0.2,
+#              "proficient"   :   total_timesteps*0.3,
+#              "expert"       :   total_timesteps*0.3}
+
+scenarios ={"proficient"   :   total_timesteps*0.3,
+            "expert"       :   total_timesteps*0.3}
 
 #TODO add a scenario where theres one obstacle close to path, but not on path which we insert after 3d_new before intermediate
 

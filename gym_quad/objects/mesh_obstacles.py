@@ -122,7 +122,7 @@ class CubeMeshObstacle:
         return [x,y,z]        
 
 # New setup with superclass-------------------
-#TODO: make this per now single classes are fast enough
+#TODO: Make this. Per now using separate classes as its fastest to implement
 # New setup with superclass-------------------
 
 

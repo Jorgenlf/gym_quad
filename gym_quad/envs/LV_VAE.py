@@ -151,7 +151,7 @@ class LV_VAE(gym.Env):
                     cull_backfaces=True # Do not render backfaces. MAKE SURE THIS IS OK WITH THE GIVEN MESH.
                 )
 
-            scene = Scene(device = self.device, sphere_obstacles=self.obstacles)
+            scene = Scene(device = self.device, obstacles=self.obstacles)
 
             self.renderer = DepthMapRenderer(device=self.device, 
                                             raster_settings=raster_settings, 
