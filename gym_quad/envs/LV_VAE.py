@@ -121,7 +121,8 @@ class LV_VAE(gym.Env):
         self.cumulative_reward = 0
 
         #Obstacle variables
-        self.nearby_obstacles = []
+        self.nearby_obstacles = [] #The obstacles inside the camera FOV and within the max depth
+        self.all_nearby_obstacles = [] #all obstacles within the max depth
         self.obstacles = []
         self.collided = False
 
@@ -140,6 +141,9 @@ class LV_VAE(gym.Env):
 
 
         ## Generate camera, scene and renderer
+        camera = None
+        raster_settings = None
+        scene = None
         if self.obstacles!=[]:
 
             camera = FoVPerspectiveCameras(device = self.device,fov=self.FOV_vertical)
@@ -150,7 +154,6 @@ class LV_VAE(gym.Env):
                     perspective_correct=True, # Doesn't do anything(??), but seems to improve speed
                     cull_backfaces=True # Do not render backfaces. MAKE SURE THIS IS OK WITH THE GIVEN MESH.
                 )
-
             scene = Scene(device = self.device, obstacles=self.obstacles)
 
             self.renderer = DepthMapRenderer(device=self.device, 
@@ -169,6 +172,7 @@ class LV_VAE(gym.Env):
         
         ###
         self.info = {}
+        self.imu = None
         self.imu = IMU()
         self.update_errors()
         self.observation = self.observe() 
@@ -374,9 +378,10 @@ class LV_VAE(gym.Env):
                 self.passed_waypoints = np.vstack((self.passed_waypoints, self.path.waypoints[k]))
                 self.waypoint_index = k
 
-        # Check collision
-        self.update_nearby_obstacles()
-        for obstacle in self.nearby_obstacles:
+        # Check collision #TODO must be updated if we only use meshes
+        self.update_nearby_obstacles(all=True)
+
+        for obstacle in self.all_nearby_obstacles:
             quad_pos_torch = torch.tensor(self.quadcopter.position, dtype=torch.float32, device=self.device)
             if torch.norm(obstacle.position - quad_pos_torch) <= obstacle.radius + self.quadcopter.safety_radius:
                 self.collided = True
@@ -661,35 +666,14 @@ class LV_VAE(gym.Env):
         # print("upsilon_d", np.round(upsilon_d*180/np.pi), "upsilon_quad", np.round(self.quadcopter.upsilon*180/np.pi), "upsilon_error", np.round(self.upsilon_error*180/np.pi),\
         #       "\n\nchi_d", np.round(chi_d*180/np.pi), "chi_quad", np.round(self.quadcopter.chi*180/np.pi), "chi_error", np.round(self.chi_error*180/np.pi))
 
-    # Numpy version     
-    # def update_nearby_obstacles(self): #Keep as long as obstacles are spheres TODO may remove/redo when obstacles are more complex
-    #     """
-    #     Updates the nearby_obstacles array.
-    #     """
-    #     self.nearby_obstacles = []
-    #     for obstacle in self.obstacles:
-    #         distance_vec_world = obstacle.position - self.quadcopter.position
-    #         distance = np.linalg.norm(distance_vec_world)
-    #         distance_vec_BODY = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(distance_vec_world)
-    #         heading_angle_BODY = np.arctan2(distance_vec_BODY[1], distance_vec_BODY[0])
-    #         pitch_angle_BODY = np.arctan2(distance_vec_BODY[2], np.sqrt(distance_vec_BODY[0]**2 + distance_vec_BODY[1]**2))
-
-    #         # check if the obstacle is inside the sonar window
-    #         if distance - self.quadcopter.safety_radius - obstacle.radius <= self.max_depth and abs(heading_angle_BODY) <= self.FOV_horizontal*np.pi/180 \
-    #         and abs(pitch_angle_BODY) <= self.FOV_vertical*np.pi/180:
-    #             self.nearby_obstacles.append(obstacle)
-    #         elif distance <= obstacle.radius + self.quadcopter.safety_radius:
-    #             self.nearby_obstacles.append(obstacle)
-    #     # Sort the obstacles such that the closest one is first
-    #     self.nearby_obstacles.sort(key=lambda x: np.linalg.norm(x.position - self.quadcopter.position)) 
-
-    #Tensor version
-    def update_nearby_obstacles(self): #TODO drop this if general meshes are used
+    def update_nearby_obstacles(self, all=False): #TODO drop this if general meshes are used
         """
-        Updates the nearby_obstacles array. 
+        Updates the nearby_obstacles array if all=False.
+        Updates the all_nearby_obstacles array if all=True. 
         The closest obstacle is first in the list.
         """
         self.nearby_obstacles = []
+        self.all_nearby_obstacles = []
         quad_pos_torch = torch.tensor(self.quadcopter.position, device=self.device).float()
         for obstacle in self.obstacles:
             distance_vec_world = obstacle.position - quad_pos_torch
@@ -703,10 +687,15 @@ class LV_VAE(gym.Env):
             and abs(heading_angle_BODY) <= self.FOV_horizontal*np.pi/180 \
             and abs(pitch_angle_BODY) <= self.FOV_vertical*np.pi/180:
                 self.nearby_obstacles.append(obstacle)
-            # elif distance <= obstacle.radius + self.quadcopter.safety_radius: #This essentially gives 360 degree FOV which we do not have.
-            #     self.nearby_obstacles.append(obstacle)
-        # Sort the obstacles such that the closest one is first
-        self.nearby_obstacles.sort(key=lambda x: torch.norm(x.position - quad_pos_torch))
+            elif all==True \
+                 and distance <= obstacle.radius + self.quadcopter.safety_radius: #This essentially gives 360 degree FOV which we do not have. Only used for collision detection now
+                self.all_nearby_obstacles.append(obstacle)
+
+            if all==True:
+                self.all_nearby_obstacles.sort(key=lambda x: torch.norm(x.position - quad_pos_torch))
+            else:
+                self.nearby_obstacles.sort(key=lambda x: torch.norm(x.position - quad_pos_torch)) # Sort the obstacles such that the closest one is first
+            
 
     #### PLOTTING ####
     def axis_equal3d(self, ax):
