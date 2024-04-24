@@ -5,7 +5,7 @@ import torchvision.transforms as transforms
 
 import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
-from gym_quad.utils.geomutils import pytorch3d_to_enu, enu_to_pytorch3d
+from gym_quad.utils.geomutils import enu_to_pytorch3d
 from gym_quad.objects.quad import Quad
 from gym_quad.objects.IMU import IMU
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
