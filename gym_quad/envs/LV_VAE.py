@@ -5,12 +5,12 @@ import torchvision.transforms as transforms
 
 import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
+from gym_quad.utils.geomutils import pytorch3d_to_enu, enu_to_pytorch3d
 from gym_quad.objects.quad import Quad
 from gym_quad.objects.IMU import IMU
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.depth_camera import *
 
-#TODO Set up curriculum learning
 #TODO add stochasticity to make sim2real robust
 
 class LV_VAE(gym.Env):
@@ -52,7 +52,7 @@ class LV_VAE(gym.Env):
         self.domain_space = gym.spaces.Box(
             low = -1,
             high = 1,
-            shape = (16,),
+            shape = (19,),
             dtype = np.float32
         )
 
@@ -104,14 +104,19 @@ class LV_VAE(gym.Env):
         self.quadcopter = None
         self.path = None
         self.path_generated = None
+        self.waypoint_index = 0
+        self.prog = 0
+
         self.e = None
         self.h = None
         self.chi_error = None
         self.upsilon_error = None
-        self.waypoint_index = 0
-        self.prog = 0
+
+        self.prev_action = [0,0,0]
+
         self.success = False
         self.done = False
+
         self.LA_at_end = False
         self.cumulative_reward = 0
 
@@ -146,7 +151,7 @@ class LV_VAE(gym.Env):
                     cull_backfaces=True # Do not render backfaces. MAKE SURE THIS IS OK WITH THE GIVEN MESH.
                 )
 
-            scene = SphereScene(device = self.device, sphere_obstacles=self.obstacles)
+            scene = Scene(device = self.device, sphere_obstacles=self.obstacles)
 
             self.renderer = DepthMapRenderer(device=self.device, 
                                             raster_settings=raster_settings, 
@@ -198,18 +203,14 @@ class LV_VAE(gym.Env):
 
         #Depth camera observation
         if self.obstacles!=[]:
-            if self.total_t_steps % (int((1/self.camera_FPS)/self.step_size)) == 0: #Only update the depth map at the camera FPS
-                pos = self.quadcopter.position
-                orientation = self.quadcopter.attitude
-                Rcam,Tcam = self.renderer.camera_R_T_from_quad_pos_orient(pos, orientation)
-                self.renderer.update_R(Rcam)
-                self.renderer.update_T(Tcam)
-                self.depth_map = self.renderer.render_depth_map()
-                temp_depth_map = self.depth_map
-
-                # print("\nTemp depth map type:", type(temp_depth_map), "  shape:", temp_depth_map.shape, "  dtype:", temp_depth_map.dtype)
-            else:
-                temp_depth_map = self.depth_map #Handles the case where there are obstacles and the camera is not updated (inbetween fps)
+            pos = self.quadcopter.position
+            orientation = self.quadcopter.attitude
+            Rcam,Tcam = self.renderer.camera_R_T_from_quad_pos_orient(pos, orientation)
+            self.renderer.update_R(Rcam)
+            self.renderer.update_T(Tcam)
+            self.depth_map = self.renderer.render_depth_map()
+            temp_depth_map = self.depth_map
+            # print("\nTemp depth map type:", type(temp_depth_map), "  shape:", temp_depth_map.shape, "  dtype:", temp_depth_map.dtype)
         else:
             temp_depth_map = self.depth_map #Handles the case where there are no obstacles
 
@@ -239,7 +240,7 @@ class LV_VAE(gym.Env):
         # print("Sensor readings type:", type(sensor_readings), "  shape:", sensor_readings.shape, "  dtype:", sensor_readings.dtype)
 
         #Domain observation
-        domain_obs = np.zeros(16, dtype=np.float32)
+        domain_obs = np.zeros(19, dtype=np.float32)
         # Heading angle error wrt. the path
         domain_obs[0] = np.sin(self.chi_error)
         domain_obs[1] = np.cos(self.chi_error)
@@ -318,6 +319,12 @@ class LV_VAE(gym.Env):
         domain_obs[14] = self.m1to1(lookahead_body[1], -relevant_distance, relevant_distance)
         domain_obs[15] = self.m1to1(lookahead_body[2], -relevant_distance,relevant_distance)
 
+        #Give the previous action as an observation
+        pure_obs.extend(self.prev_action)
+        domain_obs[16] = self.prev_action[0]    
+        domain_obs[17] = self.prev_action[1]
+        domain_obs[18] = self.prev_action[2]
+
         #velocity vector in body frame PROBS NOT NEEDED/WORKS AGAINST IE CONFUSES THE AGENT
         # velocity_body = self.quadcopter.velocity
         # pure_obs.extend(velocity_body)
@@ -345,11 +352,18 @@ class LV_VAE(gym.Env):
         """
         self.update_errors()
 
-        F = self.geom_ctrlv2(action)
-        #TODO maybe need some translation between input u and thrust F i.e translate u to propeller speed? 
-        #We currently skip this step for simplicity
-        self.quadcopter.step(F)
+        #Camera is at 15FPS physics is at 100HZ
+        #Make the quadcopter step until a new depth map is available
+        sim_hz = 1/self.step_size
+        cam_hz = self.camera_FPS
+        steps_before_new_depth_map = sim_hz//cam_hz
+        for _ in range(int(steps_before_new_depth_map)):            
+            F = self.geom_ctrlv2(action)
+            #TODO maybe need some translation between input u and thrust F i.e translate u to propeller speed? 
+            #We currently skip this step for simplicity
+            self.quadcopter.step(F)
 
+        self.prev_action = action
         if self.path:
             self.prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
 
@@ -670,7 +684,7 @@ class LV_VAE(gym.Env):
     #     self.nearby_obstacles.sort(key=lambda x: np.linalg.norm(x.position - self.quadcopter.position)) 
 
     #Tensor version
-    def update_nearby_obstacles(self): 
+    def update_nearby_obstacles(self): #TODO drop this if general meshes are used
         """
         Updates the nearby_obstacles array. 
         The closest obstacle is first in the list.
@@ -764,7 +778,7 @@ class LV_VAE(gym.Env):
     #             overlaps = True
     #     return overlaps
     
-    def check_object_overlap(self, new_obstacle): 
+    def check_object_overlap(self, new_obstacle): #TODO Potentially drop if general meshes are used
         """
         Checks if a new obstacle is overlapping one that already exists or the target position.
         """
