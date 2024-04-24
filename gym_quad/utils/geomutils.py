@@ -1,5 +1,19 @@
 import numpy as np
+import torch
 
+### Helper functions to transform between ENU and pytorch3D coordinate systems
+def enu_to_pytorch3d(enu_position: torch.Tensor) -> torch.Tensor:
+    '''ENU is x-east, y-north, z-up. 
+    Pytorch3D is x-left, y-up, z-forward. 
+    This function converts from ENU to Pytorch3D coordinate system.'''
+    return torch.tensor([enu_position[1], enu_position[2], enu_position[0]])
+
+def pytorch3d_to_enu(pytorch3d_position: torch.Tensor) -> torch.Tensor:
+    '''ENU is x-east, y-north, z-up. 
+    Pytorch3D is x-left, y-up, z-forward. 
+    This function converts from ENU to Pytorch3D coordinate system.'''
+    return torch.tensor([pytorch3d_position[2], pytorch3d_position[0], pytorch3d_position[1]])
+###
 
 def ssa(angle):
     """ Returns the smallest signed angle in the range [-pi, pi]."""
