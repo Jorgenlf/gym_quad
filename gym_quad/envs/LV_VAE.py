@@ -692,9 +692,9 @@ class LV_VAE(gym.Env):
                 self.all_nearby_obstacles.append(obstacle)
 
             if all==True:
-                self.all_nearby_obstacles.sort(key=lambda x: torch.norm(x.position - quad_pos_torch))
+                self.all_nearby_obstacles.sort(key=lambda x: torch.norm(x.position - quad_pos_torch)) # Sort the obstacles such that the closest one is first
             else:
-                self.nearby_obstacles.sort(key=lambda x: torch.norm(x.position - quad_pos_torch)) # Sort the obstacles such that the closest one is first
+                self.nearby_obstacles.sort(key=lambda x: torch.norm(x.position - quad_pos_torch)) 
             
 
     #### PLOTTING ####

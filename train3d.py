@@ -30,14 +30,13 @@ warnings.filterwarnings("ignore", message="No mtl file provided", category=UserW
 
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---###
 total_timesteps = 10e6 #15e6
-# scenarios = {"line"         :   2.5e5, #Experimental result see Exp 4 on "Jørgen PC"
-#              "3d_new"       :   2.5e5,
-#              "intermediate" :   total_timesteps*0.2,
-#              "proficient"   :   total_timesteps*0.3,
-#              "expert"       :   total_timesteps*0.3}
+scenarios = {"line"         :   2.5e5, #Experimental result see Exp 4 on "Jørgen PC"
+             "3d_new"       :   2.5e5,
+             "intermediate" :   total_timesteps*0.2,
+             "proficient"   :   total_timesteps*0.3,
+             "expert"       :   total_timesteps*0.3}
 
-scenarios ={"proficient"   :   total_timesteps*0.3,
-            "expert"       :   total_timesteps*0.3}
+
 
 #TODO add a scenario where theres one obstacle close to path, but not on path which we insert after 3d_new before intermediate
 ###---###---###---###---###---###---###---###---###---###---###
@@ -70,18 +69,22 @@ We define a neural network architecture containing 3 fullyconnected layers consi
 Given an observation vector ot, the policy outputs a 3-dimensional action command at = [at,1, at,2, at,3] with values in [-1, 1]
 '''
 
-encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_73_seed0_dim32.json"
+encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_1000_seed1.json"
 # encoder_path = None #If you want to train the encoder from scratch
+lock_params = True #If you want to lock the encoder parameters
+
+ppo_pi_vf_arch = dict(pi = [64,64], vf = [64,64]) #The PPO network architecture policy and value function
 
 policy_kwargs = dict(
     features_extractor_class = PerceptionIMUDomainExtractor,
     features_extractor_kwargs = dict(img_size=lv_vae_config["compressed_depth_map_size"],
                                      features_dim=lv_vae_config["latent_dim"],
                                      device = PPO_hyperparams['device'],
-                                     lock_params=True,
+                                     lock_params=lock_params,
                                      pretrained_encoder_path = encoder_path),
-    net_arch = dict(pi=[64, 64], vf=[64, 64])#The PPO network architecture policy and value function
+    net_arch = ppo_pi_vf_arch
 )
+
 #From Ørjan:    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32])
 #SB3 default:   net_arch = dict(pi=[64, 64], vf=[64, 64])
 #From Kulkarni: net_arch = dict(pi=[512, 256, 64], vf=[512, 256, 64]) #NB: GRU is not included in this
@@ -242,7 +245,6 @@ class TensorboardLogger(BaseCallback):
 #TODO make it work without a global variable please
 
 
-
 """
 To train the agent, run the following command in terminal exchange x for the experiment id you want to train:
 python train3d.py --exp_id x --n_cpu x
@@ -287,8 +289,11 @@ if __name__ == '__main__':
             json.dump(PPO_hyperparams, file)
         with open(os.path.join(config_dir, 'curriculum_config.json'), 'w') as file:
             json.dump(scenarios, file)
-        # with open(os.path.join(config_dir, 'policy_kwargs.json'), 'w') as file: #TODO fix this
-        #     json.dump(policy_kwargs, file)    
+        with open(os.path.join(config_dir, 'drl_net_arch.json'), 'w') as file: 
+            json.dump(ppo_pi_vf_arch, file)    
+        with open(os.path.join(config_dir, 'feature_extractor_kwargs.json'), 'w') as file:
+            json.dump(policy_kwargs['features_extractor_kwargs'], file)
+
 
 
         PPO_hyperparams["tensorboard_log"] = tensorboard_dir
