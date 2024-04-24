@@ -252,7 +252,7 @@ python train3d.py --exp_id x --n_cpu x
 
 if __name__ == '__main__':
     
-    _s = time.time() #For tracking training time
+    # _s = time.time() #For tracking training time
 
     print('\nTOTAL CPU CORE COUNT:', multiprocessing.cpu_count())
     experiment_dir, _, args = parse_experiment_info()
@@ -362,4 +362,4 @@ if __name__ == '__main__':
         save_path = os.path.join(agents_dir, "last_model.zip")
         agent.save(save_path)
         print("SAVE SUCCESSFUL")
-    print(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
+    # print(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
