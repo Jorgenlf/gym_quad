@@ -4,7 +4,7 @@ import numpy as np
 lv_vae_config = {
 #General parameters    
     "step_size"                 : 0.01,         # Step size of the simulation
-    "max_t_steps"               : 40000,        # Maximum number of timesteps in the simulation before it is terminated
+    "max_t_steps"               : 30000,        # Maximum number of timesteps in the simulation before it is terminated
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the quadcopter
 #Depth camera parameters    
     "FOV_vertical"              : 75,           # Vertical field of view of the depth camera
@@ -27,9 +27,9 @@ lv_vae_config = {
     "kangvel"                   : 0.8,          # Angular velocity gain     Been for long time: 0.8
     "kR"                        : 0.8,          # Attitude gain             Been for long time: 0.8
 #Reward parameters
-    "min_reward"                : -2e4,         # Minimum reward before the simulation is terminated
+    "min_reward"                : -1e4,         # Minimum reward before the simulation is terminated
     'PA_band_edge'              : 8,            # edge of Path adherence band
-    'PA_scale'                  : 2,            # scale of Path adherence reward [-PA_scale, PA_scale]
+    'PA_scale'                  : 5,            # scale of Path adherence reward [-PA_scale, PA_scale]
     'PP_vel_scale'              : 0.7,          # scaling of velocity reward e.g. 1-> make 2.5m/s
     'PP_rew_max'                : 2.5,          # maximum reward for path progression
     'PP_rew_min'                : -1,           # minimum reward for path progression
