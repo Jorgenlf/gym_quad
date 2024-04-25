@@ -135,7 +135,7 @@ class CubeMeshObstacle:
         return [x,y,z]
 
 
-#OUR SCENE CLASS------------------- #WORKS
+#OUR SCENE CLASS #WORKS
 class Scene:
     def __init__(self,
                  device: torch.device,
@@ -167,7 +167,7 @@ class Scene:
         self.device = new_device
         for m in self.meshes:
             m.set_device(new_device)
-#OUR SCENE CLASS-------------------
+
 
 
 
