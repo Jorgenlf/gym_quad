@@ -23,6 +23,9 @@ lv_vae_config = {
     "s_max"                     : 3.5,          # Maximum speed of the quadcopter m/s
     "i_max"                     : 80/2 * np.pi/180,      # Maximum inclination angle of commanded velocity wrt x-axis #TODO decide this now set it to half of vertical sensor span
     "r_max"                     : 0.5,          # Maximum commanded yaw rate rad/s
+    "kv"                        : 2.5,          # Velocity gain             Been for long time: 2.5
+    "kangvel"                   : 0.8,          # Angular velocity gain     Been for long time: 0.8
+    "kR"                        : 0.8,          # Attitude gain             Been for long time: 0.8
 #Reward parameters
     "min_reward"                : -2e4,         # Minimum reward before the simulation is terminated
     'PA_band_edge'              : 8,            # edge of Path adherence band

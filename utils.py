@@ -76,8 +76,8 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
                           r"$x_{cpp}^b$", r"$y_{cpp}^b$", r"$z_{cpp}^b$",\
                           r"$\upsilon_{cpp}^b$", r"$\chi_{cpp}^b$",\
                           r"$d_{nwp}$",r"$d_{end}$",\
-                          r"$la_{x}$", r"$la_{y}$", r"$la_{z}$"
-                        # r"$u_o$", r"$v_o$", r"$w_o$",\
+                          r"$la_{x}$", r"$la_{y}$", r"$la_{z}$",
+                          r"$a_0$", r"$a_1$", r"$a_2$",\
                         ]
     
     done = False
@@ -127,6 +127,13 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
     for i in range(normed_domain_observations.shape[1]):
         normed_obs_labels = np.hstack([normed_obs_labels, f"obs{i}"])
     labels = np.hstack([labels, normed_obs_labels])
+
+    #Check that the length of each label matches the length of the info[] data
+    assert len(state_labels) == len(info['state']), f"Length mismatch between state labels{len(state_labels)} and state data{len(info['state'])}"
+    assert len(action_labels) == len(info['action']), f"Length mismatch between action labels{len(action_labels)} and action data{len(info['action'])}"
+    assert len(error_labels) == len(info['errors']), f"Length mismatch between error labels{len(error_labels)} and error data{len(info['errors'])}"
+    assert len(observation_labels) == len(info['pure_obs']), f"Length mismatch between pure observation labels{len(observation_labels)} and pure observation data{len(info['pure_obs'])}"
+    assert len(normed_obs_labels) == len(info['domain_obs']), f"Length mismatch between normed observation labels{len(normed_obs_labels)} and normed observation data{len(info['domain_obs'])}"
 
     df = pd.DataFrame(sim_data, columns=labels)
     return df, env
@@ -320,7 +327,9 @@ def plot_velocity(sim_df,test_dir):
     set_default_plot_rc()
     ax = sim_df.plot(x="Time", y=[r"$u$",r"$v$"], kind="line")
     ax.plot(sim_df["Time"], sim_df[r"$w$"], dashes=[3,3], color="#88DD89", label=r"$w$")
-    ax.plot([0,sim_df["Time"].iloc[-1]], [1.5,1.5], label=r"$u_d$")
+    #Plot the r"$\v_{cmd}$" as the desired velocity
+    ax.plot(sim_df["Time"], sim_df[r"$\v_{cmd}$"], dashes=[3,3], color="#EECC55", label=r"$\v_{cmd}$")
+    ax.plot
     ax.set_xlabel(xlabel="Time [s]", fontsize=14)
     ax.set_ylabel(ylabel="Velocity [m/s]", fontsize=14)
     ax.legend(loc="lower right", fontsize=14)

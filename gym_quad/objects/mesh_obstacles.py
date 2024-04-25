@@ -1,7 +1,14 @@
 import torch
 from pytorch3d.io import load_objs_as_meshes
 from pytorch3d.structures import join_meshes_as_scene
+
+#For collisionchecking
+from pytorch3d.structures import Meshes
+from pytorch3d.ops import utils as pt3d_utils
+
 import numpy as np
+
+#For mesh creation
 import trimesh
 
 import sys
@@ -30,6 +37,47 @@ def create_sphere():
     sphere = trimesh.creation.icosphere(subdivisions=4, radius=1)
     return sphere
 ###
+
+
+# New obstacle setup with superclass-------------------
+#TODO: Make this. Per now using separate classes as its fastest to implement
+# New obstacle setup with superclass-------------------
+
+
+#A mesh class of the quadcopter representing the quadcopter as a sphere with a given radius
+class QuadcopterMesh:
+    def __init__(self, 
+                 device: torch.device, 
+                 path: str,
+                 radius: float,
+                 center_position: torch.Tensor):
+        self.device = device
+        self.path = path                                    # Assumes path points to UNIT sphere .obj file
+        self.radius = radius
+
+        self.center_position = center_position.to(device=self.device)   # Centre of the sphere in camera world frame
+        #Not specified in name to simplify rewriting of code
+
+        self.position = pytorch3d_to_enu(center_position).to(device=self.device) # Centre of the sphere in ENU frame
+        #Not specified in name to simplify rewriting of code
+
+        self.mesh = load_objs_as_meshes([path], device=self.device)
+        self.mesh.scale_verts_(scale=self.radius)
+        self.mesh.offset_verts_(vert_offsets_packed=self.center_position)
+    
+    def resize(self, new_radius: float):
+        self.mesh.scale_verts_(scale=new_radius/self.radius)
+        self.radius = new_radius
+    
+    def move(self, new_center_position: torch.Tensor):
+        new_center_position = new_center_position.to(self.device)
+        self.mesh.offset_verts_(vert_offsets_packed=new_center_position-self.center_position)
+        self.center_position = new_center_position
+
+    def set_device(self, new_device: torch.device):
+        self.device = new_device
+        self.mesh.to(new_device)
+        self.center_position.to(new_device)
 
 
 ### Mesh Obstacle Classes
@@ -121,10 +169,6 @@ class CubeMeshObstacle:
                       [-1, 1, 1, -1, -1, -1, -1, 1]])
         return [x,y,z]        
 
-# New setup with superclass-------------------
-#TODO: Make this. Per now using separate classes as its fastest to implement
-# New setup with superclass-------------------
-
 
 #OUR SCENE CLASS------------------- #WORKS
 class Scene:
@@ -160,39 +204,40 @@ class Scene:
             m.set_device(new_device)
 #OUR SCENE CLASS-------------------
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
     
-    # ### MESH CREATION ###
-    # # cube = create_cube()
-    # # cylinder = create_cylinder()
-    # # #Export the meshes to .obj files
-    # # cube.export("cube.obj")
-    # # cylinder.export("cylinder.obj")            
-    # ### MESH CREATION ###
+    ### MESH CREATION ###
+    # cube = create_cube()
+    # cylinder = create_cylinder()
+    # #Export the meshes to .obj files
+    # cube.export("cube.obj")
+    # cylinder.export("cylinder.obj")            
+    ### MESH CREATION ###
 
 
-    # #TODO possibly important. Either create mesh.obj objects at runtime or load from file ONCE and store in memory to speed up training
+    # #TODO possibly important tjaa. 
+    #Either create mesh.obj objects at runtime or load from file ONCE and store in memory to speed up training
 
-    # #init device to use gpu if available
-    # device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    #init device to use gpu if available
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    # # s1 = SphereMeshObstacle(device=torch.device("cuda"), path="gym_quad/meshes/sphere.obj", radius=1, center_position=torch.tensor([0, 0, 0]))
+    quad = QuadcopterMesh(device=torch.device("cuda"), path="gym_quad/meshes/sphere.obj", radius=1, center_position=torch.tensor([0, 0, 0]))
 
-    # # cu1 = CubeMeshObstacle(device=torch.device("cuda"), path="gym_quad/meshes/cube.obj", side_length=1, center_position=torch.tensor([5, 0, 0]))
+    s1 = SphereMeshObstacle(device=torch.device("cuda"), path="gym_quad/meshes/sphere.obj", radius=1, center_position=torch.tensor([0, 0, 0]))
 
-    # # cy1 = CylinderMeshObstacle(device=torch.device("cuda"), path="gym_quad/meshes/cylinder.obj", radius=1, length=3, center_position=torch.tensor([-5, 0, 0]))
+    cu1 = CubeMeshObstacle(device=torch.device("cuda"), path="gym_quad/meshes/cube.obj", side_length=1, center_position=torch.tensor([5, 0, 0]))
 
-    # # meshes = [s1, cu1, cy1]
 
-    # # scene = Scene(device=torch.device("cuda"), meshes=[s1])
+    obs = [s1, cu1]
     
+    # our_scene = Scene(device=torch.device("cuda"), obstacles=obs)    
     
     # #Use trimesh or pyvista to visualize the meshes
-    # #Trimesh visualization:
-    # # Visualize the mesh
+    #Trimesh visualization:
+    # Visualize the mesh
     
     # trimesh_scene = trimesh.Scene()
-    # # trimesh_scene.add_geometry(cu1.mesh)
+    # trimesh_scene.add_geometry(cu1.mesh)
+    # trimesh_scene.add_geometry(s1.mesh)
 
     # trimesh_scene.show()
-    k=1

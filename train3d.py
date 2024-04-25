@@ -29,18 +29,19 @@ warnings.filterwarnings("ignore", message="No mtl file provided", category=UserW
 
 
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---###
-total_timesteps = 10e6 #15e6
-scenarios = {"line"         :   2.5e5, #Experimental result see Exp 4 on "Jørgen PC"
-             "3d_new"       :   2.5e5,
-             "intermediate" :   total_timesteps*0.2,
-             "proficient"   :   total_timesteps*0.3,
-             "expert"       :   total_timesteps*0.3}
-
-
-
 #TODO add a scenario where theres one obstacle close to path, but not on path which we insert after 3d_new before intermediate
-###---###---###---###---###---###---###---###---###---###---###
+total_timesteps = 10e6 #15e6
+# scenarios = {"line"         :   2.5e5, #Experimental result see Exp 4 on "Jørgen PC"
+#              "3d_new"       :   2.5e5,
+#              "intermediate" :   total_timesteps*0.2,
+#              "proficient"   :   total_timesteps*0.3,
+#              "expert"       :   total_timesteps*0.3}
 
+scenarios = {"vertical"     :   2.5e5}
+
+
+
+###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
 '''From kulkarni paper:
 The neural network is trained with an adaptive learning rate initialized at lr = 10−4. 
 The discount factor is set to γ = 0.98. 
@@ -48,31 +49,35 @@ The neural network is trained with 1024 environments simulated in parallel with 
 and rollout buffer size set to 32. 
 We train this policy for approximately 26 × 10^6 environment steps aggregated over all agents.
 '''
-#TODO implement the above hyperparameters
+#TODO implement the above hyperparameters????
 PPO_hyperparams = {
-    'n_steps': 1024, # lv_vae_config["max_t_steps"] #TODO double check what is reasobale when considered against the time steps of the environment
-    #'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old # Try default (3e-4)
+    'n_steps': 1024, 
     'batch_size': 64,
     'gae_lambda': 0.95,
     'gamma': 0.99, #old:0.99,
     'n_epochs': 4,
-    #'clip_range': 0.2,
     'ent_coef': 0.001, 
     'verbose': 2,
     'device':'cuda', #Will be used for both feature extractor and PPO
+    #'clip_range': 0.2,
+    #'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old # Try default (3e-4)
     #"optimizer_class":torch.optim.Adam, #Throws error (not hos Eirik :)) Now it does idk why sorry man
     #"optimizer_kwargs":{"lr": 10e-4}
 }
-'''Kulkarni paper:
-We define a neural network architecture containing 3 fullyconnected layers consisting of 
-512, 256 and 64 neurons each with an ELU activation layer, followed by a GRU with a hidden layer size of 64. 
-Given an observation vector ot, the policy outputs a 3-dimensional action command at = [at,1, at,2, at,3] with values in [-1, 1]
-'''
 
-encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_1000_seed1.json"
+
+
+###---###---### SELECT POLICYKWARGS HERE - FEATUREEXTRACTOR AND PPO NETWORK ACRHITECTURE ###---###---###
+
+#VAE
 # encoder_path = None #If you want to train the encoder from scratch
-lock_params = True #If you want to lock the encoder parameters
+encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_1000_seed1.json"
+lock_params = True #If you want to lock the encoder parameters or let them be trained
 
+#PPO
+#From Ørjan:    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32])
+#SB3 default:   net_arch = dict(pi=[64, 64], vf=[64, 64])
+#From Kulkarni: net_arch = dict(pi=[512, 256, 64], vf=[512, 256, 64]) #NB: GRU is not included in this probs overkill though
 ppo_pi_vf_arch = dict(pi = [64,64], vf = [64,64]) #The PPO network architecture policy and value function
 
 policy_kwargs = dict(
@@ -85,10 +90,7 @@ policy_kwargs = dict(
     net_arch = ppo_pi_vf_arch
 )
 
-#From Ørjan:    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32])
-#SB3 default:   net_arch = dict(pi=[64, 64], vf=[64, 64])
-#From Kulkarni: net_arch = dict(pi=[512, 256, 64], vf=[512, 256, 64]) #NB: GRU is not included in this
-#There exists a recurrent PPO using LSTM which could be used as replacement for the GRU
+
 
 #-----#------#-----#Temp fix to make the global n_steps variable work pasting the tensorboardlogger class here#-----#------#-----#
 class TensorboardLogger(BaseCallback):
@@ -243,6 +245,7 @@ class TensorboardLogger(BaseCallback):
         pass
 #-----#------#-----#Temp fix to make the global n_steps variable work pasting the tensorboardlogger class above#-----#------#-----#
 #TODO make it work without a global variable please
+
 
 
 """

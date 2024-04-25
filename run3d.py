@@ -40,6 +40,10 @@ if __name__ == "__main__":
     
     experiment_dir, agent_path, args = parse_experiment_info()
 
+    experiment_dir = os.path.join(experiment_dir, args.run_scenario)
+    experiment_dir = os.path.join(experiment_dir, "tests")
+    os.makedirs(experiment_dir, exist_ok=True)
+
     #----#----#For running of file without the need of command line arguments#----#----#
 
     # args = Namespace(manual_control=True) 
@@ -64,7 +68,7 @@ if __name__ == "__main__":
         env = gym.make(args.env, scenario=args.run_scenario)
         agent = PPO.load(agent_path)
 
-        print("Feature extractor:\n", agent.policy.features_extractor) #TODO would be nice if we could get the compressed depth maps from the VAE
+        # print("Feature extractor:\n", agent.policy.features_extractor) # Uncomment to see the feature extractor being used
 
         if args.RT_vis == False:
             for episode in range(args.episodes):
