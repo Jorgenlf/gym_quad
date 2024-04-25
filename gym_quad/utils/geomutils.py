@@ -15,6 +15,16 @@ def pytorch3d_to_enu(pytorch3d_position: torch.Tensor) -> torch.Tensor:
     return torch.tensor([pytorch3d_position[2], pytorch3d_position[0], pytorch3d_position[1]])
 ###
 
+def enu_to_tri(enu_pos: np.ndarray):
+    '''ENU is x-east, y-north, z-up.
+    Trimesh is similar to pytroch3D, x-left, y-up, z-forward.'''
+    return np.array([enu_pos[1], enu_pos[2], enu_pos[0]])
+
+def tri_to_enu(tri_pos: np.ndarray):
+    '''ENU is x-east, y-north, z-up.
+    Trimesh is similar to pytroch3D, x-left, y-up, z-forward.'''
+    return np.array([tri_pos[2], tri_pos[0], tri_pos[1]])
+
 def ssa(angle):
     """ Returns the smallest signed angle in the range [-pi, pi]."""
     return ((angle + np.pi) % (2*np.pi)) - np.pi
