@@ -47,6 +47,11 @@ register(
     kwargs={'env_config': lv_vae_config}
 )
 
+register(
+    id='LV_VAE_MESH-v0',
+    entry_point='gym_quad.envs:LV_VAE_MESH',
+    kwargs={'env_config': lv_vae_config}
+)
 
 
 #OLD vv

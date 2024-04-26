@@ -46,9 +46,12 @@ if __name__ == "__main__":
 
     #----#----#For running of file without the need of command line arguments#----#----#
 
-    # args = Namespace(manual_control=True) 
-    manual_scenario = "proficient" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert"
-
+    args = Namespace(manual_control=True, env = "LV_VAE_MESH-v0") 
+    manual_scenario = "easy" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash"
+    
+    #Temp variables for debugging
+    quad_pos_log = []
+    quad_mesh_pos_log = []
     #----#----#NB uncomment when running actual agents#----#----#
 
     if args.manual_control == False:
@@ -189,6 +192,7 @@ if __name__ == "__main__":
             visualizer.add_text("phi angle vec drone closest point on path deg")
             visualizer.add_text("psi angle vec drone closest point on path deg")
             
+            done = False
             while True:
                 obs, rew, done, _, info = env.step(action=input)
                 quad_pos = env.quadcopter.position
@@ -219,6 +223,13 @@ if __name__ == "__main__":
                 #green closest point on path
                 visualizer.update_point(closest_path_point, [0, 1, 0],"Closest_p_point")
 
+                #For plotting the mesh and quad pos after
+                # quad_pos_log.append(quad_pos)
+                # quad_mesh_pos_log.append(env.quad_mesh_pos)
+
+                #PINK for realtime plotting of the quadcopter  mesh in 
+                visualizer.update_point(env.quad_mesh_pos, color=[160/255, 32/255, 240/255], id="Quad_mesh")
+
                 if update_text: #Relate values to the added text above
                     print("Updating values of text")  
                     rad2deg = 180/np.pi
@@ -242,9 +253,24 @@ if __name__ == "__main__":
                     done = False
                     env.reset()
 
-        env = gym.make("LV_VAE-v0", scenario=manual_scenario, seed=0)
+        env = gym.make(id=args.env, scenario=manual_scenario)
         _manual_control(env)
+        # #plot the path of the quadcopter and its mesh use done as while condition
+        # quad_pos_log = np.array(quad_pos_log)
+        # quad_mesh_pos_log = np.array(quad_mesh_pos_log)
+        # fig = plt.figure()
+        # ax = fig.add_subplot(111, projection='3d')
+        # ax.plot(quad_pos_log[:,0], quad_pos_log[:,1], quad_pos_log[:,2], label='Quadcopter')
+        # ax.plot(quad_mesh_pos_log[:,0], quad_mesh_pos_log[:,1], quad_mesh_pos_log[:,2], label='Quadcopter mesh')
+        # ax.set_xlabel('X')
+        # ax.set_ylabel('Y')
+        # ax.set_zlabel('Z')
+        # plt.legend()
+        # plt.show()
         exit()
+
+
+
 
 ''' To move around in the 3D plot from vispy:
 LMB: orbits the view around its center point.
@@ -274,4 +300,7 @@ Training scenarios
     "horizontal": 
     "vertical": 
     "deadend": 
-'''        
+
+#Dev testing scenarios
+    "crash"
+''' 
