@@ -20,7 +20,7 @@ class LV_VAE(gym.Env):
 
     def __init__(self, env_config, scenario="line"):
         # np.random.seed(0) #Uncomment to make the environment deterministic
-
+        print("ENVIRONMENT: LV_VAE")
         # Set all the parameters from GYM_QUAD/qym_quad/__init__.py as attributes of the class
         for key in env_config:
             setattr(self, key, env_config[key])
