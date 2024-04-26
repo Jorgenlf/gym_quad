@@ -498,7 +498,7 @@ class LV_VAE_MESH(gym.Env):
                 reward_collision_avoidance = range_rew 
             else:
                 reward_collision_avoidance = 0
-            print("Collision avoidance reward:", reward_collision_avoidance)
+            # print("Collision avoidance reward:", reward_collision_avoidance)
             ####Collision avoidance reward done####
 
         #Collision reward (sparse)

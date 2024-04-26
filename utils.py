@@ -328,7 +328,7 @@ def plot_velocity(sim_df,test_dir):
     ax = sim_df.plot(x="Time", y=[r"$u$",r"$v$"], kind="line")
     ax.plot(sim_df["Time"], sim_df[r"$w$"], dashes=[3,3], color="#88DD89", label=r"$w$")
     #Plot the r"$\v_{cmd}$" as the desired velocity
-    ax.plot(sim_df["Time"], sim_df[r"$\v_{cmd}$"], dashes=[3,3], color="#EECC55", label=r"$\v_{cmd}$")
+    ax.plot(sim_df["Time"], sim_df[r"$\v_{cmd}$"], dashes=[3,3], color="#EECC55", label=r"$v_{cmd}$")
     ax.plot
     ax.set_xlabel(xlabel="Time [s]", fontsize=14)
     ax.set_ylabel(ylabel="Velocity [m/s]", fontsize=14)

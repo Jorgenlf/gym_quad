@@ -2,19 +2,15 @@ import os
 import json
 import gymnasium as gym
 import gym_quad
-import stable_baselines3.common.results_plotter as results_plotter
 import numpy as np
-import torch
 import multiprocessing
 import glob
 import re
-from typing import Callable
 
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import BaseCallback #Can remove if using tensorboard logger #TODO
 from gym_quad import lv_vae_config
 from logger import TensorboardLogger
 
@@ -23,8 +19,7 @@ from utils import parse_experiment_info
 
 import warnings
 # Filter out the specific warning
-#NB this is a temporary fix to avoid the warning from pytorch3d
-#Need the mtl file if we want actual images.
+#NB this is a temporary fix to avoid the warning from pytorch3d #Need the mtl file if we want actual images.
 warnings.filterwarnings("ignore", message="No mtl file provided", category=UserWarning, module="pytorch3d.io.obj_io")
 
 
@@ -37,13 +32,12 @@ total_timesteps = 10e6 #15e6
 #              "proficient"   :   total_timesteps*0.3,
 #              "expert"       :   total_timesteps*0.3}
 
-scenarios = {"3d_new"         :   2048,
-             "proficient"     :   2048,
-             "expert"     :   2048}
+# scenarios = {"3d_new"         :   2048,
+#              "proficient"     :   2048,
+#              "expert"     :   2048}
              
 
-# scenarios = {"vertical"     :   2.5e5}
-
+scenarios = {"vertical"     :   2.5e5}
 
 
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###

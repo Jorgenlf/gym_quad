@@ -11,7 +11,10 @@ class TensorboardLogger(BaseCallback):
     :param verbose: Verbosity level: 0 for no output, 1 for info messages, 2 for debug messages
     
     To open tensorboard after/during training, run the following command in terminal:
+    nonmesh:
     tensorboard --logdir 'log/LV_VAE-v0/Experiment x'
+    mesh:
+    tensorboard --logdir 'log/LV_VAE_MESH-v0/Experiment x'
     '''
 
     def __init__(self, agents_dir=None, verbose=0, log_freq=1024, save_freq=10000):
