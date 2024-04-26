@@ -25,6 +25,7 @@ warnings.filterwarnings("ignore", message="No mtl file provided", category=UserW
 
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---###
 #TODO add a scenario where theres one obstacle close to path, but not on path which we insert after 3d_new before intermediate
+#TODO add or modify scenario such that orientation is not always pointing along the path such that the agent has to learn how to use the yaw
 total_timesteps = 10e6 #15e6
 # scenarios = {"line"         :   2.5e5, #Experimental result see Exp 4 on "Jørgen PC"
 #              "3d_new"       :   2.5e5,
@@ -37,7 +38,12 @@ total_timesteps = 10e6 #15e6
 #              "expert"     :   2048}
              
 
-scenarios = {"easy"     :   5e5}
+scenarios = {   "line"          :   2e5,
+                "easy"          :   1e6,
+                "proficient"    :   1e6,
+                "intermediate"  :   1e6,
+                "expert"        :   1e6
+             }
 
 
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###

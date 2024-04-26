@@ -1,6 +1,12 @@
 from gymnasium.envs.registration import register
 import numpy as np
 
+def deg2rad(deg):
+    return deg * np.pi / 180
+
+def rad2deg(rad):
+    return rad * 180 / np.pi
+
 lv_vae_config = {
 #General parameters    
     "step_size"                 : 0.01,         # Step size of the simulation
@@ -16,29 +22,29 @@ lv_vae_config = {
     "compressed_depth_map_size" : 224,          # Size of depth map after compression
     "latent_dim"                : 32,           # Dimension of the latent space
 #Path planner parameters
-    "la_dist"                   : 12,            # Look ahead distance aka distance to the point on path to be followed
-    "accept_rad"                : 2,            # Acceptance radius for the quadcopter to consider the end as reached
+    "la_dist"                   : 20,            # Look ahead distance aka distance to the point on path to be followed
+    "accept_rad"                : 5,            # Acceptance radius for the quadcopter to consider the end as reached
     "n_waypoints"               : 4,            # Number of waypoints to be generated
 #Drone controller parameters
-    "s_max"                     : 3.5,          # Maximum speed of the quadcopter m/s
-    "i_max"                     : 80/2 * np.pi/180,      # Maximum inclination angle of commanded velocity wrt x-axis #TODO decide this now set it to half of vertical sensor span
-    "r_max"                     : 0.5,          # Maximum commanded yaw rate rad/s
+    "s_max"                     : 2.5,          # Maximum speed of the quadcopter m/s
+    "i_max"                     : deg2rad(80/2),      # Maximum inclination angle of commanded velocity wrt x-axis #TODO decide this now set it to half of vertical sensor span
+    "r_max"                     : deg2rad(30),          # Maximum commanded yaw rate rad/s
     "kv"                        : 2.5,          # Velocity gain             Been for long time: 2.5
     "kangvel"                   : 0.8,          # Angular velocity gain     Been for long time: 0.8
     "kR"                        : 0.8,          # Attitude gain             Been for long time: 0.8
 #Reward parameters
     "min_reward"                : -1e4,         # Minimum reward before the simulation is terminated
-    'PA_band_edge'              : 8,            # edge of Path adherence band
-    'PA_scale'                  : 5,            # scale of Path adherence reward [-PA_scale, PA_scale]
+    'PA_band_edge'              : 10,            # edge of Path adherence band
+    'PA_scale'                  : 3,            # scale of Path adherence reward [-PA_scale, PA_scale]
     'PP_vel_scale'              : 0.7,          # scaling of velocity reward e.g. 1-> make 2.5m/s
     'PP_rew_max'                : 2.5,          # maximum reward for path progression
     'PP_rew_min'                : -1,           # minimum reward for path progression
     'rew_collision'             : -50,          # reward for collision
     'rew_reach_end'             : 30,           # reward for reaching the end of the path
-    'existence_reward'          : -0.001,       # reward for existing
+    'existence_reward'          : -0.005,       # reward for existing
     'danger_range'              : 10,          # Range between quadcopter and obstacle within which the quadcopter is in danger #TODO change this to the max_depth?
-    'danger_angle'              : 20,           # Angle between quadcopter and obstacle within which the quadcopter is in danger
-    'abs_inv_CA_min_rew'        : 1/8,          #1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x
+    'danger_angle'              : 20,           # Angle between quadcopter and obstacle within which the quadcopter is in danger #TODO this is outdated for mesh env unless we get global distances somehow
+    'abs_inv_CA_min_rew'        : 1/16,          #1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x
 }
 
 register(
