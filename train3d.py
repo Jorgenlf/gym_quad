@@ -37,7 +37,7 @@ total_timesteps = 10e6 #15e6
 #              "expert"     :   2048}
              
 
-scenarios = {"vertical"     :   2.5e5}
+scenarios = {"easy"     :   5e5}
 
 
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###

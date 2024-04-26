@@ -233,7 +233,7 @@ class LV_VAE_MESH(gym.Env):
         else:
             temp_depth_map = self.depth_map #Handles the case where there are no obstacles
 
-        self.closest_measurement = torch.min(temp_depth_map).item() #TODO this obly gives the sensors closest but not globally closests might be troublesome for reward calc?
+        self.closest_measurement = torch.min(temp_depth_map) #TODO this obly gives the sensors closest but not globally closests might be troublesome for reward calc?
         
         # if self.closest_measurement < self.max_depth:
         #     print("Closest measurement:", self.closest_measurement, "  Max depth:", self.max_depth)
@@ -259,6 +259,7 @@ class LV_VAE_MESH(gym.Env):
         #Per now we cast to np.array here
 
         sensor_readings = resized_depth_map.detach().cpu().numpy() 
+        self.closest_measurement = self.closest_measurement.item()  #Moves from CPU to GPU if closest meas is on GPU..
         
         #To check if observation is outside bounds
         # if max(sensor_readings.flatten()) > 1 or min(sensor_readings.flatten()) < 0:
