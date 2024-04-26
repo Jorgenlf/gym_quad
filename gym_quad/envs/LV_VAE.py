@@ -350,12 +350,12 @@ class LV_VAE(gym.Env):
             self.waypoint_index = k
 
         # Check collision #TODO must be updated if we only use meshes
-        self.update_nearby_obstacles(all=True)
-
-        for obstacle in self.all_nearby_obstacles:
-            quad_pos_torch = torch.tensor(self.quadcopter.position, dtype=torch.float32, device=self.device)
-            if torch.norm(obstacle.position - quad_pos_torch) <= obstacle.radius + self.quadcopter.safety_radius:
-                self.collided = True
+        if self.obstacles != []:
+            self.update_nearby_obstacles(all=True)
+            for obstacle in self.all_nearby_obstacles:
+                quad_pos_torch = torch.tensor(self.quadcopter.position, dtype=torch.float32, device=self.device)
+                if torch.norm(obstacle.position - quad_pos_torch) <= obstacle.radius + self.quadcopter.safety_radius:
+                    self.collided = True
 
         end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad and self.waypoint_index == self.n_waypoints-2
         # end_cond_2 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
@@ -632,14 +632,15 @@ class LV_VAE(gym.Env):
                 and abs(heading_angle_BODY) <= self.FOV_horizontal*np.pi/180 \
                 and abs(pitch_angle_BODY) <= self.FOV_vertical*np.pi/180:
                     self.nearby_obstacles.append(obstacle)
-                elif all==True \
+                #check if we must add obstacle to all nearby obstacles for collision detection
+                if all==True \
                     and distance <= obstacle.radius + self.quadcopter.safety_radius: #This essentially gives 360 degree FOV which we do not have. Only used for collision detection now
                     self.all_nearby_obstacles.append(obstacle)
 
-                if all==True:
-                    self.all_nearby_obstacles.sort(key=lambda x: torch.norm(x.position - quad_pos_torch)) # Sort the obstacles such that the closest one is first
-                else:
-                    self.nearby_obstacles.sort(key=lambda x: torch.norm(x.position - quad_pos_torch)) 
+            if all==True:
+                self.all_nearby_obstacles.sort(key=lambda x: torch.norm(x.position - quad_pos_torch)) # Sort the obstacles such that the closest one is first
+            else:
+                self.nearby_obstacles.sort(key=lambda x: torch.norm(x.position - quad_pos_torch)) 
 
     #### PLOTTING ####
     def axis_equal3d(self, ax):

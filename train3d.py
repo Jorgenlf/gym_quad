@@ -37,7 +37,12 @@ total_timesteps = 10e6 #15e6
 #              "proficient"   :   total_timesteps*0.3,
 #              "expert"       :   total_timesteps*0.3}
 
-scenarios = {"vertical"     :   2.5e5}
+scenarios = {"3d_new"         :   2048,
+             "proficient"     :   2048,
+             "expert"     :   2048}
+             
+
+# scenarios = {"vertical"     :   2.5e5}
 
 
 
@@ -365,4 +370,8 @@ if __name__ == '__main__':
         save_path = os.path.join(agents_dir, "last_model.zip")
         agent.save(save_path)
         print("SAVE SUCCESSFUL")
+        env.close()
+        del env
+        del agent
+        print("ENVIRONMENT CLOSED\n")        
     # print(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")

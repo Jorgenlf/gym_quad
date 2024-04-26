@@ -339,18 +339,18 @@ class QPMI():
 def generate_random_waypoints(nwaypoints,scen):
     waypoints = [np.array([0,0,0])]
 
-    if scen == '3d':
-        for i in range(nwaypoints-1):
-            distance = 50
-            azimuth = np.random.uniform(-np.pi/4, np.pi/4)
-            elevation = np.random.uniform(-np.pi/4, np.pi/4)
-            x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
-            y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
-            z = waypoints[i][2] + distance*np.sin(elevation)
-            wp = np.array([x, y, z])
-            waypoints.append(wp)
+    # if scen == '3d':
+    #     for i in range(nwaypoints-1):
+    #         distance = 50
+    #         azimuth = np.random.uniform(-np.pi/4, np.pi/4)
+    #         elevation = np.random.uniform(-np.pi/4, np.pi/4)
+    #         x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
+    #         y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
+    #         z = waypoints[i][2] + distance*np.sin(elevation)
+    #         wp = np.array([x, y, z])
+    #         waypoints.append(wp)
 
-    elif scen =='3d_new':
+    if scen =='3d_new':
         a_start_angle=np.random.uniform(-np.pi,np.pi)
         e_start_angle=np.random.uniform(-np.pi,np.pi) 
         e_start_angle=0
