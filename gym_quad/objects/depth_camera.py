@@ -52,23 +52,32 @@ class DepthMapRenderer:
         # Initilized to 62.5 for the default FoVPerspectiveCamera settings with a 60 degree FOV and image size of 240x320
         # Initilized to 46.6 for the default FoVPerspectiveCamera settings with a 75 degree FOV and image size of 240x320
 
+        #Computation of how to rescale the depth map to correct for perspective distortion
         self.k = 46.6
         self.img_size = img_size
+        self.x_grid, self.y_grid = torch.meshgrid(torch.arange(self.img_size[0], device=self.device), torch.arange(self.img_size[1], device=self.device), indexing='ij')
+        # Compute distance from center for each pixel
+        self.center = torch.tensor(self.img_size, device=self.device)/2
+        self.dist_from_center = torch.norm(torch.stack([self.x_grid, self.y_grid], dim=-1) - self.center, dim=-1)
+        # Amplify dist tensor by 1/k
+        self.dist_from_center = self.dist_from_center / self.k
     
     def render_depth_map(self):
         """
-        Renders a depth map of the scene seen from the current camera position and orientation by performing rasterization 
+        Renders a depth map of the scene seen from the current camera position and orientation by performing rasterization
         and then correcting for perspective distortions. Also performs saturation of infinite and NaN depth values.
         """
         # Render depth map via rasterization
         fragments = self.rasterizer(self.scene.joined_scene)
         zbuf = fragments.zbuf
         depth = torch.squeeze(zbuf).to(self.device)
-
+ 
         # Saturate infinite and NaN depth values
-        depth[depth == -1.0] = self.max_measurable_depth
-        depth[depth >= self.max_measurable_depth] = self.max_measurable_depth
-
+        #depth[depth == -1.0] = self.max_measurable_depth
+        #depth[depth >= self.max_measurable_depth] = self.max_measurable_depth
+        depth.masked_fill_(depth == -1.0, self.max_measurable_depth)
+        depth.clamp_(max=self.max_measurable_depth)
+ 
         # Correct for perspective distortion
         depth = self.correct_distorion(depth)
         return depth
@@ -78,21 +87,11 @@ class DepthMapRenderer:
         Corrects for perspective distortion in the depth map by calculating the depth values to the camera center
         instead of to the image plane for each pixel in the image.
         """
-        # Create grids of x and y coordinates
-        x_grid, y_grid = torch.meshgrid(torch.arange(self.img_size[0], device=self.device), torch.arange(self.img_size[1], device=self.device), indexing='ij')
-
-        # Compute distance from center for each pixel
-        center = torch.tensor(self.img_size, device=self.device)/2
-        dist_from_center = torch.norm(torch.stack([x_grid, y_grid], dim=-1) - center, dim=-1)
-
-        # Amplify dist tensor by 1/k
-        dist_from_center = dist_from_center / self.k
-
+ 
         # Correct for perspective distortion at indices where depth is not infinite
-        depth = torch.where(depth < self.max_measurable_depth, torch.sqrt(torch.pow(depth,2) + torch.pow(dist_from_center,2)), depth).to(self.device)
-        depth[depth >= self.max_measurable_depth] = self.max_measurable_depth
+        depth = torch.where(depth < self.max_measurable_depth, torch.sqrt(torch.pow(depth,2) + torch.pow(self.dist_from_center,2)), self.max_measurable_depth).to(self.device)
         return depth
-    
+
     def render_scene(self, light_location=(5, 5, 0)):
         """
         Renders the scene from the current camera position and orientation with the given point light location.
@@ -227,13 +226,13 @@ if __name__ == "__main__":
     sphere_renderer = DepthMapRenderer(device=device,camera=camera,scene =spherescene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE)
 
     #Generating n_steps positions and orientations for the camera in ENU frame
-    n_steps = 24
+    n_steps = 24*4
     positions = np.zeros((n_steps, 3)) # x, y, z in meters
     orientations = np.zeros((n_steps, 3)) # roll about x, pitch about y, yaw about z (ENU) in radians
 
     
     ####Change this to visualize different scenes and movement of the camera
-    referencetype = 'circle' 
+    referencetype = 'spin' 
     # 'line' - Camera moves in a line along the x-axis
     # 'circle' - Camera moves in a circle around the origin
     # 'spin' - Camera spins about its z axis (ENU) with position equal to the the origin
@@ -249,7 +248,7 @@ if __name__ == "__main__":
             positions[i] = np.array([6*np.cos(i/param*np.pi), 6*np.sin(i/param*np.pi), 0]) # x, y, z in meters 
             orientations[i] = np.array([0, 0, np.pi + i/param*np.pi]) # roll, pitch, yaw in radians
         elif referencetype == 'spin':
-            positions[i] = np.array([0, 0, 0])
+            positions[i] = np.array([0.1, 0, 0])
             orientations[i] = np.array([0, 0, i/param*np.pi])
 
     circle_renderer = None
