@@ -28,7 +28,7 @@ grand_parent_dir = os.path.dirname(parent_dir)
 sys.path.append(grand_parent_dir)
 
 from gym_quad.utils.geomutils import enu_to_pytorch3d, pytorch3d_to_enu, Rzyx
-from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle
+from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle
 
 
 class DepthMapRenderer:
@@ -199,12 +199,9 @@ if __name__ == "__main__":
     #init camera
     camera = FoVPerspectiveCameras(device=device, fov=FOV)
 
-    #init scene
+    #obstacle creation
     unit_sphere_path = "gym_quad/meshes/sphere.obj"
     obs1 = SphereMeshObstacle(device, unit_sphere_path, 2.0, torch.tensor([4, 0, 8]))
-    print(obs1.center_position)
-    print(obs1.radius)
-
     obs2 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=4.0, center_position=torch.tensor([2, 4, 5]))
     obs3 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.3, center_position=torch.tensor([-4, 0, 12]))
     obs4 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.1, center_position=torch.tensor([3, 0, 15]))
@@ -215,6 +212,7 @@ if __name__ == "__main__":
     #Test of returning plot variables
     x,y,z = obs1.return_plot_variables()
 
+    #init of scene
     spherescene = Scene(device=device, obstacles=[obs1, obs2, obs3, obs4, obs5, obs6, obs7])
 
     #Init rasterizer
@@ -226,24 +224,50 @@ if __name__ == "__main__":
     cull_backfaces=True # Do not render backfaces. MAKE SURE THIS IS OK WITH THE GIVEN MESH.
     )
 
-    renderer = DepthMapRenderer(device=device,camera=camera,scene =spherescene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE)
+    sphere_renderer = DepthMapRenderer(device=device,camera=camera,scene =spherescene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE)
 
     #Generating n_steps positions and orientations for the camera in ENU frame
     n_steps = 24
     positions = np.zeros((n_steps, 3)) # x, y, z in meters
     orientations = np.zeros((n_steps, 3)) # roll about x, pitch about y, yaw about z (ENU) in radians
 
-    referencetype = 'line' # 'circle', 'line', 
+    
+    ####Change this to visualize different scenes and movement of the camera
+    referencetype = 'circle' 
+    # 'line' - Camera moves in a line along the x-axis
+    # 'circle' - Camera moves in a circle around the origin
+    # 'spin' - Camera spins about its z axis (ENU) with position equal to the the origin
+    ####
 
     for i in range (n_steps):
         param = n_steps/2
         #Circle around origin with radius 6
-        if referencetype == 'circle':
-            positions[i] = np.array([6*np.cos(i/param*np.pi), 6*np.sin(i/param*np.pi), 0]) # x, y, z in meters 
-            orientations[i] = np.array([0, 0, np.pi + i/param*np.pi]) # roll, pitch, yaw in radians
-        elif referencetype == 'line':
+        if referencetype == 'line': #Uses the sphere_renderer already created above
             positions[i] = np.array([i, 0, 0])
             orientations[i] = np.array([0, 0, 0])
+        elif referencetype == 'circle':
+            positions[i] = np.array([6*np.cos(i/param*np.pi), 6*np.sin(i/param*np.pi), 0]) # x, y, z in meters 
+            orientations[i] = np.array([0, 0, np.pi + i/param*np.pi]) # roll, pitch, yaw in radians
+        elif referencetype == 'spin':
+            positions[i] = np.array([0, 0, 0])
+            orientations[i] = np.array([0, 0, i/param*np.pi])
+
+    circle_renderer = None
+    spin_renderer = None
+    unit_cube_path = "gym_quad/meshes/cube.obj"
+    
+    if referencetype == 'circle':
+        obs1 = CubeMeshObstacle(device, unit_cube_path, 5.0, torch.tensor([0, 0, 0]))
+        # obs2 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=1.0, center_position=torch.tensor([5, 0, 0]))
+        circle_scene = Scene(device=device, obstacles=[obs1])
+        circle_renderer = DepthMapRenderer(device=device,camera=camera, scene=circle_scene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE)
+    
+    elif referencetype == 'spin':
+        obs1 = CubeMeshObstacle(device, unit_cube_path, 8.0, torch.tensor([0, 0, 0]))
+        
+        spin_scene = Scene(device=device, obstacles=[obs1])   
+        spin_renderer = DepthMapRenderer(device=device,camera=camera, scene=spin_scene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE) 
+
 
     #NB SAVES THEM TO THE TEST_IMG FOLDER IN THE TESTS FOLDER
     path_to_save_depth_maps = os.path.join(grand_parent_dir, "gym_quad/tests/test_img/depth_maps/")
@@ -251,9 +275,24 @@ if __name__ == "__main__":
     for i in tqdm(range(n_steps)):
         position = positions[i]
         orientation = orientations[i]
-
-        R, T = renderer.camera_R_T_from_quad_pos_orient(position, orientation)
-        renderer.update_R(R)
-        renderer.update_T(T)
-        depth_map = renderer.render_depth_map()
-        renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)        
+        
+        if referencetype == 'line':        
+            R, T = sphere_renderer.camera_R_T_from_quad_pos_orient(position, orientation)
+            sphere_renderer.update_R(R)
+            sphere_renderer.update_T(T)
+            depth_map = sphere_renderer.render_depth_map()
+            sphere_renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)
+        
+        elif referencetype == 'circle':
+            R, T = circle_renderer.camera_R_T_from_quad_pos_orient(position, orientation)
+            circle_renderer.update_R(R)
+            circle_renderer.update_T(T)
+            depth_map = circle_renderer.render_depth_map()
+            circle_renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)
+        
+        elif referencetype == 'spin':
+            R, T = spin_renderer.camera_R_T_from_quad_pos_orient(position, orientation)
+            spin_renderer.update_R(R)
+            spin_renderer.update_T(T)
+            depth_map = spin_renderer.render_depth_map()
+            spin_renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)        

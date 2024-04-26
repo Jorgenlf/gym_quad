@@ -235,8 +235,8 @@ class LV_VAE_MESH(gym.Env):
 
         self.closest_measurement = torch.min(temp_depth_map).item() #TODO this obly gives the sensors closest but not globally closests might be troublesome for reward calc?
         
-        if self.closest_measurement < self.max_depth:
-            print("Closest measurement:", self.closest_measurement, "  Max depth:", self.max_depth)
+        # if self.closest_measurement < self.max_depth:
+        #     print("Closest measurement:", self.closest_measurement, "  Max depth:", self.max_depth)
             
 
         normalized_depth_map = temp_depth_map / self.max_depth
@@ -373,20 +373,14 @@ class LV_VAE_MESH(gym.Env):
 
         # Check collision Do it out here and not inside the loop above to save time and not check every time step
         if self.obstacles != []:
-            if self.total_t_steps == 0:
-                translation = enu_to_tri(self.quadcopter.position - self.prev_quad_pos)
-            elif self.total_t_steps > 0:
-                translation = enu_to_tri(self.quadcopter.position - self.prev_quad_pos)
-
+            translation = enu_to_tri(self.quadcopter.position - self.prev_quad_pos)
             self.tri_quad_mesh.apply_translation(translation)
             self.collided = self.collision_manager.in_collision_single(self.tri_quad_mesh)
         self.prev_quad_pos = self.quadcopter.position   
-        #Temp save mesh pos for plotting and debugging
+        #Temp save mesh pos for plotting and debugging in run3d.py
         self.quad_mesh_pos = tri_to_enu(self.tri_quad_mesh.vertices[0])
 
-        
-
-
+        #Such that the oberservation has access to the previous action
         self.prev_action = action
 
         self.prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
@@ -474,11 +468,17 @@ class LV_VAE_MESH(gym.Env):
         if self.obstacles != []: #If there are no obstacles, no need to calculate the reward
             inv_abs_min_rew = self.abs_inv_CA_min_rew 
             danger_range = self.danger_range
-            danger_angle = self.danger_angle            
-            # quad_pos_torch = torch.tensor(self.quadcopter.position, dtype=torch.float32, device=self.device) #OLD
+            
+            #OLD
+            # danger_angle = self.danger_angle            
+            # quad_pos_torch = torch.tensor(self.quadcopter.position, dtype=torch.float32, device=self.device) 
             # drone_closest_obs_dist = torch.norm(self.nearby_obstacles[0].position - quad_pos_torch).item() - self.nearby_obstacles[0].radius
+
             drone_closest_obs_dist = self.closest_measurement #TODO now we only use the depth map to determine the closest obstacle Can probably use trimesh to determine the closest obstacle in the mesh
+            
             #Determine lambda reward for path following and path adherence based on the distance to the closest obstacle
+            #This would benefit from using global information about the obstacles
+            #Can let it trickle back to normal based on time assuming that the quadcopter will have moved away from the obstacle
             if (drone_closest_obs_dist < danger_range):
                 lambda_PA = (drone_closest_obs_dist/danger_range)/2
                 if lambda_PA < 0.10 : lambda_PA = 0.10
@@ -498,6 +498,7 @@ class LV_VAE_MESH(gym.Env):
                 reward_collision_avoidance = range_rew 
             else:
                 reward_collision_avoidance = 0
+            print("Collision avoidance reward:", reward_collision_avoidance)
             ####Collision avoidance reward done####
 
         #Collision reward (sparse)

@@ -47,7 +47,7 @@ if __name__ == "__main__":
     #----#----#For running of file without the need of command line arguments#----#----#
 
     args = Namespace(manual_control=True, env = "LV_VAE_MESH-v0") 
-    manual_scenario = "easy" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash"
+    manual_scenario = "crash" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash", "easy"
     
     #Temp variables for debugging
     quad_pos_log = []
@@ -227,8 +227,8 @@ if __name__ == "__main__":
                 # quad_pos_log.append(quad_pos)
                 # quad_mesh_pos_log.append(env.quad_mesh_pos)
 
-                #PINK for realtime plotting of the quadcopter  mesh in 
-                visualizer.update_point(env.quad_mesh_pos, color=[160/255, 32/255, 240/255], id="Quad_mesh")
+                #blue point for realtime plotting of the quadcopter mesh 
+                visualizer.update_point(env.quad_mesh_pos, color=[0,0,1], id="Quad_mesh")
 
                 if update_text: #Relate values to the added text above
                     print("Updating values of text")  
