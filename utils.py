@@ -144,10 +144,16 @@ def save_depth_maps(env, test_dir):
     if not os.path.exists(path):
         os.mkdir(path)
 
-    if env.nearby_obstacles != []: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
-        env.renderer.save_depth_map(f"{path}/depth_map_{env.total_t_steps}", env.depth_map)
-    else:
-        pass
+    try:
+        if env.nearby_obstacles != []: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
+            env.renderer.save_depth_map(f"{path}/depth_map_{env.total_t_steps}", env.depth_map)
+        else:
+            pass
+    except AttributeError:
+        if env.closest_measurement < env.danger_range: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
+            env.renderer.save_depth_map(f"{path}/depth_map_{env.total_t_steps}", env.depth_map)
+        else:
+            pass
         #Comment/uncomment if you want to save the empty depth maps from envs without obstacles
         # depth=env.depth_map
         # path = f"{path}/depth_map_{env.total_t_steps}"
