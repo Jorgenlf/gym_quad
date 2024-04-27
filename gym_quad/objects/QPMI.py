@@ -315,7 +315,7 @@ class QPMI():
         return self(u_lookahead)
 
 
-    def plot_path(self, wps_on=True):
+    def plot_path(self, wps_on=True, leave_out_first_wp=True):
         u = np.linspace(self.us[0], self.us[-1], 10000)
         quadratic_path = []
         for du in u:
@@ -323,16 +323,24 @@ class QPMI():
             self.get_direction_angles(du)
         quadratic_path = np.array(quadratic_path)
         ax = plt.axes(projection='3d')
-        ax.plot3D(xs=quadratic_path[:,0], ys=quadratic_path[:,1], zs=quadratic_path[:,2], color="#3388BB", label="Path")
+        ax.plot3D(xs=quadratic_path[:,0], ys=quadratic_path[:,1], zs=quadratic_path[:,2], color="#3388BB", label="Path", linestyle="dotted")
         if wps_on:
             for i, wp in enumerate(self.waypoints):
+                if i == 0 and leave_out_first_wp: continue
                 if i == 1: ax.scatter3D(*wp, color="#EE6666", label="Waypoints")
                 else: ax.scatter3D(*wp, color="#EE6666")
         
-        ax.set_xlabel(xlabel=r"$x_w$ [m]", fontsize=14)
-        ax.set_ylabel(ylabel=r"$y_w$ [m]", fontsize=14)
-        ax.set_zlabel(zlabel=r"$z_w$ [m]", fontsize=14)
-
+        #Turn off ticks
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_zticks([])
+        
+        # ax.set_xlabel(xlabel=r"$x_w$ [m]", fontsize=14)
+        # ax.set_ylabel(ylabel=r"$y_w$ [m]", fontsize=14)
+        # ax.set_zlabel(zlabel=r"$z_w$ [m]", fontsize=14)
+        # ax.set_xlabel(xlabel="x [m]")
+        # ax.set_ylabel(ylabel="y [m]")
+        # ax.set_zlabel(zlabel="z [m]")
         return ax
 
 

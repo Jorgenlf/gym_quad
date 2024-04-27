@@ -6,14 +6,20 @@ from scipy.stats import skew, kurtosis, entropy
 from tqdm import tqdm
 
 locations = ["office", "hallway", "stairs", "glassgaarden", "el5", "elbygget_longdistances", "hallway2", "hsp_human", "hsp_trees", "ohma", "parkinglot", "stairs_2"]
-basepath = "data/realsense_data_v2"
+basepath = "data/synthetic_depthmaps/"
 
-savepath = "data/realsense_distributions_v2/"
+savepath = "data/synthetic_distributions_v2/"
+os.makedirs(savepath, exist_ok=True)
 
 # Collect all images in this list
 images = []
-for location in locations:
-    images.extend(os.listdir(f"{basepath}/{location}/depth_imgs"))
+#for location in locations:
+#    images.extend(os.listdir(f"{basepath}/{location}/depth_imgs"))
+
+images = os.listdir(basepath)
+
+#truncate list for testing
+images = images[:10000]
 
 print(len(images))
 
@@ -29,8 +35,8 @@ depth_stats = {
     'entropy': []
 }
 
-divide_by_to_get_meters = 1000
-thresh_depth = 10000 # 10 meters
+divide_by_to_get_meters = 1 # 1000
+thresh_depth = 10 #10000 # 10 meters
 max_depth_meters = 65535 / divide_by_to_get_meters
 
 num_bins = 100
@@ -41,44 +47,45 @@ num_bins = 100
 bin_edges_trunc = np.linspace(0, thresh_depth/divide_by_to_get_meters, num_bins+1)
 hist_counts_trunc = np.zeros(num_bins, dtype=np.int64)
 
-for loc in locations:
-    images = os.listdir(f"{basepath}/{loc}/depth_imgs")
-    for image in tqdm(images, desc="Processing images"):
-        im = cv2.imread(f"{basepath}/{loc}/depth_imgs/{image}", cv2.IMREAD_ANYDEPTH)
+#for loc in locations:
+    #images = os.listdir(f"{basepath}/{loc}/depth_imgs")
+for image in tqdm(images, desc="Processing images"):
+    #im = cv2.imread(f"{basepath}/{loc}/depth_imgs/{image}", cv2.IMREAD_ANYDEPTH)
+    im = cv2.imread(f"{basepath}/{image}", cv2.IMREAD_ANYDEPTH)
 
-        im[im > thresh_depth] = thresh_depth
-        im = im / divide_by_to_get_meters
-        flattened_im = im.flatten()
+    #im[im > thresh_depth] = thresh_depth
+    #im = im / divide_by_to_get_meters
+    flattened_im = im.flatten()
 
-        # Incrementally build histogram, needed bc. task is killed if too much memory is used
-        indices = np.searchsorted(bin_edges, flattened_im, side='right') - 1
-        indices[indices == num_bins] = num_bins - 1  # Adjust indices that are out of bounds
-        np.add.at(hist_counts, indices, 1)
+    # Incrementally build histogram, needed bc. task is killed if too much memory is used
+    indices = np.searchsorted(bin_edges, flattened_im, side='right') - 1
+    indices[indices == num_bins] = num_bins - 1  # Adjust indices that are out of bounds
+    np.add.at(hist_counts, indices, 1)
 
-        # Truncated histogram
-        im_trunc = im.copy()
-        im_trunc[im_trunc > thresh_depth/divide_by_to_get_meters] = thresh_depth/divide_by_to_get_meters
-        flattened_im_trunc = im_trunc.flatten()
-        indices_trunc = np.searchsorted(bin_edges_trunc, flattened_im_trunc, side='right') - 1
-        indices_trunc[indices_trunc == num_bins] = num_bins - 1  # Adjust indices that are out of bounds
-        np.add.at(hist_counts_trunc, indices_trunc, 1)
+    # Truncated histogram
+    #im_trunc = im.copy()
+    #im_trunc[im_trunc > thresh_depth/divide_by_to_get_meters] = thresh_depth/divide_by_to_get_meters
+    #flattened_im_trunc = im_trunc.flatten()
+    #indices_trunc = np.searchsorted(bin_edges_trunc, flattened_im_trunc, side='right') - 1
+    #indices_trunc[indices_trunc == num_bins] = num_bins - 1  # Adjust indices that are out of bounds
+    #np.add.at(hist_counts_trunc, indices_trunc, 1)
 
-        # Collect stats
-        #pixels_batch.extend(flattened_im)
-        depth_stats['mean'].append(np.mean(flattened_im))
-        depth_stats['median'].append(np.median(flattened_im))
-        depth_stats['std'].append(np.std(flattened_im))
-        depth_stats['min'].append(np.min(flattened_im))
-        depth_stats['max'].append(np.max(flattened_im))
-        depth_stats['skewness'].append(skew(flattened_im))
-        depth_stats['kurtosis'].append(kurtosis(flattened_im))
-        depth_stats['entropy'].append(entropy(flattened_im))
+    # Collect stats
+    #pixels_batch.extend(flattened_im)
+    depth_stats['mean'].append(np.mean(flattened_im))
+    depth_stats['median'].append(np.median(flattened_im))
+    depth_stats['std'].append(np.std(flattened_im))
+    depth_stats['min'].append(np.min(flattened_im))
+    depth_stats['max'].append(np.max(flattened_im))
+    depth_stats['skewness'].append(skew(flattened_im))
+    depth_stats['kurtosis'].append(kurtosis(flattened_im))
+    depth_stats['entropy'].append(entropy(flattened_im))
 
  
 
 # Calculate bin centers from bin_edges for plotting
 bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
-bin_centers_trunc = 0.5 * (bin_edges_trunc[:-1] + bin_edges_trunc[1:])
+#bin_centers_trunc = 0.5 * (bin_edges_trunc[:-1] + bin_edges_trunc[1:])
 
 
 # Save arrays to file
@@ -111,13 +118,13 @@ plt.xlabel('Depth [m]')
 plt.ylabel('Number of Pixels')
 plt.savefig(f"{savepath}depth_histogram_saturated.pdf", bbox_inches='tight')
 
-plt.figure()
-bin_centers_trunc[-1] = bin_centers_trunc[-3]
-hist_counts_trunc[-1] = hist_counts_trunc[-3]
-plt.bar(bin_centers_trunc, hist_counts_trunc, width=np.diff(bin_edges_trunc))
-plt.xlabel('Depth [m]')
-plt.ylabel('Number of Pixels')
-plt.savefig(f"{savepath}depth_histogram_trunc.pdf", bbox_inches='tight')
+#plt.figure()
+#bin_centers_trunc[-1] = bin_centers_trunc[-3]
+#hist_counts_trunc[-1] = hist_counts_trunc[-3]
+#plt.bar(bin_centers_trunc, hist_counts_trunc, width=np.diff(bin_edges_trunc))
+#plt.xlabel('Depth [m]')
+#plt.ylabel('Number of Pixels')
+#plt.savefig(f"{savepath}depth_histogram_trunc.pdf", bbox_inches='tight')
 
 
 # Plot additional statistics

@@ -84,7 +84,8 @@ class LV_VAE(gym.Env):
             "test": self.scenario_test,
             "horizontal": self.scenario_horizontal_test,
             "vertical": self.scenario_vertical_test,
-            "deadend": self.scenario_deadend_test
+            "deadend": self.scenario_deadend_test,
+            "crash": self.scenario_dev_test_crash,
         }
 
         #New init values for sensor using depth camera, mesh and pt3d
@@ -662,15 +663,15 @@ class LV_VAE(gym.Env):
         # plt.show()
         return ax
 
-    def plot3D(self, wps_on=True):
+    def plot3D(self, wps_on=True, leave_out_first_wp=True):
         """
         Returns 3D plot of path and obstacles.
         """
-        ax = self.path.plot_path(wps_on)
+        ax = self.path.plot_path(wps_on, leave_out_first_wp=leave_out_first_wp)
         for obstacle in self.obstacles:
             ax.plot_surface(*obstacle.return_plot_variables(), color='r', zorder=1)
-
-        return self.axis_equal3d(ax)
+            ax.set_aspect('equal', adjustable='datalim')
+        return ax#self.axis_equal3d(ax)
 
     def plot_section3d(self):
         """
@@ -936,4 +937,18 @@ class LV_VAE(gym.Env):
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
         self.obstacles.append(SphereMeshObstacle(radius = 100,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
 
+        return initial_state
+
+
+    def scenario_dev_test_crash(self):
+        initial_state = np.zeros(6)
+        waypoints = generate_random_waypoints(3,'line')
+        self.path = QPMI(waypoints)
+        init_pos = [0, 0, 0]
+        init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
+        initial_state = np.hstack([init_pos, init_attitude])
+        #Place one large obstacle at the second waypoint
+        obstacle_coords = torch.tensor(self.path.waypoints[1],device=self.device).float().squeeze()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
+        self.obstacles.append(SphereMeshObstacle(radius = 20,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
         return initial_state

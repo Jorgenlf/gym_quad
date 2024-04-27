@@ -399,26 +399,67 @@ def plot_3d(env, sim_df, test_dir):
     """
     Plots the Quadcopter path in 3D inside the environment provided.
     """
-    plt.rcdefaults()
-    plt.rc('lines', linewidth=3)
+    #plt.rcdefaults()
+    #plt.rc('lines', linewidth=3)
 
-    ax = env.plot3D()#(wps_on=False)
-    ax.scatter3D(sim_df[r"$X$"][0], sim_df[r"$Y$"][0], sim_df[r"$Z$"][0], color="#66FF66", label="Initial Position")
-    ax.plot3D(sim_df[r"$X$"], sim_df[r"$Y$"], sim_df[r"$Z$"], color="#EECC55", label="Quadcopter Path")#, linestyle="dashed")
-    ax.set_xlabel(xlabel=r"$x_w$ [m]", fontsize=18)
-    ax.set_ylabel(ylabel=r"$y_w$ [m]", fontsize=18)
-    ax.set_zlabel(zlabel=r"$z_w$ [m]", fontsize=18)
-    ax.tick_params(axis='both', which='major', labelsize=14)
-    ax.legend(loc="upper right", fontsize=14)
+    plt.style.use('ggplot')
+    plt.rc('font', family='serif')
+    plt.rc('axes', facecolor='#ffffff', edgecolor='gray',
+        axisbelow=True, grid=True)
+    plt.rc('patch', edgecolor='#ffffff')
+
+    # OLD PLOTTING
+    # ax = env.plot3D()#(wps_on=False)
+    # ax.scatter3D(sim_df[r"$X$"][0], sim_df[r"$Y$"][0], sim_df[r"$Z$"][0], color="#66FF66", label="Initial Position")
+    # ax.plot3D(sim_df[r"$X$"], sim_df[r"$Y$"], sim_df[r"$Z$"], color="#EECC55", label="Quadcopter Path")#, linestyle="dashed")
+    # ax.set_xlabel(xlabel=r"$x_w$ [m]", fontsize=18)
+    # ax.set_ylabel(ylabel=r"$y_w$ [m]", fontsize=18)
+    # ax.set_zlabel(zlabel=r"$z_w$ [m]", fontsize=18)
+    # ax.tick_params(axis='both', which='major', labelsize=14)
+    # ax.legend(loc="upper right", fontsize=14)
     # f = lambda x,y,z: proj3d.proj_transform(x,y,z, ax.get_proj())[:2]
     # ax.legend(loc="lower left", bbox_to_anchor=f(0,-120,100), 
     #       bbox_transform=ax.transData, fontsize=16)
-    ax.set_xlim([-200,200])
-    ax.set_ylim([-200,200])
-    ax.set_zlim([-200,200])
+
+    fig = plt.figure(figsize=(12, 8))
+    ax = fig.add_subplot(111, projection='3d')
     
-    plt.savefig(os.path.join(test_dir, "plots", f"episode{int(sim_df['Episode'].iloc[0])}.pdf"))
-    # plt.show()
+    # remove the ticks and labels (quickfix to fix old plotting code)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks([])
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.set_zticklabels([])
+  
+    ax = env.plot3D(leave_out_first_wp=True)#(wps_on=False) # leave out first waypoint when initial position is same as first waypoint
+    ax.scatter3D(sim_df[r"$X$"][0], sim_df[r"$Y$"][0], sim_df[r"$Z$"][0], color="#66FF66", label="Initial Position")
+    ax.plot3D(sim_df[r"$X$"], sim_df[r"$Y$"], sim_df[r"$Z$"], color="#EECC55", label="Quadcopter Path")#, linestyle="dotted")
+    ax.set_xlabel(xlabel="x [m]")
+    ax.set_ylabel(ylabel="y [m]")
+    ax.set_zlabel(zlabel="z [m]")
+
+    # Adjust tick settings
+    ax.tick_params(axis='x', which='major', labelsize=8)
+    ax.tick_params(axis='y', which='major', labelsize=8, labelleft=True)
+    ax.tick_params(axis='z', which='major', labelsize=8, labelleft=True)
+
+    # Reduce the number of ticks
+    ax.xaxis.set_major_locator(plt.MaxNLocator(5))
+    ax.yaxis.set_major_locator(plt.MaxNLocator(5))
+    ax.zaxis.set_major_locator(plt.MaxNLocator(5))
+
+    ax.legend(loc="upper right")
+
+
+    # Set limits of plot based on extremum points of path and obstacles
+    
+    # Force limits to be equal
+    # lim = 100
+    # ax.set_xlim([-lim,lim])
+    # ax.set_ylim([-lim,lim])
+    # ax.set_zlim([-lim,lim])
+    plt.savefig(os.path.join(test_dir, "plots", f"episode{int(sim_df['Episode'].iloc[0])}.pdf"), bbox_inches='tight', pad_inches=0.4)
 
 
 def plot_multiple_3d(env, sim_dfs):

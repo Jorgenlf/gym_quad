@@ -9,7 +9,7 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-from utils_perception.data_reader import DataReader, SunRGBD, CustomDepthDataset, RealSenseDataset, RealSenseDataset_v2, DataReaderRealSensev2
+from utils_perception.data_reader import DataReader, SunRGBD, CustomDepthDataset, RealSenseDataset, RealSenseDataset_v2, DataReaderRealSensev2, DataReaderSynthetic
 from utils_perception import plotting
 
 #from utils_perception.data_augmentation import DataAugmentation
@@ -78,20 +78,6 @@ def main(args):
     
     print(f'Loading data with image size = ({NUM_CHANNELS}, {IMG_SIZE}, {IMG_SIZE}), batch size = {BATCH_SIZE}, train-test split = {0.7} and train-val split = {0.3}')
     print(f'Additional transformations to training data:\n {train_additional_transform}')
-    
-    #dataloader_sun = DataReader(path_img_depth="data/sunrgbd_images_depth",
-    #                        path_img_rgb="data/sunrgbd_images_rgb",
-    #                        batch_size=BATCH_SIZE,
-    #                        train_test_split=0.7,
-    #                        train_val_split=0.3,
-    #                        transforms_train=train_additional_transform,
-    #                        transforms_validate=valid_additional_transform)
-    
-
-    # Load data and create dataloaders
-    #train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=None, shuffle=True)
-    
-    #print(f'Data loaded\nSize train: {len(train_loader.dataset)} | Size validation: {len(val_loader.dataset)} | Size test: {len(test_loader.dataset)}\n')
 
 
     dataloader_rs = DataReaderRealSensev2(path_img_depth="data/realsense_v2_depth",
@@ -101,10 +87,20 @@ def main(args):
                             transforms_train=valid_additional_transform,
                             transforms_validate=valid_additional_transform)
     
+    dataloader_synthetic = DataReaderSynthetic(path_depth="data/synthetic_depthmaps",
+                            batch_size=BATCH_SIZE,
+                            train_test_split=0.7,
+                            train_val_split=0.3,
+                            transforms_train=valid_additional_transform,
+                            transforms_validate=valid_additional_transform)
+    
     train_loader_rs, val_loader_rs, test_loader_rs = dataloader_rs.load_split_data_realsense(seed=None, shuffle=True)
+    train_loader_synthetic, val_loader_synthetic, test_loader_synthetic = dataloader_synthetic.load_split_data_synthetic(seed=None, shuffle=True)
 
 
-    print(f'RealSense Data loaded\nSize train: {len(train_loader_rs.dataset)} | Size validation: {len(val_loader_rs.dataset)} | Size test: {len(test_loader_rs.dataset)}\n')
+
+
+    #print(f'RealSense Data loaded\nSize train: {len(train_loader_rs.dataset)} | Size validation: {len(val_loader_rs.dataset)} | Size test: {len(test_loader_rs.dataset)}\n')
 
     # Augment data
     #data_augmentation = DataAugmentation()
@@ -131,7 +127,10 @@ def main(args):
 
                 # Load data with different seed
                 #train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=None, shuffle=True)
-                train_loader, val_loader, test_loader = dataloader_rs.load_split_data_realsense(seed=None, shuffle=True)
+                #train_loader, val_loader, test_loader = dataloader_rs.load_split_data_realsense(seed=None, shuffle=True)
+                train_loader, val_loader, test_loader = dataloader_synthetic.load_split_data_synthetic(seed=None, shuffle=True)
+                print('Data loaded')
+                print(f'Size train: {len(train_loader.dataset)} | Size validation: {len(val_loader.dataset)} | Size test: {len(test_loader.dataset)}\n')
 
                 # Create VAE based on args.model_name
                 if model_name == 'conv1':
@@ -551,10 +550,8 @@ def main(args):
                 
     if args.mode == 'test':
         seed = args.seed
-        try:
-            full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}_dim{LATENT_DIMS}_beta{int(BETA)}'
-        except:
-            full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}'
+        #full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}_dim{LATENT_DIMS}_beta{int(BETA)}'
+        full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}'
 
         # Load model for testing
         if model_name == 'conv1':
@@ -628,11 +625,12 @@ def main(args):
             if experiment_id == 20: savepath_recon = f'results/{model_name}/plots/reconstructions/exp{experiment_id}/latent_dim_{LATENT_DIMS}_beta{BETA}/'
             os.makedirs(savepath_recon, exist_ok=True)
             test_numbers = [96, 74, 72, 45, 27, 26, 22]
-            for i, x in enumerate(test_loader_rs):
+            #for i, x in enumerate(test_loader_rs):
+            for i, x in enumerate(test_loader_synthetic):
                 if i == args.num_examples: break
-                if i in test_numbers:
-                    img = x.to(device)
-                    plotting.reconstruct_and_plot(img, vae, model_name, experiment_id, savepath_recon, i, cmap='magma', save=True)
+                #if i in test_numbers:
+                img = x.to(device)
+                plotting.reconstruct_and_plot(img, vae, model_name, experiment_id, savepath_recon, i, cmap='magma', save=True)
                 
         if "kde" in args.plot:
             savepath_kde = f'results/{model_name}/plots/kde/exp{experiment_id}_realsense'

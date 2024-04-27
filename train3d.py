@@ -4,6 +4,7 @@ import gymnasium as gym
 import gym_quad
 import numpy as np
 import multiprocessing
+from  multiprocessing.pool import Pool as pool
 import glob
 import re
 

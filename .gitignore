@@ -12,3 +12,4 @@ test_sim.csv
 **/models/*
 *.zip
 **/results/*
+**/figures/*
