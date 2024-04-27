@@ -673,15 +673,15 @@ class LV_VAE_MESH(gym.Env):
         # plt.show()
         return ax
 
-    def plot3D(self, wps_on=True):
+    def plot3D(self, wps_on=True, leave_out_first_wp=True):
         """
         Returns 3D plot of path and obstacles.
         """
-        ax = self.path.plot_path(wps_on)
+        ax = self.path.plot_path(wps_on, leave_out_first_wp=leave_out_first_wp)
         for obstacle in self.obstacles:
             ax.plot_surface(*obstacle.return_plot_variables(), color='r', zorder=1)
-
-        return self.axis_equal3d(ax)
+            ax.set_aspect('equal', adjustable='datalim')
+        return ax#self.axis_equal3d(ax)
 
     def plot_section3d(self):
         """
