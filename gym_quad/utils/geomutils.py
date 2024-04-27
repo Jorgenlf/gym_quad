@@ -1,19 +1,18 @@
 import numpy as np
-import numba as nb
 import torch
 
-### Helper functions to transform between ENU and pytorch3D coordinate systems
-def enu_to_pytorch3d(enu_position: torch.Tensor) -> torch.Tensor:
+### Helper functions to transform between ENU and trimesh/pytorch3D coordinate systems
+def enu_to_pytorch3d(enu_position: torch.Tensor,device) -> torch.Tensor:
     '''ENU is x-east, y-north, z-up. 
     Pytorch3D is x-left, y-up, z-forward. 
     This function converts from ENU to Pytorch3D coordinate system.'''
-    return torch.tensor([enu_position[1], enu_position[2], enu_position[0]])
+    return torch.tensor([enu_position[1], enu_position[2], enu_position[0]],device=device)
 
-def pytorch3d_to_enu(pytorch3d_position: torch.Tensor) -> torch.Tensor:
+def pytorch3d_to_enu(pytorch3d_position: torch.Tensor,device) -> torch.Tensor:
     '''ENU is x-east, y-north, z-up. 
     Pytorch3D is x-left, y-up, z-forward. 
     This function converts from ENU to Pytorch3D coordinate system.'''
-    return torch.tensor([pytorch3d_position[2], pytorch3d_position[0], pytorch3d_position[1]])
+    return torch.tensor([pytorch3d_position[2], pytorch3d_position[0], pytorch3d_position[1]],device=device)
 ###
 
 def enu_to_tri(enu_pos: np.ndarray):
@@ -108,56 +107,6 @@ def J(eta):
     return np.vstack([
         np.hstack([R, zero]),
         np.hstack([zero, T])])
-
-#JIT version of the above functions
-@nb.jit
-def j_ssa(angle):
-    """ Returns the smallest signed angle in the range [-pi, pi]."""
-    return ((angle + np.pi) % (2*np.pi)) - np.pi
-
-@nb.jit
-def j_Rzyx(phi, theta, psi):
-    '''
-    input: phi, theta, psi of the body frame relative to the world frame
-    Rotation matrix from the body frame to the world frame.
-    '''
-    cphi = np.cos(phi)
-    sphi = np.sin(phi)
-    cth = np.cos(theta)
-    sth = np.sin(theta)
-    cpsi = np.cos(psi)
-    spsi = np.sin(psi)
-
-    return np.array([[cpsi*cth, -spsi*cphi+cpsi*sth*sphi, spsi*sphi+cpsi*cphi*sth],
-                     [spsi*cth, cpsi*cphi+sphi*sth*spsi, -cpsi*sphi+sth*spsi*cphi],
-                     [-sth, cth*sphi, cth*cphi]])
-@nb.jit
-def j_Tzyx(phi, theta, psi):
-    sphi = np.sin(phi)
-    tth = np.tan(theta)
-    cphi = np.cos(phi)
-    cth = np.cos(theta)
-
-    return np.array([[1, sphi*tth, cphi*tth], 
-                     [0, cphi, -sphi],
-                     [0, sphi/cth, cphi/cth]])
-
-@nb.jit
-def j_J(eta):
-    phi = eta[3]
-    theta = eta[4]
-    psi = eta[5]
-
-    R = j_Rzyx(phi, theta, psi)
-    T = j_Tzyx(phi, theta, psi)
-    zero = np.zeros((3,3))
-
-    # Create the combined matrix manually
-    J_mat = np.empty((6, 6))
-    J_mat[:3, :3] = R
-    J_mat[3:, 3:] = T
-
-    return J_mat
 
 
 def S_skew(a):

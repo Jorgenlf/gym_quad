@@ -59,7 +59,7 @@ class SphereMeshObstacle:
         self.center_position = center_position.to(device=self.device)   # Centre of the sphere in camera world frame
         #Not specified in name to simplify rewriting of code
 
-        self.position = pytorch3d_to_enu(center_position).to(device=self.device) # Centre of the sphere in ENU frame
+        self.position = pytorch3d_to_enu(center_position,device=self.device) # Centre of the sphere in ENU frame
         #Not specified in name to simplify rewriting of code
 
         self.mesh = load_objs_as_meshes([path], device=self.device)
@@ -102,7 +102,7 @@ class CubeMeshObstacle:
         self.side_length = side_length
 
         self.center_position = center_position.to(device=self.device) # Centre of the cube in camera world frame
-        self.position = pytorch3d_to_enu(center_position).to(device=self.device) # Centre of the cube in ENU frame
+        self.position = pytorch3d_to_enu(center_position,device=self.device) # Centre of the cube in ENU frame
 
         self.mesh = load_objs_as_meshes([self.path], device=self.device)
         self.mesh.scale_verts_(scale=self.side_length)

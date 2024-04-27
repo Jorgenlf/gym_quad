@@ -7,6 +7,7 @@ import torchvision.transforms as transforms
 
 import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
+from gym_quad.utils.ODE45JIT import j_Rzyx
 from gym_quad.utils.geomutils import enu_to_pytorch3d, enu_to_tri, tri_to_enu
 from gym_quad.objects.quad import Quad
 from gym_quad.objects.IMU import IMU
@@ -279,8 +280,15 @@ class LV_VAE_MESH(gym.Env):
         # x y z of closest point on path in body frame
         relevant_distance = 20 #For this value and lower the observation will be changing i.e. giving info if above or below its clipped to -1 or 1 
         #TODO make this a hypervariable or make it dependent on e.g. the scene
-        x,y,z = self.quadcopter.position
-        closest_point = self.path.get_closest_position([x,y,z], self.waypoint_index)
+
+        #OLD WAY to get closest point which was dumb as it causes the optimization in QPMI to be done twice as much as needed
+        #As self.prog contains the result from doing this optimization (the u paramter that describes the closest point on the path)
+        # x,y,z = self.quadcopter.position
+        # closest_point = self.path.get_closest_position([x,y,z], self.waypoint_index) 
+
+        #NEW WAY to get closest point on path using the self.prog variable and using the path __call__ method which turns a u parameter into a point on the path
+        closest_point = self.path(self.prog)
+
         closest_point_body = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(closest_point - self.quadcopter.position)
         domain_obs[4] = self.m1to1(closest_point_body[0], -relevant_distance,relevant_distance) 
         domain_obs[5] = self.m1to1(closest_point_body[1], -relevant_distance, relevant_distance) 
@@ -372,7 +380,8 @@ class LV_VAE_MESH(gym.Env):
             #We currently skip this step for simplicity
             self.quadcopter.step(F)
 
-        # Check collision Do it out here and not inside the loop above to save time and not check every time step
+        # Check collision 
+        #Do it out here and not inside the loop above to save time and not check every physics sim time step, but every drl time step.
         if self.obstacles != []:
             translation = enu_to_tri(self.quadcopter.position - self.prev_quad_pos)
             self.tri_quad_mesh.apply_translation(translation)
@@ -543,7 +552,9 @@ class LV_VAE_MESH(gym.Env):
         kangvel = self.kangvel
 
         e3 = np.array([0, 0, 1]) #z-axis basis
-        R = geom.Rzyx(*self.quadcopter.attitude)
+
+        # R = geom.Rzyx(*self.quadcopter.attitude) #OLD
+        R = j_Rzyx(*self.quadcopter.attitude)  #NEW using jit version
 
         #Essentially three different velocities that one can choose to track:
         #Think body or world frame velocity control is the best choice
@@ -572,7 +583,9 @@ class LV_VAE_MESH(gym.Env):
         pitch_setpoint = np.arctan2(c_phi_s_theta, c_phi_c_theta)
         roll_setpoint = np.arctan2(s_phi, np.sqrt(c_phi_c_theta**2 + c_phi_s_theta**2))
         yaw_setpoint = self.quadcopter.attitude[2]
-        Rd = geom.Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint)
+        # Rd = geom.Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint) #OLD
+        Rd = j_Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint) #NEW using jit version
+
 
         eR = 1/2*(Rd.T @ R - R.T @ Rd)
         eatt = geom.vee_map(eR)
@@ -755,12 +768,12 @@ class LV_VAE_MESH(gym.Env):
             obstacle_radius = np.random.uniform(rmin,rmax) #uniform distribution of size
             if np.linalg.norm(obs_pos - obs_on_path_pos) > obstacle_radius+2 and not onPath: #2 is a safety margin   
                 obstacle_coords = torch.tensor(obs_pos,device=self.device).float().squeeze()
-                pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
+                pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
                 self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
                 num_obstacles += 1
             elif onPath:   
                 obstacle_coords = torch.tensor(obs_pos,device=self.device).float().squeeze()
-                pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
+                pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
                 self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
                 num_obstacles += 1
             else:
@@ -846,7 +859,7 @@ class LV_VAE_MESH(gym.Env):
         obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
         
         obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
-        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
         self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
         return initial_state
 
@@ -855,7 +868,7 @@ class LV_VAE_MESH(gym.Env):
         obstacle_radius = np.random.uniform(low=4,high=10)
         obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
         obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze() #go from [[x,y,z]] to [x,y,z]
-        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
         self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
 
         lengths = np.linspace(self.path.length*1/6, self.path.length*5/6, 2)
@@ -863,7 +876,7 @@ class LV_VAE_MESH(gym.Env):
             obstacle_radius = np.random.uniform(low=4,high=10)
             obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
             obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze() #TODO apply squeeze to all other obstacle_coords that are [[]] and not []
-            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
+            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
             obstacle = SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path)
             
             if self.check_object_overlap(obstacle):
@@ -891,7 +904,7 @@ class LV_VAE_MESH(gym.Env):
         obstacle_radius = np.random.uniform(low=4,high=10)
         obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
         obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
-        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
         self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
 
         lengths = np.linspace(self.path.length*1.5/6, self.path.length*5/6, 5)
@@ -899,7 +912,7 @@ class LV_VAE_MESH(gym.Env):
             obstacle_radius = np.random.uniform(low=4,high=10)
             obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
             obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
-            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)            
+            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)            
             obstacle = SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path)
             if self.check_object_overlap(obstacle):
                 continue
@@ -921,7 +934,7 @@ class LV_VAE_MESH(gym.Env):
         obstacle_radius = 10
         obstacle_coords = self.path(20)
         obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
-        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
         self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
         return initial_state
 
@@ -930,7 +943,7 @@ class LV_VAE_MESH(gym.Env):
         obstacle_radius = 10
         obstacle_coords = self.path(self.path.length/2)
         obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
-        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
         self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
         return initial_state
 
@@ -941,7 +954,7 @@ class LV_VAE_MESH(gym.Env):
         for i in range(7):
             y = -30+10*i
             obstacle_coords = torch.tensor([50,y,0],device=self.device)
-            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
+            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
             self.obstacles.append(SphereMeshObstacle(radius = 5, center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
             
         init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-5, high=5, size=(1,3))
@@ -956,7 +969,7 @@ class LV_VAE_MESH(gym.Env):
         for i in range(7):
             z = -30+10*i
             obstacle_coords = torch.tensor([50,0,z],device=self.device)
-            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
+            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
             self.obstacles.append(SphereMeshObstacle(radius = 5,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
         init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-5, high=5, size=(1,3))
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
@@ -976,7 +989,7 @@ class LV_VAE_MESH(gym.Env):
                 z = -radius*np.sin(ang1)
                 
                 obstacle_coords = torch.tensor([x,y,z],device=self.device).float().squeeze()
-                pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
+                pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
                 self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
 
         init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-5, high=5, size=(1,3))
@@ -993,7 +1006,7 @@ class LV_VAE_MESH(gym.Env):
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos[0], init_attitude])
         obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
-        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
         self.obstacles.append(SphereMeshObstacle(radius = 100,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
 
         return initial_state
@@ -1008,6 +1021,6 @@ class LV_VAE_MESH(gym.Env):
         initial_state = np.hstack([init_pos, init_attitude])
         #Place one large obstacle at the second waypoint
         obstacle_coords = torch.tensor(self.path.waypoints[1],device=self.device).float().squeeze()
-        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords)
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
         self.obstacles.append(SphereMeshObstacle(radius = 20,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
         return initial_state

@@ -115,18 +115,29 @@ class DepthMapRenderer:
     
     # Function to find the R and T matrices for the camera object in Pytorch3D 
     #TODO maybe update input to be able to change lookat point on the fly
-    def camera_R_T_from_quad_pos_orient(self, position: np.array, orientation: np.array) -> tuple:
-        '''Given a position and orientation of the quadrotor in ENU frame, 
+    def camera_R_T_from_quad_pos_orient(self, position: np.array, orientation: np.array, look_direction:np.array = np.array([1, 0, 0]) ) -> tuple:
+        '''
+        Input:
+        position: np.array of shape (3,) - x, y, z in meters
+        orientation: np.array of shape (3,) - roll, pitch, yaw in radians
+        look_direction: np.array of shape (3,) - x, y, z in meters where to look at from the quads position
+        deaults to [1, 0, 0] which means that the camera is looking along the the x-axis of the quad                            
+
+        Output:
+        Rstep: torch.Tensor of shape (1, 3, 3) - Rotation matrix for the camera object in Pytorch3D
+        Tstep: torch.Tensor of shape (1, 3) - Translation vector for the camera object in Pytorch3D
+        
+        Given a position and orientation of the quadrotor in ENU frame, 
         this function returns the R and T matrices for the camera object in Pytorch3D.
         The camera is assumed to be looking at a point in front of the quadrotor along the body x-axis.'''
         # Convert position and orientation to torch tensors
-        at = position + Rzyx(*orientation) @ np.array([1, 0, 0])  # Look at the point in front of the camera along body x-axis
+        at = position + Rzyx(*orientation) @ look_direction  # Look at the point in front of the camera along body x-axis
         
         at_torch = torch.from_numpy(at).to(self.device)
         position_torch = torch.from_numpy(position).to(self.device)
 
-        at_pt3d = enu_to_pytorch3d(at_torch).to(self.device).float()
-        position_pt3d = enu_to_pytorch3d(position_torch).to(self.device).float()
+        at_pt3d = enu_to_pytorch3d(at_torch,device=self.device).float()
+        position_pt3d = enu_to_pytorch3d(position_torch,device=self.device).float()
         # orientation_torch = torch.from_numpy(orientation).to(device)
         
         # Calculate rotation matrix

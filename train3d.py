@@ -39,13 +39,15 @@ total_timesteps = 10e6 #15e6
 #              "expert"     :   2048}
              
 
-scenarios = {   "line"          :   2e5,
-                "easy"          :   1e6,
-                "proficient"    :   1e6,
-                "intermediate"  :   1e6,
-                "expert"        :   1e6
-             }
+#THIS CONFIG GAVE AN AGENT THAT MANAGED EVERYTHING EXCEPT DEADEND (4.27.24) BEFORE INTRODUCTION OF BOX
+# scenarios = {   "line"          :   2e5,
+#                 "easy"          :   1e6,
+#                 "proficient"    :   1e6,
+#                 "intermediate"  :   1e6,
+#                 "expert"        :   1e6
+#              }
 
+scenarios = {"vertical"          :   2e5} #For profiling purposes
 
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
 '''From kulkarni paper:
