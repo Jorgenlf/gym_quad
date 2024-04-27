@@ -85,10 +85,20 @@ class SphereMeshObstacle:
 
     def return_plot_variables(self):
         u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
-        x = self.position[0].item() + self.radius*np.cos(u)*np.sin(v)
-        y = self.position[1].item() + self.radius*np.sin(u)*np.sin(v)
-        z = self.position[2].item() + self.radius*np.cos(v)
+        # increase the number of points to make the sphere smoother
+        u = np.linspace(0, 2 * np.pi, 100)
+        v = np.linspace(0, np.pi, 100)
+        x = self.position[0].item() + self.radius * np.outer(np.cos(u), np.sin(v))
+        y = self.position[1].item() + self.radius * np.outer(np.sin(u), np.sin(v))
+        z = self.position[2].item() + self.radius * np.outer(np.ones(np.size(u)), np.cos(v))
+        # x = self.position[0].item() + self.radius*np.cos(u)*np.sin(v)
+        # y = self.position[1].item() + self.radius*np.sin(u)*np.sin(v)
+        # z = self.position[2].item() + self.radius*np.cos(v)
         return [x,y,z]
+    
+    def get_vertices_for_plot(self):
+        verts = self.mesh.verts_packed() 
+        return verts.detach().cpu().numpy()
     
 
 class SphereScene:
