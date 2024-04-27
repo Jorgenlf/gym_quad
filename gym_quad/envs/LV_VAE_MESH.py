@@ -393,7 +393,7 @@ class LV_VAE_MESH(gym.Env):
             self.waypoint_index = k
 
 
-        end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad and self.waypoint_index == self.n_waypoints-2
+        end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad # and self.waypoint_index == self.n_waypoints-2 #TODO wwhy this here
         # end_cond_2 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
         end_cond_3 = self.total_t_steps >= self.max_t_steps
         end_cond_4 = self.cumulative_reward < self.min_reward
