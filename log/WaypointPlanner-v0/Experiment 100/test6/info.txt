@@ -1,8 +1,0 @@
-python run3d.py --exp_id 100 --controller_scenario intermediate --controller 820000 --scenario intermediate --episodes 100
-
-    def scenario_intermediate(self):
-        initial_state = self.scenario_3d_new()
-        obstacle_radius = np.random.uniform(low=4,high=10)
-        obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
-        self.obstacles.append(Obstacle(radius=obstacle_radius, position=obstacle_coords))
-        return initial_state

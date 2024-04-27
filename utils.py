@@ -10,7 +10,7 @@ from stable_baselines3 import PPO
 def parse_experiment_info():
     """Parser for the flags that can be passed with the run/train/test scripts."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", default="LV_VAE-v0", type=str, help="Which environment to run/train/test")
+    parser.add_argument("--env", default="LV_VAE_MESH-v0", type=str, help="Which environment to run/train/test")
     parser.add_argument("--n_cpu", default=2, type=int, help="Number of CPUs to use")
     parser.add_argument("--exp_id", type=int, help="Which experiment number to run/train/test")
     parser.add_argument("--run_scenario", default="line", type=str, help="Which scenario to run")
@@ -76,8 +76,8 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
                           r"$x_{cpp}^b$", r"$y_{cpp}^b$", r"$z_{cpp}^b$",\
                           r"$\upsilon_{cpp}^b$", r"$\chi_{cpp}^b$",\
                           r"$d_{nwp}$",r"$d_{end}$",\
-                          r"$la_{x}$", r"$la_{y}$", r"$la_{z}$"
-                        # r"$u_o$", r"$v_o$", r"$w_o$",\
+                          r"$la_{x}$", r"$la_{y}$", r"$la_{z}$",
+                          r"$a_0$", r"$a_1$", r"$a_2$",\
                         ]
     
     done = False
@@ -127,6 +127,13 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
     for i in range(normed_domain_observations.shape[1]):
         normed_obs_labels = np.hstack([normed_obs_labels, f"obs{i}"])
     labels = np.hstack([labels, normed_obs_labels])
+
+    #Check that the length of each label matches the length of the info[] data
+    assert len(state_labels) == len(info['state']), f"Length mismatch between state labels{len(state_labels)} and state data{len(info['state'])}"
+    assert len(action_labels) == len(info['action']), f"Length mismatch between action labels{len(action_labels)} and action data{len(info['action'])}"
+    assert len(error_labels) == len(info['errors']), f"Length mismatch between error labels{len(error_labels)} and error data{len(info['errors'])}"
+    assert len(observation_labels) == len(info['pure_obs']), f"Length mismatch between pure observation labels{len(observation_labels)} and pure observation data{len(info['pure_obs'])}"
+    assert len(normed_obs_labels) == len(info['domain_obs']), f"Length mismatch between normed observation labels{len(normed_obs_labels)} and normed observation data{len(info['domain_obs'])}"
 
     df = pd.DataFrame(sim_data, columns=labels)
     return df, env
@@ -320,7 +327,9 @@ def plot_velocity(sim_df,test_dir):
     set_default_plot_rc()
     ax = sim_df.plot(x="Time", y=[r"$u$",r"$v$"], kind="line")
     ax.plot(sim_df["Time"], sim_df[r"$w$"], dashes=[3,3], color="#88DD89", label=r"$w$")
-    ax.plot([0,sim_df["Time"].iloc[-1]], [1.5,1.5], label=r"$u_d$")
+    #Plot the r"$\v_{cmd}$" as the desired velocity
+    ax.plot(sim_df["Time"], sim_df[r"$\v_{cmd}$"], dashes=[3,3], color="#EECC55", label=r"$v_{cmd}$")
+    ax.plot
     ax.set_xlabel(xlabel="Time [s]", fontsize=14)
     ax.set_ylabel(ylabel="Velocity [m/s]", fontsize=14)
     ax.legend(loc="lower right", fontsize=14)
@@ -589,7 +598,17 @@ def plot_lidar():
     
     plt.show()
 
-def plot_collision_avoidance_reward_function(obsdists:np.array, 
+
+def rew_from_dist(danger_range, drone_closest_obs_dist, inv_abs_min_rew):
+    r = -(((danger_range + inv_abs_min_rew*danger_range)/(drone_closest_obs_dist + inv_abs_min_rew*danger_range))-1)
+    return r
+
+def rew_from_angle(danger_angle, angle_diff, inv_abs_min_rew):
+    r = -(((danger_angle + inv_abs_min_rew*danger_angle)/(angle_diff + inv_abs_min_rew*danger_angle))-1)
+    return r
+
+
+def collision_avoidance_reward_function(obsdists:np.array, 
                                              angle_diffs:np.array,
                                              danger_range:int, 
                                              danger_angle:int,  
@@ -601,37 +620,61 @@ def plot_collision_avoidance_reward_function(obsdists:np.array,
         angle_diff = angle_diffs[i]
 
         if (drone_closest_obs_dist < danger_range) and (angle_diff < danger_angle):
-            range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1) #same fcn in if and elif, but need this structure to color red and orange correctly
-            angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) -1)
-            if angle_rew > 0: angle_rew = 0 
+            range_rew = rew_from_dist(danger_range, drone_closest_obs_dist, inv_abs_min_rew)
+            angle_rew = rew_from_angle(danger_angle, angle_diff, inv_abs_min_rew)
+            
+            if angle_rew > 0: angle_rew = 0 #Might not be necessary here but ensures that the reward is always negative 
             if range_rew > 0: range_rew = 0
             reward_collision_avoidance.append(range_rew + angle_rew)
 
-        elif drone_closest_obs_dist <danger_range:
-            range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) - 1)
-            angle_rew = -(((danger_angle+inv_abs_min_rew*danger_angle)/(angle_diff+inv_abs_min_rew*danger_angle)) - 1)
+        elif drone_closest_obs_dist < danger_range:
+            range_rew = rew_from_dist(danger_range, drone_closest_obs_dist, inv_abs_min_rew)
+            angle_rew = rew_from_angle(danger_angle, angle_diff, inv_abs_min_rew)
+
             if angle_rew > 0: angle_rew = 0 #In this case the angle reward may become positive as anglediff may < danger_angle
-            if range_rew > 0: range_rew = 0
+            if range_rew > 0: range_rew = 0 #So the capping is necessary
+
             reward_collision_avoidance.append(range_rew + angle_rew)
             
         else:
             reward_collision_avoidance.append(0)
 
-    set_default_plot_rc()
-    plt.plot(reward_collision_avoidance)
-    plt.xlabel("Time [s]")
-    plt.ylabel("Reward")
-    plt.title("Collision Avoidance Reward Function")
-    plt.show()
-
+    return reward_collision_avoidance
 
 
 if __name__ == "__main__":
+
     # plot_lidar()
+
+    ###Plotting of the collision avoidance reward###
     datapoints = 50
-    obsdists = np.linspace(50, 0, datapoints)
-    angle_diffs = np.linspace(40, 0, datapoints)
+    obsdists = np.linspace(0, 50, datapoints)
+    angle_diffs = np.linspace(0, 50, datapoints)
     danger_range = 10 #m
     danger_angle = 20 #deg
-    inv_abs_min_rew = 1/4
-    plot_collision_avoidance_reward_function(obsdists, angle_diffs, danger_range, danger_angle, inv_abs_min_rew)
+    inv_abs_min_rew = 1/8
+    dist_rew = []
+    angle_rew = []
+    for i in range(len(obsdists)):
+        dist_rew.append(rew_from_dist(danger_range, obsdists[i], inv_abs_min_rew))
+        angle_rew.append(rew_from_angle(danger_angle, angle_diffs[i], inv_abs_min_rew))
+    
+    capped_rew = collision_avoidance_reward_function(obsdists, angle_diffs, danger_range, danger_angle, inv_abs_min_rew)
+
+    set_default_plot_rc()
+    plt.plot(dist_rew)
+    plt.plot(angle_rew)
+    plt.plot(capped_rew)
+    plt.plot(np.array(dist_rew) + np.array(angle_rew))
+    plt.axhline(y=0, color='gray', linewidth=1)
+    plt.plot(np.argwhere(np.diff(np.sign(dist_rew)))[0], 0, 'ro')
+    plt.text(np.argwhere(np.diff(np.sign(dist_rew)))[0], 0, f"({np.argwhere(np.diff(np.sign(dist_rew)))[0][0]},{0})", fontsize=12)
+    plt.plot(np.argwhere(np.diff(np.sign(angle_rew)))[0], 0, 'ro')
+    plt.text(np.argwhere(np.diff(np.sign(angle_rew)))[0], 0, f"({np.argwhere(np.diff(np.sign(angle_rew)))[0][0]},{0})", fontsize=12)
+    plt.text(datapoints/2, -1/inv_abs_min_rew, f"danger range: {danger_range}m\n danger angle: {danger_angle}deg", fontsize=12)
+    plt.xlabel("Distance or angle [m or deg]")
+    plt.ylabel("Reward")
+    plt.legend(["Distance reward", "Angle reward", "Capped total reward", "Total reward"])
+    plt.title("Collision Avoidance Reward Parts")
+    plt.show()
+    ###Plotting of the collision avoidance reward###

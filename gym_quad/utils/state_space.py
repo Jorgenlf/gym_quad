@@ -2,6 +2,7 @@ import numpy as np
 import gym_quad.utils.geomutils as geom
 from numpy.linalg import inv
 from math import cos, sin
+import numba as nb
 
 
 I3 = np.identity(3)
@@ -27,6 +28,97 @@ Ig = np.vstack([
 lamb = 0.08 # inflow ratio
 l = 0.5 # length from rotors to center of mass
 
+#Jit version of the functions below
+@nb.jit
+def j_M_RB()->np.ndarray:
+    M_RB_CG = np.zeros((6, 6))
+    M_RB_CG[:3, :3] = m * I3
+    M_RB_CG[3:, 3:] = Ig
+    return M_RB_CG
+    # M_RB_CO = geom.move_to_CO(M_RB_CG, r_G)
+
+
+
+@nb.jit
+def j_M_inv()->np.ndarray:
+    M = j_M_RB()
+    return inv(M)
+
+
+@nb.jit
+def j_C(nu:np.ndarray)->np.ndarray:
+    p = nu[3]
+    q = nu[4]
+    r = nu[5]
+    Cv = np.array([0,
+                   0,
+                   0,
+                   (I_z - I_y) * q * r,
+                   (I_x - I_z) * r * p,
+                   0])
+    return Cv
+
+
+@nb.jit
+def j_B()->np.ndarray:
+    B = np.array([[0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [1, 1, 1, 1],
+                    [0, -l, 0, l],
+                    [-l, 0, l, 0],
+                    [-lamb, lamb, -lamb, lamb]],dtype=np.float64)
+    return B
+
+
+@nb.jit
+def j_G(eta:np.ndarray)->np.ndarray:
+    phi = eta[3]
+    theta = eta[4]
+
+    G = np.array([
+        -(W) * sin(theta),
+        (W) * cos(theta) * sin(phi),
+        (W) * cos(theta) * cos(phi),
+        0,
+        0,
+        0
+    ])
+    return G
+
+
+# Aerodynamic friction Coefficients
+d_u = 0.3729
+d_v = 0.3729
+d_w = 0.3729
+
+# Rotational drag Coefficients
+d_p = 5.56e-4
+d_q = 5.56e-4
+d_r = 5.56e-4
+
+@nb.jit
+def j_d(nu:np.ndarray)->np.ndarray:
+    u = nu[0]
+    v = nu[1]
+    w = nu[2]
+    p = nu[3]
+    q = nu[4]
+    r = nu[5]
+
+    d = np.array([
+        d_u * u,
+        d_v * v,
+        d_w * w,
+        d_p * p ** 2,
+        d_q * q ** 2,
+        d_r * r ** 2
+    ])
+
+    return d
+
+
+
+# OLD verison of the functions below kept as theyre called by some non jit fcns
 def M_RB():
     M_RB_CG = np.vstack([
         np.hstack([m * I3, zero3]),

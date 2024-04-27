@@ -2,23 +2,18 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from pytorch3d.io import load_objs_as_meshes, load_obj
-from pytorch3d.structures import Meshes, join_meshes_as_batch, join_meshes_as_scene
-from pytorch3d.vis.plotly_vis import AxisArgs, plot_batch_individually, plot_scene
-from pytorch3d.vis.texture_vis import texturesuv_image_matplotlib
+from pytorch3d.io import load_objs_as_meshes
+from pytorch3d.structures import join_meshes_as_scene
+# from pytorch3d.vis.plotly_vis import AxisArgs, plot_batch_individually, plot_scene
+# from pytorch3d.vis.texture_vis import texturesuv_image_matplotlib
 from pytorch3d.renderer.mesh.textures import Textures
-from pytorch3d.transforms import euler_angles_to_matrix
 from pytorch3d.renderer import (
-    FoVPerspectiveCameras, look_at_view_transform, look_at_rotation,
-    PerspectiveCameras,
+    FoVPerspectiveCameras, look_at_rotation,
     PointLights,
     MeshRenderer,
     MeshRasterizer,
     RasterizationSettings,
-    SoftSilhouetteShader,
     SoftPhongShader,
-    Materials,
-    TexturesVertex,
 )
 
 import sys
@@ -32,113 +27,14 @@ grand_parent_dir = os.path.dirname(parent_dir)
 # Add the parent directory to the Python path
 sys.path.append(grand_parent_dir)
 
-import gym_quad.utils.geomutils as geom
-
-
-# Helper functions to transform between ENU and pytorch3D coordinate systems
-def enu_to_pytorch3d(enu_position: torch.Tensor) -> torch.Tensor:
-    '''ENU is x-east, y-north, z-up. 
-    Pytorch3D is x-left, y-up, z-forward. 
-    This function converts from ENU to Pytorch3D coordinate system.'''
-    return torch.tensor([enu_position[1], enu_position[2], enu_position[0]])
-
-def pytorch3d_to_enu(pytorch3d_position: torch.Tensor) -> torch.Tensor:
-    '''ENU is x-east, y-north, z-up. 
-    Pytorch3D is x-left, y-up, z-forward. 
-    This function converts from ENU to Pytorch3D coordinate system.'''
-    return torch.tensor([pytorch3d_position[2], pytorch3d_position[0], pytorch3d_position[1]])
-
-
-class SphereMeshObstacle:
-    def __init__(self, 
-                 device: torch.device, 
-                 path: str,
-                 radius: float,
-                 center_position: torch.Tensor):
-        self.device = device
-        self.path = path                                    # Assumes path points to UNIT sphere .obj file
-        self.radius = radius
-
-        self.center_position = center_position.to(device=self.device)   # Centre of the sphere in camera world frame
-        #Not specified in name to simplify rewriting of code
-
-        self.position = pytorch3d_to_enu(center_position).to(device=self.device) # Centre of the sphere in ENU frame
-        #Not specified in name to simplify rewriting of code
-
-        self.mesh = load_objs_as_meshes([path], device=self.device)
-        self.mesh.scale_verts_(scale=self.radius)
-        self.mesh.offset_verts_(vert_offsets_packed=self.center_position)
-    
-    def resize(self, new_radius: float):
-        self.mesh.scale_verts_(scale=new_radius/self.radius)
-        self.radius = new_radius
-    
-    def move(self, new_center_position: torch.Tensor):
-        new_center_position = new_center_position.to(self.device)
-        self.mesh.offset_verts_(vert_offsets_packed=new_center_position-self.center_position)
-        self.center_position = new_center_position
-
-    def set_device(self, new_device: torch.device):
-        self.device = new_device
-        self.mesh.to(new_device)
-        self.center_position.to(new_device)
-
-    def return_plot_variables(self):
-        u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
-        # increase the number of points to make the sphere smoother
-        u = np.linspace(0, 2 * np.pi, 100)
-        v = np.linspace(0, np.pi, 100)
-        x = self.position[0].item() + self.radius * np.outer(np.cos(u), np.sin(v))
-        y = self.position[1].item() + self.radius * np.outer(np.sin(u), np.sin(v))
-        z = self.position[2].item() + self.radius * np.outer(np.ones(np.size(u)), np.cos(v))
-        # x = self.position[0].item() + self.radius*np.cos(u)*np.sin(v)
-        # y = self.position[1].item() + self.radius*np.sin(u)*np.sin(v)
-        # z = self.position[2].item() + self.radius*np.cos(v)
-        return [x,y,z]
-    
-    def get_vertices_for_plot(self):
-        verts = self.mesh.verts_packed() 
-        return verts.detach().cpu().numpy()
-    
-
-class SphereScene:
-    def __init__(self, 
-                 device: torch.device, 
-                 sphere_obstacles: list):
-        self.device = device
-        self.sphere_obstacles = sphere_obstacles # List of SphereMeshObstacle objects
-        self.meshes = [sphere.mesh for sphere in sphere_obstacles]
-        self.joined_scene = self.update_scene() # Textures not included by default
-    
-    def update_scene(self, include_textures: bool = False):
-        return join_meshes_as_scene(meshes=self.meshes, include_textures=include_textures)
-
-    def resize_sphere(self, sphere_idx: int, new_radius: float):
-        self.sphere_obstacles[sphere_idx].resize(new_radius)
-    
-    def move_sphere(self, sphere_idx: int, new_center_position: torch.Tensor):
-        self.sphere_obstacles[sphere_idx].move(new_center_position)
-    
-    def add_sphere(self, new_sphere: SphereMeshObstacle):
-        self.sphere_obstacles.append(new_sphere)
-        self.meshes.append(new_sphere.mesh)
-        self.joined_scene = join_meshes_as_scene(meshes=self.meshes, include_textures=False)
-    
-    def remove_sphere(self, sphere_idx: int):
-        self.sphere_obstacles.pop(sphere_idx)
-        self.meshes.pop(sphere_idx)
-        self.joined_scene = join_meshes_as_scene(meshes=self.meshes, include_textures=False)
-    
-    def set_device(self, new_device: torch.device):
-        self.device = new_device
-        for sphere in self.sphere_obstacles:
-            sphere.set_device(new_device)
+from gym_quad.utils.geomutils import enu_to_pytorch3d, pytorch3d_to_enu, Rzyx
+from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle
 
 
 class DepthMapRenderer:
     def __init__(self, 
                  device: torch.device, 
-                 scene: SphereScene, 
+                 scene:  Scene, 
                  camera: FoVPerspectiveCameras, 
                  raster_settings: RasterizationSettings,
                  MAX_MEASURABLE_DEPTH: float = 10.0,
@@ -156,23 +52,32 @@ class DepthMapRenderer:
         # Initilized to 62.5 for the default FoVPerspectiveCamera settings with a 60 degree FOV and image size of 240x320
         # Initilized to 46.6 for the default FoVPerspectiveCamera settings with a 75 degree FOV and image size of 240x320
 
+        #Computation of how to rescale the depth map to correct for perspective distortion
         self.k = 46.6
         self.img_size = img_size
+        self.x_grid, self.y_grid = torch.meshgrid(torch.arange(self.img_size[0], device=self.device), torch.arange(self.img_size[1], device=self.device), indexing='ij')
+        # Compute distance from center for each pixel
+        self.center = torch.tensor(self.img_size, device=self.device)/2
+        self.dist_from_center = torch.norm(torch.stack([self.x_grid, self.y_grid], dim=-1) - self.center, dim=-1)
+        # Amplify dist tensor by 1/k
+        self.dist_from_center = self.dist_from_center / self.k
     
     def render_depth_map(self):
         """
-        Renders a depth map of the scene seen from the current camera position and orientation by performing rasterization 
+        Renders a depth map of the scene seen from the current camera position and orientation by performing rasterization
         and then correcting for perspective distortions. Also performs saturation of infinite and NaN depth values.
         """
         # Render depth map via rasterization
         fragments = self.rasterizer(self.scene.joined_scene)
         zbuf = fragments.zbuf
         depth = torch.squeeze(zbuf).to(self.device)
-
+ 
         # Saturate infinite and NaN depth values
-        depth[depth == -1.0] = self.max_measurable_depth
-        depth[depth >= self.max_measurable_depth] = self.max_measurable_depth
-
+        #depth[depth == -1.0] = self.max_measurable_depth
+        #depth[depth >= self.max_measurable_depth] = self.max_measurable_depth
+        depth.masked_fill_(depth == -1.0, self.max_measurable_depth)
+        depth.clamp_(max=self.max_measurable_depth)
+ 
         # Correct for perspective distortion
         depth = self.correct_distorion(depth)
         return depth
@@ -182,21 +87,11 @@ class DepthMapRenderer:
         Corrects for perspective distortion in the depth map by calculating the depth values to the camera center
         instead of to the image plane for each pixel in the image.
         """
-        # Create grids of x and y coordinates
-        x_grid, y_grid = torch.meshgrid(torch.arange(self.img_size[0], device=self.device), torch.arange(self.img_size[1], device=self.device), indexing='ij')
-
-        # Compute distance from center for each pixel
-        center = torch.tensor(self.img_size, device=self.device)/2
-        dist_from_center = torch.norm(torch.stack([x_grid, y_grid], dim=-1) - center, dim=-1)
-
-        # Amplify dist tensor by 1/k
-        dist_from_center = dist_from_center / self.k
-
+ 
         # Correct for perspective distortion at indices where depth is not infinite
-        depth = torch.where(depth < self.max_measurable_depth, torch.sqrt(torch.pow(depth,2) + torch.pow(dist_from_center,2)), depth).to(self.device)
-        depth[depth >= self.max_measurable_depth] = self.max_measurable_depth
+        depth = torch.where(depth < self.max_measurable_depth, torch.sqrt(torch.pow(depth,2) + torch.pow(self.dist_from_center,2)), self.max_measurable_depth).to(self.device)
         return depth
-    
+
     def render_scene(self, light_location=(5, 5, 0)):
         """
         Renders the scene from the current camera position and orientation with the given point light location.
@@ -218,13 +113,14 @@ class DepthMapRenderer:
         img = renderer_rgb(textured_scene)
         return img
     
-    # Function to find the R and T matrices for the camera object in Pytorch3D
+    # Function to find the R and T matrices for the camera object in Pytorch3D 
+    #TODO maybe update input to be able to change lookat point on the fly
     def camera_R_T_from_quad_pos_orient(self, position: np.array, orientation: np.array) -> tuple:
         '''Given a position and orientation of the quadrotor in ENU frame, 
         this function returns the R and T matrices for the camera object in Pytorch3D.
         The camera is assumed to be looking at a point in front of the quadrotor along the body x-axis.'''
         # Convert position and orientation to torch tensors
-        at = position + geom.Rzyx(*orientation) @ np.array([1, 0, 0])  # Look at the point in front of the camera along body x-axis
+        at = position + Rzyx(*orientation) @ np.array([1, 0, 0])  # Look at the point in front of the camera along body x-axis
         
         at_torch = torch.from_numpy(at).to(self.device)
         position_torch = torch.from_numpy(position).to(self.device)
@@ -302,9 +198,9 @@ if __name__ == "__main__":
     #init camera
     camera = FoVPerspectiveCameras(device=device, fov=FOV)
 
-    #init scene
+    #obstacle creation
     unit_sphere_path = "gym_quad/meshes/sphere.obj"
-    obs1 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.0, center_position=torch.tensor([4, 0, 8]))
+    obs1 = SphereMeshObstacle(device, unit_sphere_path, 2.0, torch.tensor([4, 0, 8]))
     obs2 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=4.0, center_position=torch.tensor([2, 4, 5]))
     obs3 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.3, center_position=torch.tensor([-4, 0, 12]))
     obs4 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.1, center_position=torch.tensor([3, 0, 15]))
@@ -315,7 +211,8 @@ if __name__ == "__main__":
     #Test of returning plot variables
     x,y,z = obs1.return_plot_variables()
 
-    spherescene = SphereScene(device=device, sphere_obstacles=[obs1, obs2, obs3, obs4, obs5, obs6, obs7])
+    #init of scene
+    spherescene = Scene(device=device, obstacles=[obs1, obs2, obs3, obs4, obs5, obs6, obs7])
 
     #Init rasterizer
     raster_settings = RasterizationSettings(
@@ -326,24 +223,50 @@ if __name__ == "__main__":
     cull_backfaces=True # Do not render backfaces. MAKE SURE THIS IS OK WITH THE GIVEN MESH.
     )
 
-    renderer = DepthMapRenderer(device=device,camera=camera,scene =spherescene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE)
+    sphere_renderer = DepthMapRenderer(device=device,camera=camera,scene =spherescene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE)
 
     #Generating n_steps positions and orientations for the camera in ENU frame
-    n_steps = 24
+    n_steps = 24*4
     positions = np.zeros((n_steps, 3)) # x, y, z in meters
     orientations = np.zeros((n_steps, 3)) # roll about x, pitch about y, yaw about z (ENU) in radians
 
-    referencetype = 'line' # 'circle', 'line', 
+    
+    ####Change this to visualize different scenes and movement of the camera
+    referencetype = 'spin' 
+    # 'line' - Camera moves in a line along the x-axis
+    # 'circle' - Camera moves in a circle around the origin
+    # 'spin' - Camera spins about its z axis (ENU) with position equal to the the origin
+    ####
 
     for i in range (n_steps):
         param = n_steps/2
         #Circle around origin with radius 6
-        if referencetype == 'circle':
-            positions[i] = np.array([6*np.cos(i/param*np.pi), 6*np.sin(i/param*np.pi), 0]) # x, y, z in meters 
-            orientations[i] = np.array([0, 0, np.pi + i/param*np.pi]) # roll, pitch, yaw in radians
-        elif referencetype == 'line':
+        if referencetype == 'line': #Uses the sphere_renderer already created above
             positions[i] = np.array([i, 0, 0])
             orientations[i] = np.array([0, 0, 0])
+        elif referencetype == 'circle':
+            positions[i] = np.array([6*np.cos(i/param*np.pi), 6*np.sin(i/param*np.pi), 0]) # x, y, z in meters 
+            orientations[i] = np.array([0, 0, np.pi + i/param*np.pi]) # roll, pitch, yaw in radians
+        elif referencetype == 'spin':
+            positions[i] = np.array([0.1, 0, 0])
+            orientations[i] = np.array([0, 0, i/param*np.pi])
+
+    circle_renderer = None
+    spin_renderer = None
+    unit_cube_path = "gym_quad/meshes/cube.obj"
+    
+    if referencetype == 'circle':
+        obs1 = CubeMeshObstacle(device, unit_cube_path, 5.0, torch.tensor([0, 0, 0]))
+        # obs2 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=1.0, center_position=torch.tensor([5, 0, 0]))
+        circle_scene = Scene(device=device, obstacles=[obs1])
+        circle_renderer = DepthMapRenderer(device=device,camera=camera, scene=circle_scene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE)
+    
+    elif referencetype == 'spin':
+        obs1 = CubeMeshObstacle(device, unit_cube_path, 8.0, torch.tensor([0, 0, 0]))
+        
+        spin_scene = Scene(device=device, obstacles=[obs1])   
+        spin_renderer = DepthMapRenderer(device=device,camera=camera, scene=spin_scene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE) 
+
 
     #NB SAVES THEM TO THE TEST_IMG FOLDER IN THE TESTS FOLDER
     path_to_save_depth_maps = os.path.join(grand_parent_dir, "gym_quad/tests/test_img/depth_maps/")
@@ -351,9 +274,24 @@ if __name__ == "__main__":
     for i in tqdm(range(n_steps)):
         position = positions[i]
         orientation = orientations[i]
-
-        R, T = renderer.camera_R_T_from_quad_pos_orient(position, orientation)
-        renderer.update_R(R)
-        renderer.update_T(T)
-        depth_map = renderer.render_depth_map()
-        renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)        
+        
+        if referencetype == 'line':        
+            R, T = sphere_renderer.camera_R_T_from_quad_pos_orient(position, orientation)
+            sphere_renderer.update_R(R)
+            sphere_renderer.update_T(T)
+            depth_map = sphere_renderer.render_depth_map()
+            sphere_renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)
+        
+        elif referencetype == 'circle':
+            R, T = circle_renderer.camera_R_T_from_quad_pos_orient(position, orientation)
+            circle_renderer.update_R(R)
+            circle_renderer.update_T(T)
+            depth_map = circle_renderer.render_depth_map()
+            circle_renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)
+        
+        elif referencetype == 'spin':
+            R, T = spin_renderer.camera_R_T_from_quad_pos_orient(position, orientation)
+            spin_renderer.update_R(R)
+            spin_renderer.update_T(T)
+            depth_map = spin_renderer.render_depth_map()
+            spin_renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)        

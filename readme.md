@@ -11,15 +11,16 @@ conda env create -f environment.yml
  
 ### Training an agent:
 
-All hyperparameters and setup can be tuned in the file [train.py] and [__init__.py].
+All hyperparameters and setup can be tuned in the file [gym_quad/train3d.py] and [gym_quad/gym_quad/__init__.py].
 
 For training an agent, run:
 
 ```
-python train3d.py --exp_id [x]
+python train3d.py --exp_id [x] --n_cpu [y]
 ```
 
-Where x is the experiment id number. 
+- x: experiment id number
+- y: number of cpus to train on
 
 
 ## Running an agent in the environment
@@ -27,11 +28,16 @@ Where x is the experiment id number.
 For running an agent in any scenario, use:
 
 ```
-python run3d.py --exp_id [x] --scenario [scenario] --controller_scenario [controller_scenario] --controller [y]
+python run3d.py --env "" --exp_id x --run_scenario "..." --trained_scenario "..." --agent x --episodes x 
 ```
 
-Where x is the experiment id number, scenario is what scenario to run, controller_scenario is which scenario the controller was trained in and y is
-which agent number to run. If no y is provided, the agent called "last_model.pkl" is chosen. Scenarios can be either of "line", "horizontal" or
-"3d".
+- env: the gym environment to use
+- exp_id: which experiment to retrieve agent from
+- run_scenario: which scenario to run
+- trained_scenario: which scenario the agent was trained in
+- agent: The timestep of the agent (if left out attempts to use the last model saved model from a completed training)
+- episodes: how many episodes to repeat the run.
+
+There exists some additional args. For more info view the [gym_quad/utils.py] file and view the parse_experiment_info() function.
 
 

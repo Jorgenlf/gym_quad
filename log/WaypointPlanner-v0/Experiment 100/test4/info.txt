@@ -1,3 +1,0 @@
-python run3d.py --exp_id 23 --controller_scenario intermediate --controller 820000 --scenario intermediate --episodes 100
-
-(Nå expert)

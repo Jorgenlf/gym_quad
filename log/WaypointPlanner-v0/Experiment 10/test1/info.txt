@@ -1,2 +1,0 @@
-Test of path following controller in 3d_new 
-init_pos=[0, 0, 0]

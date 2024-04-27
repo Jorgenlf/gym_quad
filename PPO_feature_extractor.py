@@ -7,8 +7,6 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 import matplotlib.pyplot as plt
 import numpy as np
 
-import time
-import os
 
 class EncoderFeatureExtractor(BaseFeaturesExtractor):
     """

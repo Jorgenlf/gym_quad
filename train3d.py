@@ -2,44 +2,52 @@ import os
 import json
 import gymnasium as gym
 import gym_quad
-import stable_baselines3.common.results_plotter as results_plotter
 import numpy as np
-import torch
 import multiprocessing
 from  multiprocessing.pool import Pool as pool
 import glob
 import re
-from typing import Callable
 
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import BaseCallback, CallbackList, CheckpointCallback #Can remove if using tensorboard logger #TODO
 from gym_quad import lv_vae_config
-# from logger import TensorboardLogger #TODO uncomment when global n_steps is fixed
-from callbacks import MyCallback
+from logger import TensorboardLogger
 
 from PPO_feature_extractor import *
 from utils import parse_experiment_info
 
 import warnings
 # Filter out the specific warning
-#NB this is a temporary fix to avoid the warning from pytorch3d
-#Need the mtl file if we want actual images.
+#NB this is a temporary fix to avoid the warning from pytorch3d #Need the mtl file if we want actual images.
 warnings.filterwarnings("ignore", message="No mtl file provided", category=UserWarning, module="pytorch3d.io.obj_io")
 
-# scenarios = ["line","line_new","horizontal_new", "3d_new","intermediate"]
-total_timesteps = 0.2e6#15e6
-scenarios = {"line"         :   0.2e5, #Experimental result see Exp 4 on "Jørgen PC"
-             "3d_new"       :   0.2e5,
-             "intermediate" :   total_timesteps*0.2,
-             "proficient"   :   total_timesteps*0.3,
-             "expert"       :   total_timesteps*0.3}
 
+###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---###
 #TODO add a scenario where theres one obstacle close to path, but not on path which we insert after 3d_new before intermediate
+#TODO add or modify scenario such that orientation is not always pointing along the path such that the agent has to learn how to use the yaw
+total_timesteps = 10e6 #15e6
+# scenarios = {"line"         :   2.5e5, #Experimental result see Exp 4 on "Jørgen PC"
+#              "3d_new"       :   2.5e5,
+#              "intermediate" :   total_timesteps*0.2,
+#              "proficient"   :   total_timesteps*0.3,
+#              "expert"       :   total_timesteps*0.3}
+
+# scenarios = {"3d_new"         :   2048,
+#              "proficient"     :   2048,
+#              "expert"     :   2048}
+             
+
+scenarios = {   "line"          :   2e5,
+                "easy"          :   1e6,
+                "proficient"    :   1e6,
+                "intermediate"  :   1e6,
+                "expert"        :   1e6
+             }
 
 
+###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
 '''From kulkarni paper:
 The neural network is trained with an adaptive learning rate initialized at lr = 10−4. 
 The discount factor is set to γ = 0.98. 
@@ -47,302 +55,46 @@ The neural network is trained with 1024 environments simulated in parallel with 
 and rollout buffer size set to 32. 
 We train this policy for approximately 26 × 10^6 environment steps aggregated over all agents.
 '''
-#TODO implement the above hyperparameters
+#TODO implement the above hyperparameters????
 PPO_hyperparams = {
-    'n_steps': 1024, # lv_vae_config["max_t_steps"] #TODO double check what is reasobale when considered against the time steps of the environment
-    #'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old # Try default (3e-4)
+    'n_steps': 1024, 
     'batch_size': 64,
     'gae_lambda': 0.95,
     'gamma': 0.99, #old:0.99,
     'n_epochs': 4,
-    #'clip_range': 0.2,
     'ent_coef': 0.001, 
     'verbose': 2,
     'device':'cuda', #Will be used for both feature extractor and PPO
+    #'clip_range': 0.2,
+    #'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old # Try default (3e-4)
     #"optimizer_class":torch.optim.Adam, #Throws error (not hos Eirik :)) Now it does idk why sorry man
     #"optimizer_kwargs":{"lr": 10e-4}
 }
-'''Kulkarni paper:
-We define a neural network architecture containing 3 fullyconnected layers consisting of 
-512, 256 and 64 neurons each with an ELU activation layer, followed by a GRU with a hidden layer size of 64. 
-Given an observation vector ot, the policy outputs a 3-dimensional action command at = [at,1, at,2, at,3] with values in [-1, 1]
-'''
 
-encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_73_seed0_dim32.json"
+
+
+###---###---### SELECT POLICYKWARGS HERE - FEATUREEXTRACTOR AND PPO NETWORK ACRHITECTURE ###---###---###
+
+#VAE
 # encoder_path = None #If you want to train the encoder from scratch
 encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_1000_seed1.json"
+lock_params = True #If you want to lock the encoder parameters or let them be trained
+
+#PPO
+#From Ørjan:    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32])
+#SB3 default:   net_arch = dict(pi=[64, 64], vf=[64, 64])
+#From Kulkarni: net_arch = dict(pi=[512, 256, 64], vf=[512, 256, 64]) #NB: GRU is not included in this probs overkill though
+ppo_pi_vf_arch = dict(pi = [64,64], vf = [64,64]) #The PPO network architecture policy and value function
 
 policy_kwargs = dict(
     features_extractor_class = PerceptionIMUDomainExtractor,
     features_extractor_kwargs = dict(img_size=lv_vae_config["compressed_depth_map_size"],
                                      features_dim=lv_vae_config["latent_dim"],
                                      device = PPO_hyperparams['device'],
-                                     lock_params=True,
+                                     lock_params=lock_params,
                                      pretrained_encoder_path = encoder_path),
-    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32])#The PPO network architecture policy and value function
+    net_arch = ppo_pi_vf_arch
 )
-#From Ørjan:    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32])
-#SB3 default:   net_arch = dict(pi=[64, 64], vf=[64, 64])
-#From Kulkarni: net_arch = dict(pi=[512, 256, 64], vf=[512, 256, 64]) #NB: GRU is not included in this
-#There exists a recurrent PPO using LSTM which could be used as replacement for the GRU
-
-'''#-----#------#-----#Temp fix to make the global n_steps variable work pasting the tensorboardlogger class here#-----#------#-----#
-class TensorboardLogger(BaseCallback):
-    """
-     A custom callback for tensorboard logging.
-
-    :param verbose: Verbosity level: 0 for no output, 1 for info messages, 2 for debug messages
-    
-    To open tensorboard after/during training, run the following command in terminal:
-    tensorboard --logdir 'log/LV_VAE-v0/Experiment x'
-    """
-
-    def __init__(self, agents_dir=None, verbose=0,):
-        super().__init__(verbose)
-        #From tensorboard logger
-        self.n_episodes = 0
-        self.ep_reward = 0
-        self.ep_length = 0
-        #from stats callback
-        self.agents_dir = agents_dir
-        self.n_steps = 0
-        self.n_calls=0
-        self.state_names=["x","y","z","roll","pitch","yaw","u","v","w","p","q","r"]
-        self.error_names=["e", "h"]
-
-    """ info about the callback class
-    # Those variables will be accessible in the callback
-    # (they are defined in the base class)
-    # The RL model
-    # self.model = None  # type: BaseAlgorithm
-        
-    # An alias for self.model.get_env(), the environment used for training
-    # self.training_env = None  # type: Union[gym.Env, VecEnv, None]
-        
-    # Number of time the callback was called
-    # self.n_calls = 0  # type: int
-        
-    # self.num_timesteps = 0  # type: int
-    # local and global variables
-    # self.locals = None  # type: Dict[str, Any]
-    # self.globals = None  # type: Dict[str, Any]
-        
-    # The logger object, used to report things in the terminal
-    # self.logger = None  # stable_baselines3.common.logger
-    # # Sometimes, for event callback, it is useful
-    # # to have access to the parent object
-    # self.parent = None  # type: Optional[BaseCallback]
-    """
-
-    def _on_training_start(self) -> None:
-        """
-        This method is called before the first rollout starts.
-        """
-        pass
-
-    # def _on_training_start(self):
-    #     self._log_freq = 1000  # log every 1000 calls
-
-    #     output_formats = self.logger.output_formats
-    #     # Save reference to tensorboard formatter object
-    #     # note: the failure case (not formatter found) is not handled here, should be done with try/except.
-    #     self.tb_formatter = next(formatter for formatter in output_formats if isinstance(formatter, TensorBoardOutputFormat))
-
-    def _on_rollout_start(self) -> None:
-        """
-        A rollout is the collection of environment interaction
-        using the current policy.
-        This event is triggered before collecting new samples.
-        """
-        pass
-
-    def _on_step(self) -> bool:
-        """
-        This method will be called by the model after each call to `env.step()`.
-
-        For child callback (of an `EventCallback`), this will be called
-        when the event is triggered.
-
-        :return: (bool) If the callback returns False, training is aborted early.
-        """
-        # Logging data at the end of an episode - must check if the environment is done
-        done_array = self.locals["dones"]
-        n_done = np.sum(done_array).item()
-        # Only log if any workers are actually at the end of an episode
-    
-
-        global n_steps
-        ###From stats callback end###
-
-        if n_done > 0:
-            # Record the cumulative number of finished episodes
-            self.n_episodes += n_done
-            self.logger.record('time/episodes', self.n_episodes)
-
-            # Fetch data from the info dictionary of the environments that have reached a done condition (convert tuple->np.ndarray for easy indexing)
-            infos = np.array(self.locals["infos"])[done_array]
-
-            avg_reward = 0
-            avg_length = 0
-            avg_collision_reward = 0
-            avg_collision_avoidance_reward = 0
-            avg_path_adherence = 0
-            avg_path_progression = 0
-            avg_reach_end_reward = 0
-            avg_existence_reward = 0
-            for info in infos:
-                avg_reward += info["reward"]
-                avg_length += info["env_steps"]
-                avg_collision_reward += info["collision_reward"]
-                avg_collision_avoidance_reward += info["collision_avoidance_reward"]
-                avg_path_adherence += info["path_adherence"]
-                avg_path_progression += info["path_progression"]
-                avg_reach_end_reward += info['reach_end_reward'] 
-                avg_existence_reward += info['existence_reward']
-
-            avg_reward /= n_done
-            avg_length /= n_done
-            avg_collision_reward /= n_done
-            avg_collision_avoidance_reward /= n_done
-            avg_path_adherence /= n_done
-            avg_path_progression /= n_done
-            avg_reach_end_reward /= n_done
-            avg_existence_reward /= n_done
-
-            # Write to the tensorboard logger
-            self.logger.record("episodes/avg_reward", avg_reward)
-            self.logger.record("episodes/avg_length", avg_length)
-            self.logger.record("episodes/avg_collision_reward", avg_collision_reward)
-            self.logger.record("episodes/avg_collision_avoidance_reward", avg_collision_avoidance_reward)
-            self.logger.record("episodes/avg_path_adherence_reward", avg_path_adherence)
-            self.logger.record("episodes/avg_path_progression_reward", avg_path_progression)
-            self.logger.record("episodes/avg_reach_end_reward", avg_reach_end_reward)
-            self.logger.record("episodes/avg_existence_reward", avg_existence_reward)
-
-            #Can log error and state here if wanted
-
-        if (n_steps + 1) % 10000 == 0:
-            _self = self.locals.get("self")
-            _self.save(os.path.join(self.agents_dir, "model_" + str(n_steps+1) + ".zip"))
-        n_steps += 1
-        return True
-
-    def _on_rollout_end(self) -> None:
-        """
-        This event is triggered before updating the policy.
-        """
-
-    def _on_training_end(self) -> None:
-        """
-        This event is triggered before exiting the `learn()` method.
-        """
-        pass
-#-----#------#-----#Temp fix to make the global n_steps variable work pasting the tensorboardlogger class above#-----#------#-----#
-#TODO make it work without a global variable please'''
-
-
-class TensorboardLogger(BaseCallback):
-    '''
-    A custom callback for tensorboard logging.
-
-    :param verbose: Verbosity level: 0 for no output, 1 for info messages, 2 for debug messages
-    
-    To open tensorboard after/during training, run the following command in terminal:
-    tensorboard --logdir 'log/LV_VAE-v0/Experiment x'
-    '''
-
-    def __init__(self, agents_dir=None, verbose=0, log_freq=1000):
-        super().__init__(verbose)
-        self.agents_dir = agents_dir
-        self.n_steps = 0
-        self.n_calls = 0
-        self.log_freq = log_freq  # Logging frequency in terms of number of steps
-        self.state_names = ["x", "y", "z", "roll", "pitch", "yaw", "u", "v", "w", "p", "q", "r"]
-        self.error_names = ["e", "h"]
-
-
-    def _on_step(self) -> bool:
-        """
-        This method will be called by the model after each call to `env.step()`.
-
-        For child callback (of an `EventCallback`), this will be called
-        when the event is triggered.
-
-        :return: (bool) If the callback returns False, training is aborted early.
-        """
-        self.n_calls += 1
-        done_array = self.locals["dones"]
-        n_done = np.sum(done_array).item()
-
-        if n_done > 0:
-            self.n_episodes += n_done
-            self.logger.record('time/episodes', self.n_episodes)
-            infos = np.array(self.locals["infos"])[done_array]
-
-            avg_reward = np.mean([info["reward"] for info in infos])
-            avg_length = np.mean([info["env_steps"] for info in infos])
-            avg_collision_reward = np.mean([info["collision_reward"] for info in infos])
-            avg_collision_avoidance_reward = np.mean([info["collision_avoidance_reward"] for info in infos])
-            avg_path_adherence = np.mean([info["path_adherence"] for info in infos])
-            avg_path_progression = np.mean([info["path_progression"] for info in infos])
-            avg_reach_end_reward = np.mean([info['reach_end_reward'] for info in infos])
-            avg_existence_reward = np.mean([info['existence_reward'] for info in infos])
-
-            self.logger.record("episodes/avg_ep_reward", avg_reward)
-            self.logger.record("episodes/avg_ep_length", avg_length)
-            self.logger.record("episodes/avg_ep_collision_reward", avg_collision_reward)
-            self.logger.record("episodes/avg_ep_collision_avoidance_reward", avg_collision_avoidance_reward)
-            self.logger.record("episodes/avg_ep_path_adherence_reward", avg_path_adherence)
-            self.logger.record("episodes/avg_ep_path_progression_reward", avg_path_progression)
-            self.logger.record("episodes/avg_ep_reach_end_reward", avg_reach_end_reward)
-            self.logger.record("episodes/avg_ep_existence_reward", avg_existence_reward)
-
-        # # Check for logging frequency based on the number of steps
-        # if self.n_calls % self.log_freq == 0:
-        #     all_infos = np.array(self.locals["infos"])[np.ones_like(done_array, dtype=bool)]
-        #     avg_reward = np.mean([info["reward"] for info in all_infos])
-        #     #path_adherence = self.locals["infos"][0]["path_adherence"]
-        #     #path_progression = self.locals["infos"][0]["path_progression"]
-        #     #collision_reward = self.locals["infos"][0]["collision_reward"]
-        #     #collision_avoidance_reward = self.locals["infos"][0]["collision_avoidance_reward"]
-
-        #     self.logger.record("reward/reward", avg_reward)
-        #     #self.logger.record("reward/path_adherence", path_adherence)
-        #     #self.logger.record("reward/path_progression", path_progression)
-        #     #self.logger.record("reward/collision_reward", collision_reward)
-        #     #self.logger.record("reward/collision_avoidance_reward", collision_avoidance_reward)
-
-        #     #self.logger.dump(self.n_calls)
-        #     #self.logger.dump(self.n_calls)
-        
-        
-        if self.n_steps % PPO_hyperparams["n_steps"] == 0:
-            infos = self.locals["infos"]
-            reward = np.mean([info["reward"] for info in infos])
-            length = np.mean([info["env_steps"] for info in infos])
-            collision_reward = np.mean([info["collision_reward"] for info in infos])
-            collision_avoidance_reward = np.mean([info["collision_avoidance_reward"] for info in infos])
-            path_adherence = np.mean([info["path_adherence"] for info in infos])
-            path_progression = np.mean([info["path_progression"] for info in infos])
-            reach_end_reward = np.mean([info["reach_end_reward"] for info in infos])
-            existence_reward = np.mean([info["existence_reward"] for info in infos])
-
-            self.logger.record("iter/reward", reward)
-            self.logger.record("iter/length", length)
-            self.logger.record("iter/collision_reward", collision_reward)
-            self.logger.record("iter/collision_avoidance_reward", collision_avoidance_reward)
-            self.logger.record("iter/path_adherence", path_adherence)
-            self.logger.record("iter/path_progression", path_progression)
-            self.logger.record("iter/reach_end_reward", reach_end_reward)
-            self.logger.record("iter/existence_reward", existence_reward)
-    
-
-        # Check for model saving frequency
-        if self.n_calls % 10000 == 0:
-            self.model.save(os.path.join(self.agents_dir, "model_" + str(self.n_calls) + ".zip"))
-
-        return True
-
 
 
 """
@@ -352,7 +104,7 @@ python train3d.py --exp_id x --n_cpu x
 
 if __name__ == '__main__':
     
-    #_s = time.time() #For tracking training time
+    # _s = time.time() #For tracking training time
 
     print('\nTOTAL CPU CORE COUNT:', multiprocessing.cpu_count())
     experiment_dir, _, args = parse_experiment_info()
@@ -389,8 +141,11 @@ if __name__ == '__main__':
             json.dump(PPO_hyperparams, file)
         with open(os.path.join(config_dir, 'curriculum_config.json'), 'w') as file:
             json.dump(scenarios, file)
-        # with open(os.path.join(config_dir, 'policy_kwargs.json'), 'w') as file: #TODO fix this
-        #     json.dump(policy_kwargs, file)    
+        with open(os.path.join(config_dir, 'drl_net_arch.json'), 'w') as file: 
+            json.dump(ppo_pi_vf_arch, file)    
+        with open(os.path.join(config_dir, 'feature_extractor_kwargs.json'), 'w') as file:
+            json.dump(policy_kwargs['features_extractor_kwargs'], file)
+
 
 
         PPO_hyperparams["tensorboard_log"] = tensorboard_dir
@@ -450,24 +205,22 @@ if __name__ == '__main__':
         print("DONE INITIALIZING AGENT")
 
 
-        # Init callbacks for logging and saving
-        logger_callback = MyCallback()
-        savepoint_callback = CheckpointCallback(
-            save_freq=max(100000 // args.n_cpu, 1),
-            save_path="./logs/agents",
-            name_prefix="rl_model",
-            save_replay_buffer=False,
-            save_vecnormalize=False,
-        )
-        callbacks = CallbackList([logger_callback, savepoint_callback, TensorboardLogger(agents_dir=agents_dir)])
-
         best_mean_reward = -np.inf
         n_steps =  continual_step 
         timesteps = scenarios[scen] - num_envs*continual_step
         print("\nTRAINING FOR", timesteps, "TIMESTEPS", "IN", scen.upper())
-        agent.learn(total_timesteps=timesteps, tb_log_name="PPO", callback=TensorboardLogger(agents_dir=agents_dir),progress_bar=True)
+
+        agent.learn(total_timesteps=timesteps, 
+                    tb_log_name="PPO",
+                    callback=TensorboardLogger(agents_dir=agents_dir, log_freq=PPO_hyperparams["n_steps"], save_freq=10000),
+                    progress_bar=True)
+        
         print("FINISHED TRAINING AGENT IN", scen.upper())
         save_path = os.path.join(agents_dir, "last_model.zip")
         agent.save(save_path)
         print("SAVE SUCCESSFUL")
-    #print(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
+        env.close()
+        del env
+        del agent
+        print("ENVIRONMENT CLOSED\n")        
+    # print(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
