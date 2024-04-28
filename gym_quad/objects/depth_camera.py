@@ -1,9 +1,10 @@
 import torch
+import trimesh
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from pytorch3d.io import load_objs_as_meshes
-from pytorch3d.structures import join_meshes_as_scene
+from pytorch3d.structures import join_meshes_as_scene, Meshes
 # from pytorch3d.vis.plotly_vis import AxisArgs, plot_batch_individually, plot_scene
 # from pytorch3d.vis.texture_vis import texturesuv_image_matplotlib
 from pytorch3d.renderer.mesh.textures import Textures
@@ -27,8 +28,71 @@ grand_parent_dir = os.path.dirname(parent_dir)
 # Add the parent directory to the Python path
 sys.path.append(grand_parent_dir)
 
-from gym_quad.utils.geomutils import enu_to_pytorch3d, pytorch3d_to_enu, Rzyx
-from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle
+from gym_quad.utils.geomutils import enu_to_pytorch3d, pytorch3d_to_enu, Rzyx, enu_to_tri
+from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle, create_cube
+from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
+
+
+#TODO Temp move somewhere better 
+def combine_meshes(mesh_list):
+    # This function assumes that all meshes are already on the same device and have the same properties
+    combined_mesh = Meshes(verts=[mesh.verts_packed() for mesh in mesh_list], 
+                           faces=[mesh.faces_packed() for mesh in mesh_list])
+    return combined_mesh
+
+
+#TODO remove this is only temporary for testing
+def get_scene_bounds(obstacles: list, path: QPMI, padding=10):
+    """Returns [xmin, xmax, ymin, ymax, zmin, zmax] for the scene and the path,
+        with padding [m] added to each dimension"""
+    inf = 1000
+    bounds = [inf, -inf, inf, -inf, inf, -inf]
+    
+    if obstacles != [] :
+        # obs_meshes = [o.mesh for o in obstacles]
+        # tri_obs_meshes = [trimesh.Trimesh(vertices=o.verts_packed().cpu().numpy(), faces=o.faces_packed().cpu().numpy()) for o in obs_meshes]
+        # for mesh in tri_obs_meshes:
+        #     for point in mesh.vertices:
+        #         bounds[0] = min(bounds[0], point[0])
+        #         bounds[1] = max(bounds[1], point[0])
+        #         bounds[2] = min(bounds[2], point[1])
+        #         bounds[3] = max(bounds[3], point[1])
+        #         bounds[4] = min(bounds[4], point[2])
+        #         bounds[5] = max(bounds[5], point[2])
+        for obs in obstacles:
+            min_vals, max_vals = obs.get_bounding_box()
+            bounds[0] = min(bounds[0], min_vals[0])
+            bounds[1] = max(bounds[1], max_vals[0])
+            bounds[2] = min(bounds[2], min_vals[1])
+            bounds[3] = max(bounds[3], max_vals[1])
+            bounds[4] = min(bounds[4], min_vals[2])
+            bounds[5] = max(bounds[5], max_vals[2])
+    
+    if path != None:
+        for point in path.waypoints:
+            point = enu_to_tri(point)
+            bounds[0] = min(bounds[0], point[0])
+            bounds[1] = max(bounds[1], point[0])
+            bounds[2] = min(bounds[2], point[1])
+            bounds[3] = max(bounds[3], point[1])
+            bounds[4] = min(bounds[4], point[2])
+            bounds[5] = max(bounds[5], point[2])
+
+    for i in range(6):
+        bounds[i] += padding if i % 2 == 0 else -padding
+
+# Calculate the scaled bounds that makes the x,y and z axis equal length but still contains the whole scene
+    scene_width = bounds[1] - bounds[0]
+    scene_height = bounds[3] - bounds[2]
+    scene_depth = bounds[5] - bounds[4]
+    max_scene_extent = max(scene_width, scene_height, scene_depth)
+    center = [(bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, (bounds[4] + bounds[5]) / 2]
+    scaled_bounds = [center[0] - max_scene_extent / 2, center[0] + max_scene_extent / 2,
+                        center[1] - max_scene_extent / 2, center[1] + max_scene_extent / 2,
+                        center[2] - max_scene_extent / 2, center[2] + max_scene_extent / 2]
+ 
+    return bounds, scaled_bounds
+
 
 
 class DepthMapRenderer:
@@ -201,7 +265,7 @@ if __name__ == "__main__":
     # Camera globals
     IMG_SIZE = (240, 320)           # (H, W) of physical depth cam images AFTER the preprocessing pipeline
     FOV = 60                        # Field of view in degrees, init to correct value later
-    MAX_MEASURABLE_DEPTH = 10.0      # Maximum measurable depth, initialized to k here but is 10 IRL
+    MAX_MEASURABLE_DEPTH = 15.0      # Maximum measurable depth, initialized to k here but is 10 IRL
     
     #init device to use gpu if available
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -237,18 +301,22 @@ if __name__ == "__main__":
     sphere_renderer = DepthMapRenderer(device=device,camera=camera,scene =spherescene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE)
 
     #Generating n_steps positions and orientations for the camera in ENU frame
-    n_steps = 24*4
+    #This will also decide how many depthmaps get saved
+    n_steps = 24
     positions = np.zeros((n_steps, 3)) # x, y, z in meters
     orientations = np.zeros((n_steps, 3)) # roll about x, pitch about y, yaw about z (ENU) in radians
 
     
     ####Change this to visualize different scenes and movement of the camera
-    referencetype = 'spin' 
+    referencetype = 'enclosed_circle' 
     # 'line' - Camera moves in a line along the x-axis
     # 'circle' - Camera moves in a circle around the origin
     # 'spin' - Camera spins about its z axis (ENU) with position equal to the the origin
+    # 'enclosed_spin' - Camera spins about its z axis (ENU) with position equal to the the origin and is enclosed by a cube made based on path and other obstacles
+    # 'enclosed_circle' - Camera moves in a circle around the origin and is enclosed by a cube made based on path and other obstacles
     ####
 
+    #Create movement for the camera
     for i in range (n_steps):
         param = n_steps/2
         #Circle around origin with radius 6
@@ -261,25 +329,83 @@ if __name__ == "__main__":
         elif referencetype == 'spin':
             positions[i] = np.array([0.1, 0, 0])
             orientations[i] = np.array([0, 0, i/param*np.pi])
+        elif referencetype == 'enclosed_spin':
+            positions[i] = np.array([0.1, 0, 0])
+            orientations[i] = np.array([0, 0, i/param*np.pi])
+        elif referencetype == 'enclosed_circle':    
+            positions[i] = np.array([7*np.cos(i/param*np.pi), 7*np.sin(i/param*np.pi), 0]) # x, y, z in meters pytorch3d coords
+            orientations[i] = np.array([0, 0, np.pi + i/param*np.pi]) # roll, pitch, yaw in radians
 
     circle_renderer = None
     spin_renderer = None
     unit_cube_path = "gym_quad/meshes/cube.obj"
     
+    #Create the scene for the different reference types
     if referencetype == 'circle':
         obs1 = CubeMeshObstacle(device, unit_cube_path, 5.0, torch.tensor([0, 0, 0]))
         # obs2 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=1.0, center_position=torch.tensor([5, 0, 0]))
         circle_scene = Scene(device=device, obstacles=[obs1])
         circle_renderer = DepthMapRenderer(device=device,camera=camera, scene=circle_scene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE)
-    
     elif referencetype == 'spin':
         obs1 = CubeMeshObstacle(device, unit_cube_path, 8.0, torch.tensor([0, 0, 0]))
         
         spin_scene = Scene(device=device, obstacles=[obs1])   
         spin_renderer = DepthMapRenderer(device=device,camera=camera, scene=spin_scene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE) 
+    elif referencetype == 'enclosed_spin':
+        #obs gen
+        obs1 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=1.3, center_position=torch.tensor([-2, 0, 0]))
+        obs2 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=1.1, center_position=torch.tensor([0, 1, 2]))    
+        obs_list = [obs1, obs2]
+        
+        #path gen
+        # n_waypoints = generate_random_waypoints(3,"line")
+        # path = QPMI(n_waypoints)  
+        path = None      
+        
+        #find bounds
+        bounds, _ = get_scene_bounds(obs_list,path,padding=0.5)
+
+        cube = CubeMeshObstacle(device, unit_cube_path, 1.0, torch.tensor([0, 0, 0]))
+        cube.fit_to_bounds(bounds)
+
+        obs_list.append(cube)
+        enclosed_scene = Scene(device=device, obstacles=obs_list)
+        enclosed_renderer = DepthMapRenderer(device=device,camera=camera, scene=enclosed_scene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE)
+    elif referencetype == "enclosed_circle":
+        #obs gen
+        obs1 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=1.3, center_position=torch.tensor([-2, 0, 0]))
+        obs2 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=1.1, center_position=torch.tensor([2, 0.5, 0]))    
+        obs3 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=0.5, center_position=torch.tensor([0, 0, 0]))
+        obs_list = [obs2,obs3]
+
+        #path gen
+        n_waypoints = generate_random_waypoints(20,"line")
+        path = QPMI(n_waypoints)  
+        path = None      
+        
+        #find bounds
+        combined_mesh = combine_meshes([obs.mesh for obs in obs_list])
+        bbox = combined_mesh.get_bounding_boxes()
+        bounds = [bbox[0, 0, 0], bbox[0, 0, 1], bbox[0, 1, 0], bbox[0, 1, 1], bbox[0, 2, 0], bbox[0, 2, 1]]
+        #Calculate w,h,d of cube
+        c_width = bounds[1] - bounds[0]
+        c_height = bounds[3] - bounds[2]
+        c_depth = bounds[5] - bounds[4]
+        tri_cube = create_cube(c_width.item(), c_height.item(), c_depth.item())
+
+        # bounds, scaled_bounds = get_scene_bounds(obs_list,path,padding=0)
+        # print("Suggested bounds",bounds)
+        # print("Suggested scaled bounds",scaled_bounds)
+        cube_obstacle = CubeMeshObstacle(device, unit_cube_path, 1.0, torch.tensor([0, 0, 0]))
+        cube_obstacle.update_mesh(tri_cube)
+
+        obs_list.append(cube_obstacle)
+        enclosed_scene = Scene(device=device, obstacles=obs_list)
+        enclosed_circle_renderer = DepthMapRenderer(device=device,camera=camera, scene=enclosed_scene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE)
 
 
-    #NB SAVES THEM TO THE TEST_IMG FOLDER IN THE TESTS FOLDER
+
+    #NB SAVES THE DEPTHMAPS TO THE TEST_IMG FOLDER IN THE TESTS FOLDER
     path_to_save_depth_maps = os.path.join(grand_parent_dir, "gym_quad/tests/test_img/depth_maps/")
 
     for i in tqdm(range(n_steps)):
@@ -305,4 +431,18 @@ if __name__ == "__main__":
             spin_renderer.update_R(R)
             spin_renderer.update_T(T)
             depth_map = spin_renderer.render_depth_map()
-            spin_renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)        
+            spin_renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)    
+
+        elif referencetype == 'enclosed_spin':
+            R, T = sphere_renderer.camera_R_T_from_quad_pos_orient(position, orientation)
+            enclosed_renderer.update_R(R)
+            enclosed_renderer.update_T(T)
+            depth_map = enclosed_renderer.render_depth_map()
+            enclosed_renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)
+        
+        elif referencetype == 'enclosed_circle':
+            R, T = sphere_renderer.camera_R_T_from_quad_pos_orient(position, orientation)
+            enclosed_circle_renderer.update_R(R)
+            enclosed_circle_renderer.update_T(T)
+            depth_map = enclosed_circle_renderer.render_depth_map()
+            enclosed_circle_renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)

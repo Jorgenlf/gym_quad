@@ -17,13 +17,13 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(script_dir)
 grand_parent_dir = os.path.dirname(parent_dir)
 sys.path.append(grand_parent_dir)
-from gym_quad.utils.geomutils import pytorch3d_to_enu, enu_to_tri, tri_to_enu
+from gym_quad.utils.geomutils import pytorch3d_to_enu, enu_to_tri 
 
 
 #CREATION OF MESHES#
 #Create a unit cube mesh with inwards facing normals
-def create_cube():
-    cube = trimesh.creation.box(extents=[1, 1, 1], inscribed=False)
+def create_cube(width=1, height=1, depth=1):
+    cube = trimesh.creation.box(extents=[width, height, depth],inscribed=False)
     cube.invert()
     return cube
 
@@ -80,6 +80,14 @@ class SphereMeshObstacle:
         self.mesh.to(new_device)
         self.center_position.to(new_device)
 
+    def get_bounding_box(self):
+        # Compute the bounding box by taking the min and max of vertices
+        vertices = self.mesh.verts_packed()  # This will return all vertices in the mesh
+        min_vals, _ = torch.min(vertices, dim=0)
+        max_vals, _ = torch.max(vertices, dim=0)
+        return min_vals, max_vals
+
+
     def return_plot_variables(self):
         u = np.linspace(0, 2 * np.pi, 100)
         v = np.linspace(0, np.pi, 100)
@@ -88,6 +96,9 @@ class SphereMeshObstacle:
         z = self.position[2].item() + self.radius * np.outer(np.ones(np.size(u)), np.cos(v))
 
         return [x,y,z]
+
+
+
 
 class CubeMeshObstacle:
     def __init__(self,
@@ -108,19 +119,79 @@ class CubeMeshObstacle:
         self.mesh.scale_verts_(scale=self.side_length)
         self.mesh.offset_verts_(vert_offsets_packed=self.center_position)
 
-    def resize(self, new_side_length: float):
-        self.mesh.scale_verts_(scale=new_side_length/self.side_length)
-        self.side_length = new_side_length
-
-    def move(self, new_center_position: torch.Tensor):
-        new_center_position = new_center_position.to(self.device)
-        self.mesh.offset_verts_(vert_offsets_packed=new_center_position-self.center_position)
-        self.center_position = new_center_position
-
+        self.original_extents = self.get_bounding_box()
+    
     def set_device(self, new_device: torch.device):
         self.device = new_device
         self.mesh.to(new_device)
         self.center_position.to(new_device)
+
+    def move(self, new_center_position: torch.Tensor):
+        new_center_position = new_center_position.float().to(self.device)  # Convert to float32 before moving
+        displacement = new_center_position - self.center_position
+        self.mesh.offset_verts_(vert_offsets_packed=displacement)
+        self.center_position = new_center_position
+
+    def resize(self, new_side_length: float):
+        scale_factor = new_side_length / self.side_length
+        self.mesh.scale_verts_(scale=scale_factor)
+        self.side_length = new_side_length
+
+    def get_bounding_box(self):
+        # Compute the bounding box by taking the min and max of vertices
+        vertices = self.mesh.verts_packed()  # This will return all vertices in the mesh
+        min_vals, _ = torch.min(vertices, dim=0)
+        max_vals, _ = torch.max(vertices, dim=0)
+        return min_vals, max_vals
+
+    # def get_current_extents(self):
+    #     verts = self.mesh.verts_packed()
+    #     min_vals, _ = torch.min(verts, dim=0)
+    #     max_vals, _ = torch.max(verts, dim=0)
+    #     return max_vals - min_vals
+
+    # def resize_x(self, new_width):
+    #     # Calculate the current width of the mesh from its vertices
+    #     current_extents = self.get_bounding_box()
+    #     current_width = current_extents[0]
+    #     scale_factor = new_width / current_width
+    #     self.mesh.scale_verts_(torch.tensor([scale_factor, 1, 1], device=self.device))
+
+    # def resize_y(self, new_height):
+    #     # Calculate the current height of the mesh from its vertices
+    #     current_extents = self.get_bounding_box()
+    #     current_height = current_extents[1]
+    #     scale_factor = new_height / current_height
+    #     self.mesh.scale_verts_(torch.tensor([1, scale_factor, 1], device=self.device))
+
+    # def resize_z(self, new_depth):
+    #     # Calculate the current depth of the mesh from its vertices
+    #     current_extents = self.get_bounding_box()
+    #     current_depth = current_extents[2]
+    #     scale_factor = new_depth / current_depth
+    #     self.mesh.scale_verts_(torch.tensor([1, 1, scale_factor], device=self.device))
+
+    # def fit_to_bounds(self, bounds):
+    #     x_min, x_max, y_min, y_max, z_min, z_max = bounds
+    #     new_width = x_max - x_min
+    #     new_height = y_max - y_min
+    #     new_depth = z_max - z_min
+    #     new_center_position = torch.tensor([(x_min + x_max) / 2, 
+    #                                         (y_min + y_max) / 2, 
+    #                                         (z_min + z_max) / 2], 
+    #                                        device=self.device, dtype=torch.float32)
+
+    #     self.move(new_center_position)
+    #     self.resize_x(new_width)
+    #     self.resize_y(new_height)
+    #     self.resize_z(new_depth)
+
+    def update_mesh(self,tri_mesh):
+        #Convert the trimesh mesh to a pytorch3d mesh
+        verts = torch.tensor(tri_mesh.vertices, dtype=torch.float32, device=self.device)
+        faces = torch.tensor(tri_mesh.faces, dtype=torch.long, device=self.device)
+        self.mesh = Meshes(verts=[verts], faces=[faces])
+
 
     def return_plot_variables(self):
         x = np.array([[-1, 1, 1, -1, -1, 1, 1, -1],

@@ -13,7 +13,47 @@ from gym_quad.objects.quad import Quad
 from gym_quad.objects.IMU import IMU
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.depth_camera import DepthMapRenderer, FoVPerspectiveCameras, RasterizationSettings
-from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle
+from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle
+
+
+
+#TODO move elsewhere (temporary here for testing)
+def get_scene_bounds(obstacles: list, path: QPMI, padding=10):
+    """Returns [xmin, xmax, ymin, ymax, zmin, zmax] for the scene and the path,
+        with padding [m] added to each dimension"""
+    inf = 1000
+    bounds = [inf, -inf, inf, -inf, inf, -inf]
+    
+    if obstacles != [] :
+        for obs in obstacles:
+            mesh = trimesh.load(obs.path) #obs.mesh does not work as it gives a pt3d mesh
+            for point in mesh.vertices:
+                bounds[0] = min(bounds[0], point[0])
+                bounds[1] = max(bounds[1], point[0])
+                bounds[2] = min(bounds[2], point[1])
+                bounds[3] = max(bounds[3], point[1])
+                bounds[4] = min(bounds[4], point[2])
+                bounds[5] = max(bounds[5], point[2])
+ 
+    for point in path.waypoints:
+        bounds[0] = min(bounds[0], point[0])
+        bounds[1] = max(bounds[1], point[0])
+        bounds[2] = min(bounds[2], point[1])
+        bounds[3] = max(bounds[3], point[1])
+        bounds[4] = min(bounds[4], point[2])
+        bounds[5] = max(bounds[5], point[2])
+    for i in range(6):
+        bounds[i] += padding
+ 
+    # Also, return the bounds so that the x, y and z axes are equally scaled
+    scaled_bounds = bounds.copy()
+    max_range = max(bounds[1] - bounds[0], bounds[3] - bounds[2], bounds[5] - bounds[4])
+    scaled_bounds[1] = bounds[0] + max_range
+    scaled_bounds[3] = bounds[2] + max_range
+    scaled_bounds[5] = bounds[4] + max_range
+ 
+    return bounds, scaled_bounds
+
 
 #TODO add stochasticity to make sim2real robust
 class LV_VAE_MESH(gym.Env):
@@ -100,6 +140,9 @@ class LV_VAE_MESH(gym.Env):
         r = 1
         self.tri_quad_mesh.apply_scale(r)
 
+        #Init the cube mesh that will be used in the cubeMehsObstacle class
+        #It is inverted by default
+        self.tri_cube_mesh = trimesh.load("gym_quad/meshes/cube.obj")
         #Reset environment to init state
         self.reset()
 
@@ -148,6 +191,13 @@ class LV_VAE_MESH(gym.Env):
         scenario = self.scenario_switch.get(self.scenario, lambda: print("Invalid scenario"))
         init_state = scenario() #Called such that the obstacles are generated and the init state of the quadcopter is set
 
+        # Generate room
+        if self.enclose_scene:
+            self.cube = CubeMeshObstacle(self.tri_cube_mesh, self.device)
+            bounds, scaled_bounds = get_scene_bounds(self.obstacles, self.path)
+            self.cube.fit_to_bounds(bounds)
+            self.obstacles.append(self.cube)
+
         ## Generate camera, scene and renderer
         camera = None
         raster_settings = None
@@ -175,7 +225,8 @@ class LV_VAE_MESH(gym.Env):
                                                     # Aditionally we dont need the rasterizer and renderer if there are no obstacles
 
 
-        #Init the trimesh meshes for collision detection
+        #Init the trimesh meshes for collision detection 
+        #IMPORTANT TO DO THIS AFTER THE CAMERA INIT AS CAMERA NEEDS INVERTED CUBES COLLISION DETECTION NEEDS NORMAL CUBES
         obs_meshes = None
         tri_obs_meshes = None
         tri_joined_obs_mesh = None
@@ -202,6 +253,7 @@ class LV_VAE_MESH(gym.Env):
         self.imu = IMU()
         self.imu_measurement = np.zeros((6,), dtype=np.float32) 
         
+
         ###
         self.info = {}
         self.observation = self.observe() 
