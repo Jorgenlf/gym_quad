@@ -7,6 +7,7 @@ import multiprocessing
 from  multiprocessing.pool import Pool as pool
 import glob
 import re
+import time
 
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import set_random_seed
@@ -27,7 +28,7 @@ warnings.filterwarnings("ignore", message="No mtl file provided", category=UserW
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---###
 #TODO add a scenario where theres one obstacle close to path, but not on path which we insert after 3d_new before intermediate
 #TODO add or modify scenario such that orientation is not always pointing along the path such that the agent has to learn how to use the yaw
-total_timesteps = 10e6 #15e6
+# total_timesteps = 10e6 #15e6
 # scenarios = {"line"         :   2.5e5, #Experimental result see Exp 4 on "Jørgen PC"
 #              "3d_new"       :   2.5e5,
 #              "intermediate" :   total_timesteps*0.2,
@@ -39,7 +40,8 @@ total_timesteps = 10e6 #15e6
 #              "expert"     :   2048}
              
 
-#THIS CONFIG GAVE AN AGENT THAT MANAGED EVERYTHING EXCEPT DEADEND (4.27.24) BEFORE INTRODUCTION OF BOX
+# #THIS CONFIG GAVE AN AGENT THAT MANAGED EVERYTHING EXCEPT DEADEND (4.27.24) BEFORE INTRODUCTION OF BOX 
+#See exp dir 2 on jørgen pc or exp dir 2 in the good experiments folder. 
 # scenarios = {   "line"          :   2e5,
 #                 "easy"          :   1e6,
 #                 "proficient"    :   1e6,
@@ -47,7 +49,29 @@ total_timesteps = 10e6 #15e6
 #                 "expert"        :   1e6
 #              }
 
-scenarios = {"vertical"          :   2e5} #For profiling purposes
+
+#This config which is similar to the one above (see exp dir 3 on jørgen pc)
+#except that intermediate and proficient is flipped (which according to their names would make more sense)
+#Does NOT work. I think this comes from the intermediate scenario only having 1 obstacle resulting in less obsatcle information per run
+#Which might lead the agent to focus on path following instead as this yields most rewards in this scenario.
+# scenarios = {   "line"          :   2e5,
+#                 "easy"          :   1e6,
+#                 "intermediate"  :   1e6,
+#                 "proficient"    :   1e6,
+#                 "expert"        :   1e6
+#              }
+
+#I think that doing line-easy-proficient-expert with more time in easy proficient and expert is the way to go. #TODO test this
+scenarios = {   "line"          :   2e5,
+                "easy"          :   1.5e6,
+                "proficient"    :   2e6,
+                "expert"        :   2.5e6
+            }
+
+
+
+# scenarios = {"vertical"          :   2e5} #For profiling purposes
+
 
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
 '''From kulkarni paper:
@@ -106,7 +130,7 @@ python train3d.py --exp_id x --n_cpu x
 
 if __name__ == '__main__':
     
-    # _s = time.time() #For tracking training time
+    _s = time.time() #For tracking training time
 
     print('\nTOTAL CPU CORE COUNT:', multiprocessing.cpu_count())
     experiment_dir, _, args = parse_experiment_info()
@@ -225,4 +249,4 @@ if __name__ == '__main__':
         del env
         del agent
         print("ENVIRONMENT CLOSED\n")        
-    # print(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
+    print(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
