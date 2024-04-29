@@ -48,7 +48,10 @@ def get_scene_bounds(obstacles: list, path: QPMI, padding=10):
             bounds[5] = max(bounds[5], point[2])
 
     for i in range(6):
-        bounds[i] += padding if i % 2 == 0 else -padding
+        if i % 2 == 0:
+            bounds[i] -= padding  # Decrease min values
+        else:
+            bounds[i] += padding  # Increase max values
 
     # Calculate the scaled bounds that makes the x,y and z axis equal length but still contains the whole scene
         scene_width = bounds[1] - bounds[0]
@@ -160,6 +163,10 @@ class CubeMeshObstacle:
         self.center_position = center_position.to(device=self.device).float() # Centre of the cube in camera world frame
         self.position = pytorch3d_to_enu(center_position,device=self.device).float() # Centre of the cube in ENU frame
 
+        self.width = width
+        self.height = height
+        self.depth = depth
+
         self.mesh = self.create_cube(width, height, depth, inverted)
         self.mesh.offset_verts_(vert_offsets_packed=self.center_position)
 
@@ -185,10 +192,20 @@ class CubeMeshObstacle:
         self.mesh.offset_verts_(vert_offsets_packed=displacement)
         self.center_position = new_center_position
 
-    def resize(self, new_side_length: float):
-        scale_factor = new_side_length / self.side_length
-        self.mesh.scale_verts_(scale=scale_factor)
-        self.side_length = new_side_length
+    def resize(self, new_side_length: float, type: str):
+        if type == "width":
+            scale_factor = new_side_length / self.width
+            self.mesh.scale_verts_(scale=scale_factor)
+            self.width = new_side_length
+        elif type == "height":
+            scale_factor = new_side_length / self.height
+            self.mesh.scale_verts_(scale=scale_factor)
+            self.height = new_side_length
+        elif type == "depth":
+            scale_factor = new_side_length / self.depth
+            self.depth = new_side_length
+            self.mesh.scale_verts_(scale=scale_factor)
+
 
     def get_bounding_box(self):
         # Compute the bounding box by taking the min and max of vertices
@@ -221,11 +238,11 @@ class CubeMeshObstacle:
         x = np.array([[-1, 1, 1, -1, -1, 1, 1, -1],
                       [-1, -1, 1, 1, -1, -1, 1, 1],
                       [-1, -1, -1, -1, 1, 1, 1, 1]])
-        x = self.center_position[0].item() + 0.5*self.side_length*x
+        x = self.center_position[0].item() + 0.5*self.width*x
         y = np.array([[-1, -1, 1, 1, -1, -1, 1, 1],
                       [-1, 1, 1, -1, -1, 1, 1, -1],
                       [-1, -1, -1, -1, 1, 1, 1, 1]])
-        y = self.center_position[1].item() + 0.5*self.side_length*y
+        y = self.center_position[1].item() + 0.5*self.depth*y
         z = np.array([[-1, -1, -1, -1, -1, -1, -1, -1],
                       [-1, -1, -1, -1, 1, 1, 1, 1],
                       [-1, 1, 1, -1, -1, -1, -1, 1]])

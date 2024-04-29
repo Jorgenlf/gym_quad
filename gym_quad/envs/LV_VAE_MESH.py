@@ -152,7 +152,7 @@ class LV_VAE_MESH(gym.Env):
 
         ## 2. Generate room
         if self.enclose_scene:
-            bounds, _ = get_scene_bounds(self.obstacles, self.path, padding=12)
+            bounds, _ = get_scene_bounds(self.obstacles, self.path, padding=15)
             #calculate the size of the room
             width = bounds[1] - bounds[0]
             height = bounds[3] - bounds[2]
@@ -707,8 +707,9 @@ class LV_VAE_MESH(gym.Env):
         """
         ax = self.path.plot_path(wps_on, leave_out_first_wp=leave_out_first_wp)
         for obstacle in self.obstacles:
-            ax.plot_surface(*obstacle.return_plot_variables(), color='r', zorder=1)
-            ax.set_aspect('equal', adjustable='datalim')
+            if isinstance(obstacle, SphereMeshObstacle): #TODO make this more general
+                ax.plot_surface(*obstacle.return_plot_variables(), color='r', zorder=1)
+                ax.set_aspect('equal', adjustable='datalim')
         return ax#self.axis_equal3d(ax)
 
     def plot_section3d(self):
