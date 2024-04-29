@@ -3,23 +3,23 @@ import glob
 
 
 # Define filetype of source images:
-
 extension = '.png'
-option = 'B'
-
 
 # Option A: N filenames have common structure and are numbered in the correct sequence:
 #	    "image_name_0.png", "image_name_1.png", "image_name_2.png", ...
 # 	    n_imgs: known number of images
 
 # Option B: unknown filenames, but they are still ordered in ascending order by name:
-# import glob
+
+#Choose option A or B:
+option = 'A'
 
 
 if option == 'A':
     n_imgs = 24
     path = "gym_quad/tests/test_img/depth_maps/"
     filenames = [f"{path}depth_map{i}{extension}" for i in range(n_imgs)]
+    
 elif option == 'B':
 
     exp_id = 2
