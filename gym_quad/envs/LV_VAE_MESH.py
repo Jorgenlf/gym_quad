@@ -158,8 +158,8 @@ class LV_VAE_MESH(gym.Env):
             height = bounds[3] - bounds[2]
             depth = bounds[5] - bounds[4]
             room_center = torch.tensor([(bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, (bounds[4] + bounds[5]) / 2])
-            self.cube = CubeMeshObstacle(device=self.device,width=width, height=height, depth=depth, center=room_center,inverted=True)
-            self.obstacles.append(self.cube)
+            cube = CubeMeshObstacle(device=self.device,width=width, height=height, depth=depth, center_position=room_center)
+            self.obstacles.append(cube)
 
         ## 3. Generate camera, scene and renderer
         camera = None

@@ -102,22 +102,22 @@ class SphereMeshObstacle:
         self.path = path                                    # Assumes path points to UNIT sphere .obj file
         self.radius = radius
 
-        self.center_position = center_position.to(device=self.device)   # Centre of the sphere in camera world frame
+        self.center_position = center_position.to(device=self.device).float()   # Centre of the sphere in camera world frame
         #Not specified in name to simplify rewriting of code
 
-        self.position = pytorch3d_to_enu(center_position,device=self.device) # Centre of the sphere in ENU frame
+        self.position = pytorch3d_to_enu(center_position,device=self.device).float() # Centre of the sphere in ENU frame
         #Not specified in name to simplify rewriting of code
 
         self.mesh = load_objs_as_meshes([path], device=self.device)
-        self.mesh.scale_verts_(scale=self.radius)
-        self.mesh.offset_verts_(vert_offsets_packed=self.center_position)
+        self.mesh.scale_verts_(scale=float(self.radius))
+        self.mesh.offset_verts_(vert_offsets_packed=self.center_position.float())
 
     def resize(self, new_radius: float):
         self.mesh.scale_verts_(scale=new_radius/self.radius)
         self.radius = new_radius
 
     def move(self, new_center_position: torch.Tensor):
-        new_center_position = new_center_position.to(self.device)
+        new_center_position = new_center_position.to(self.device).float()
         self.mesh.offset_verts_(vert_offsets_packed=new_center_position-self.center_position)
         self.center_position = new_center_position
 
@@ -157,14 +157,10 @@ class CubeMeshObstacle:
 
         self.device = device
 
-        self.center_position = center_position.to(device=self.device) # Centre of the cube in camera world frame
-        self.position = pytorch3d_to_enu(center_position,device=self.device) # Centre of the cube in ENU frame
+        self.center_position = center_position.to(device=self.device).float() # Centre of the cube in camera world frame
+        self.position = pytorch3d_to_enu(center_position,device=self.device).float() # Centre of the cube in ENU frame
 
         self.mesh = self.create_cube(width, height, depth, inverted)
-        verts = torch.tensor(self.mesh.vertices, dtype=torch.float32, device=self.device)
-        faces = torch.tensor(self.mesh.faces, dtype=torch.long, device=self.device)
-        self.mesh = Meshes(verts=[verts], faces=[faces])
-
         self.mesh.offset_verts_(vert_offsets_packed=self.center_position)
 
         self.original_extents = self.get_bounding_box()
@@ -214,7 +210,12 @@ class CubeMeshObstacle:
             cube.invert()
         else:
             cube.fix_normals()
-        return cube    
+
+        #Converting from trimesh to pytorch3d mesh
+        verts = torch.tensor(cube.vertices, dtype=torch.float32, device=self.device)
+        faces = torch.tensor(cube.faces, dtype=torch.long, device=self.device)
+        
+        return Meshes(verts=[verts], faces=[faces])
 
     def return_plot_variables(self):
         x = np.array([[-1, 1, 1, -1, -1, 1, 1, -1],
