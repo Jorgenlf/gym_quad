@@ -8,7 +8,16 @@ To install all packages needed in your virtual environment, run:
 ```
 conda env create -f environment.yml
 ```
- 
+#### If you want to download the stuff yourself:
+Follow this:
+https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md
+
+
+#### Cuda version swapping
+See this guide:
+https://github.com/bycloudai/SwapCudaVersionWindows  
+
+
 ### Training an agent:
 
 All hyperparameters and setup can be tuned in the file [gym_quad/train3d.py] and [gym_quad/gym_quad/__init__.py].
@@ -23,7 +32,7 @@ python train3d.py --exp_id [x] --n_cpu [y]
 - y: number of cpus to train on
 
 
-## Running an agent in the environment
+### Running an agent in the environment
 
 For running an agent in any scenario, use:
 
