@@ -79,6 +79,7 @@ class LV_VAE_MESH(gym.Env):
             # "3d": self.scenario_3d,
             "3d_new": self.scenario_3d_new,
             "easy": self.scenario_easy,
+            "easy_random": self.scenario_random_pos_att_easy,
             "helix": self.scenario_helix,
             "intermediate": self.scenario_intermediate,
             "proficient": self.scenario_proficient,
@@ -115,8 +116,9 @@ class LV_VAE_MESH(gym.Env):
         # print("PRINTING SEED WHEN RESETTING:", seed) 
         
         #Temp debugging variables
-        self.quad_mesh_pos = None
+        # self.quad_mesh_pos = None
 
+        #General variables being reset
         self.quadcopter = None
         self.path = None
         self.waypoint_index = 0
@@ -135,6 +137,11 @@ class LV_VAE_MESH(gym.Env):
 
         self.LA_at_end = False
         self.cumulative_reward = 0
+        
+        #For contiouns reach end reward
+        self.inside_accept_rad_at_timeout = False
+        self.begin_countup = False
+        self.count_started = False
 
         #Obstacle variables
         self.obstacles = []
@@ -418,7 +425,7 @@ class LV_VAE_MESH(gym.Env):
             self.collided = self.collision_manager.in_collision_single(self.tri_quad_mesh)
         self.prev_quad_pos = self.quadcopter.position   
         #Temp save mesh pos for plotting and debugging in run3d.py
-        self.quad_mesh_pos = tri_to_enu(self.tri_quad_mesh.vertices[0])
+        # self.quad_mesh_pos = tri_to_enu(self.tri_quad_mesh.vertices[0])
 
         #Such that the oberservation has access to the previous action
         self.prev_action = action
@@ -431,8 +438,14 @@ class LV_VAE_MESH(gym.Env):
             self.passed_waypoints = np.vstack((self.passed_waypoints, self.path.waypoints[k]))
             self.waypoint_index = k
 
+        #New more continuous endcond1
+        # if np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad and not self.count_started:
+        #     self.begin_countup = True 
+        # end_cond_1 = self.inside_accept_rad_at_timeout #Flag is flipped inside the reward function
 
+        #Old endcond 1 very discrete 
         end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad # and self.waypoint_index == self.n_waypoints-2 #TODO wwhy this here
+
         # end_cond_2 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
         end_cond_3 = self.total_t_steps >= self.max_t_steps
         end_cond_4 = self.cumulative_reward < self.min_reward
@@ -546,6 +559,21 @@ class LV_VAE_MESH(gym.Env):
         if self.collided:
             reward_collision = self.rew_collision
             print("Collision Reward:", reward_collision)
+
+        # #Continous reach end reward #TODO implement if it is actually a good idea
+        # contionous_reach_end_reward = 0
+        # if self.begin_countup:
+        #     self.count_started = True:
+
+        #     end_time = self.total_t_steps*self.step_size + 10 #10 seconds to reach the end (#TODO make hypervar)
+
+        #     contionous_reach_end_reward = 1
+
+        #     if self.total_t_steps*self.step_size >= end_time:
+        #         if np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad:
+        #             self.inside_accept_rad_at_timeout = True
+
+
 
         #Reach end reward (sparse)
         reach_end_reward = 0
@@ -865,14 +893,21 @@ class LV_VAE_MESH(gym.Env):
     #     initial_state = np.hstack([init_pos, init_attitude])
     #     return initial_state
 
-    def scenario_3d_new(self):
+    def scenario_3d_new(self,random_pos=False,random_attitude=False):
         initial_state = np.zeros(6)
         waypoints = generate_random_waypoints(self.n_waypoints,'3d_new')
         self.path = QPMI(waypoints)
-        # init_pos=[-10, -10, 0]
-        init_pos = [np.random.uniform(-10,10), np.random.uniform(-10,10), np.random.uniform(-10,10)]
-        init_pos=[0, 0, 0]
-        init_attitude=np.array([0, 0, self.path.get_direction_angles(0)[0]])
+        
+        if random_pos:
+            init_pos = [np.random.uniform(-self.padding-2,self.padding-2), np.random.uniform(-self.padding-2,self.padding-2), np.random.uniform(-self.padding-2,self.padding-2)]
+        else:    
+            init_pos=[0, 0, 0]
+        
+        if random_attitude:
+            init_attitude=np.array([np.random.uniform(-np.pi/6,np.pi/6), np.random.uniform(-np.pi/6,np.pi/6), np.random.uniform(-np.pi,np.pi)])
+        else:
+            init_attitude=np.array([0, 0, self.path.get_direction_angles(0)[0]])
+            
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
 
@@ -880,6 +915,12 @@ class LV_VAE_MESH(gym.Env):
 
     def scenario_easy(self): #Surround the path with 1-4 obstacles But ensure no obstacles on path
         initial_state = self.scenario_3d_new()
+        n_obstacles = np.random.randint(1,5)
+        self.generate_obstacles(n = n_obstacles, rmin=2, rmax=6, path = self.path, mean = 0, std = 5, onPath=False)
+        return initial_state
+    
+    def scenario_random_pos_att_easy(self):
+        initial_state = self.scenario_3d_new(random_pos=True,random_attitude=True)
         n_obstacles = np.random.randint(1,5)
         self.generate_obstacles(n = n_obstacles, rmin=2, rmax=6, path = self.path, mean = 0, std = 5, onPath=False)
         return initial_state

@@ -26,7 +26,6 @@ warnings.filterwarnings("ignore", message="No mtl file provided", category=UserW
 
 
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---###
-#TODO add a scenario where theres one obstacle close to path, but not on path which we insert after 3d_new before intermediate
 #TODO add or modify scenario such that orientation is not always pointing along the path such that the agent has to learn how to use the yaw
 # total_timesteps = 10e6 #15e6
 # scenarios = {"line"         :   2.5e5, #Experimental result see Exp 4 on "Jørgen PC"
@@ -42,7 +41,7 @@ warnings.filterwarnings("ignore", message="No mtl file provided", category=UserW
 
 # #THIS CONFIG GAVE AN AGENT THAT MANAGED EVERYTHING EXCEPT DEADEND (4.27.24) BEFORE INTRODUCTION OF BOX 
 #See exp dir 2 on jørgen pc or exp dir 2 in the good experiments folder. 
-scenarios = {   "line"          :   2e5,
+scenarios = {   "line"          :   1e5,
                 "easy"          :   1e6,
                 "proficient"    :   1e6,
                 "intermediate"  :   1e6,
@@ -68,6 +67,16 @@ scenarios = {   "line"          :   2e5,
 #                 "proficient"    :   2e6,
 #                 "expert"        :   2.5e6
 #             }
+
+#Newest config using the sameish setup as the one succesful one,
+#but added easy_random which randomizes the position and attitude of the quad
+scenarios = {   "line"          :   1e5,
+                "easy"          :   1e6,
+                "easy_random"   :   1e6, #Randomized pos and att of quad in easy scenario
+                "proficient"    :   1e6,
+                "intermediate"  :   1e6,
+                "expert"        :   1e6
+             }
 
 
 
