@@ -42,12 +42,12 @@ warnings.filterwarnings("ignore", message="No mtl file provided", category=UserW
 
 # #THIS CONFIG GAVE AN AGENT THAT MANAGED EVERYTHING EXCEPT DEADEND (4.27.24) BEFORE INTRODUCTION OF BOX 
 #See exp dir 2 on jørgen pc or exp dir 2 in the good experiments folder. 
-# scenarios = {   "line"          :   2e5,
-#                 "easy"          :   1e6,
-#                 "proficient"    :   1e6,
-#                 "intermediate"  :   1e6,
-#                 "expert"        :   1e6
-#              }
+scenarios = {   "line"          :   2e5,
+                "easy"          :   1e6,
+                "proficient"    :   1e6,
+                "intermediate"  :   1e6,
+                "expert"        :   1e6
+             }
 
 
 #This config which is similar to the one above (see exp dir 3 on jørgen pc)
@@ -61,12 +61,13 @@ warnings.filterwarnings("ignore", message="No mtl file provided", category=UserW
 #                 "expert"        :   1e6
 #              }
 
-#I think that doing line-easy-proficient-expert with more time in easy proficient and expert is the way to go. #TODO test this
-scenarios = {   "line"          :   2e5,
-                "easy"          :   1.5e6,
-                "proficient"    :   2e6,
-                "expert"        :   2.5e6
-            }
+#I think that doing line-easy-proficient-expert with more time in easy proficient and expert is the way to go. 
+#DID NOT WORK ACCORDING TO ONE TEST RUN See "Magnus PC" exp dir 6
+# scenarios = {   "line"          :   2e5,
+#                 "easy"          :   1.5e6,
+#                 "proficient"    :   2e6,
+#                 "expert"        :   2.5e6
+#             }
 
 
 
@@ -104,7 +105,7 @@ PPO_hyperparams = {
 #VAE
 # encoder_path = None #If you want to train the encoder from scratch
 encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_1000_seed1.json"
-lock_params = True #If you want to lock the encoder parameters or let them be trained
+lock_params = True #True if you want to lock the encoder parameters. False to let them be trained
 
 #PPO
 #From Ørjan:    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32])
