@@ -12,7 +12,7 @@ extension = '.png'
 # Option B: unknown filenames, but they are still ordered in ascending order by name:
 
 #Choose option A or B:
-option = 'A'
+option = 'B'
 
 
 if option == 'A':
@@ -23,8 +23,8 @@ if option == 'A':
 elif option == 'B':
 
     exp_id = 2
-    test_id = 3
-    scenario = "deadend"
+    test_id = 17
+    scenario = "line"
 
     filenames = sorted(glob.glob(f'log/LV_VAE_MESH-v0/Experiment {exp_id}/{scenario}/tests/test{test_id}/depth_maps/depth_map_*.png'))
 

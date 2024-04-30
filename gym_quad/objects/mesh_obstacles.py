@@ -18,12 +18,17 @@ parent_dir = os.path.dirname(script_dir)
 grand_parent_dir = os.path.dirname(parent_dir)
 sys.path.append(grand_parent_dir)
 from gym_quad.utils.geomutils import pytorch3d_to_enu, enu_to_tri 
-from gym_quad.objects.QPMI import QPMI
+from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 
 #Utility funcition to get the bounds of the scene given the obstacles and the path
 def get_scene_bounds(obstacles: list, path: QPMI, padding=10):
-    """Returns [xmin, xmax, ymin, ymax, zmin, zmax] for the scene and the path,
-        with padding [m] added to each dimension"""
+    """
+    Input:
+        obstacles: List of obstacle objects (theyre poisitions are in pt3d and tri frame)
+        path: QPMI object (waypoints are in enu frame and gets converted to tri frame inside this funciton)
+        padding: Padding to add to the scene bounds [m]
+
+    Returns: [xmin, xmax, ymin, ymax, zmin, zmax] for the scene and the path in tri/pt3d frame"""
     inf = 1000
     bounds = [inf, -inf, inf, -inf, inf, -inf]
 
@@ -94,16 +99,19 @@ def create_sphere():
 # New obstacle setup with superclass-------------------
 
 
-### Mesh Obstacle Classes
-class SphereMeshObstacle:
+### Mesh Obstacle Classes 
+class SphereMeshObstacle: #TODO can make the mesh here as done in cubemehsobstacle below rather than reading from file?
     def __init__(self,
                  device: torch.device,
                  path: str,
                  radius: float,
-                 center_position: torch.Tensor):
+                 center_position: torch.Tensor,
+                 isDummy: bool = False):
+        
         self.device = device
         self.path = path                                    # Assumes path points to UNIT sphere .obj file
         self.radius = radius
+        self.isDummy = isDummy
 
         self.center_position = center_position.to(device=self.device).float()   # Centre of the sphere in camera world frame
         #Not specified in name to simplify rewriting of code
@@ -169,8 +177,6 @@ class CubeMeshObstacle:
 
         self.mesh = self.create_cube(width, height, depth, inverted)
         self.mesh.offset_verts_(vert_offsets_packed=self.center_position)
-
-        self.original_extents = self.get_bounding_box()
     
     def set_device(self, new_device: torch.device):
         self.device = new_device
@@ -227,7 +233,6 @@ class CubeMeshObstacle:
             cube.invert()
         else:
             cube.fix_normals()
-
         #Converting from trimesh to pytorch3d mesh
         verts = torch.tensor(cube.vertices, dtype=torch.float32, device=self.device)
         faces = torch.tensor(cube.faces, dtype=torch.long, device=self.device)
@@ -290,7 +295,8 @@ if __name__ == "__main__":
     #"Mesh" creation and display (trimesh)
     #"Camera" how to use the obstacle classes for camera (pytorch3d)
     # "Collision" how to use the obstacle classes for collision checking (trimesh)
-    mode = "mesh" 
+    # "Line_path_collision" how to use the obstacle classes for collision checking with a room generated depending on path (trimesh)
+    mode = "Line_path_collision" 
 
     if mode == "mesh":
         ## MESH CREATION ### 
@@ -318,6 +324,8 @@ if __name__ == "__main__":
         obs = [s1, cu1]
         obs_scene_for_camera = Scene(device=torch.device("cuda"), obstacles=obs)
         ####
+
+
     elif mode == "collision":
         ###TRIMESH FOR COLLISION
         #THE OBSTACLES
@@ -411,3 +419,92 @@ if __name__ == "__main__":
 
         trimesh_scene.add_geometry(tri_quad_mesh)
         trimesh_scene.show()
+
+    elif mode == "Line_path_collision":
+        #path
+        n_wps = generate_random_waypoints(3,"line")
+        path = QPMI(n_wps)
+
+        #obstacles
+        device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        # s1 = SphereMeshObstacle(device=torch.device("cuda"), path="gym_quad/meshes/sphere.obj", radius=0.25, center_position=torch.tensor([0, 4, 0]))
+        # s2 = SphereMeshObstacle(device=torch.device("cuda"), path="gym_quad/meshes/sphere.obj", radius=0.25, center_position=torch.tensor([0, 0, 4]))
+        dummy_obs_for_line = SphereMeshObstacle(device=torch.device("cuda"), path="gym_quad/meshes/sphere.obj", radius=0.1, center_position=torch.tensor([0, 10, 0]),isDummy=True)
+        obs = [dummy_obs_for_line]
+        obs_meshes = [o.mesh for o in obs] #extract the meshes from the obstacles
+        #Convert the meshes to trimesh meshes
+        tri_obs_meshes = [trimesh.Trimesh(vertices=o.verts_packed().cpu().numpy(), faces=o.faces_packed().cpu().numpy()) for o in obs_meshes]
+
+        tri_joined_obs_mesh = None
+        #Room generation from path
+        if obs[0].isDummy:
+            bounds, sbounds = get_scene_bounds([], path)
+            width = bounds[1] - bounds[0]
+            height = bounds[3] - bounds[2]
+            depth = bounds[5] - bounds[4]
+            center = [(bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, (bounds[4] + bounds[5]) / 2]
+
+            room = CubeMeshObstacle(device=torch.device("cuda"), width=width, height=height, depth=depth, center_position=torch.tensor(center))
+            mesh = room.mesh
+            room_tri_mesh = trimesh.Trimesh(vertices=mesh.verts_packed().cpu().numpy(), faces=mesh.faces_packed().cpu().numpy())
+
+            #Join the obstacle meshes and room mesh into one mesh    
+            tri_joined_obs_mesh = trimesh.util.concatenate(tri_obs_meshes)
+            tri_joined_obs_mesh = trimesh.util.concatenate([tri_joined_obs_mesh, room_tri_mesh])
+            tri_joined_obs_mesh.fix_normals() #uninvert the room for collision checking
+            obs = []
+        else:
+            bounds, sbounds = get_scene_bounds(obs, path)
+            width = bounds[1] - bounds[0]
+            height = bounds[3] - bounds[2]
+            depth = bounds[5] - bounds[4]
+            center = [(bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, (bounds[4] + bounds[5]) / 2]
+
+            room = CubeMeshObstacle(device=torch.device("cuda"), width=width, height=height, depth=depth, center_position=torch.tensor(center))
+            mesh = room.mesh
+            room_tri_mesh = trimesh.Trimesh(vertices=mesh.verts_packed().cpu().numpy(), faces=mesh.faces_packed().cpu().numpy())
+
+            #Join the obstacle meshes and room mesh into one mesh    
+            tri_joined_obs_mesh = trimesh.util.concatenate(tri_obs_meshes)
+            tri_joined_obs_mesh = trimesh.util.concatenate([tri_joined_obs_mesh, room_tri_mesh])
+            tri_joined_obs_mesh.fix_normals() #uninvert the room for collision checking
+
+        #quadcopter
+        tri_quad_mesh = trimesh.load("gym_quad/meshes/sphere.obj")
+        r = 1
+        tri_quad_mesh.apply_scale(r)
+        quadcopter_initial_position = np.array([0, 0, 0]) #ENU
+        tri_quad_init_pos = enu_to_tri(quadcopter_initial_position)
+        tri_quad_mesh.apply_translation(tri_quad_init_pos)        
+
+        #collision manager
+        collision_manager = trimesh.collision.CollisionManager()
+        collision_manager.add_object("room", tri_joined_obs_mesh)
+
+        n_steps = 15
+        quad_pos_ref = [quadcopter_initial_position + np.array([-i, 0, 0]) for i in range(n_steps)]
+        quad_pos_ref = np.array(quad_pos_ref)
+
+        tri_translation = None
+        for i in range(n_steps):
+            if i == 0:
+                tri_translation = enu_to_tri(quad_pos_ref[i] - quadcopter_initial_position)
+            else:
+                tri_translation = enu_to_tri(quad_pos_ref[i] - quad_pos_ref[i-1])
+
+            tri_quad_mesh.apply_translation(tri_translation)
+
+            collision_detected = collision_manager.in_collision_single(tri_quad_mesh)
+
+            print("Collision detected at time step: ", i, collision_detected)
+            if collision_detected:
+                print("\nCollision detected at time step: ", i,"\n")
+                break
+            elif i == n_steps-1:
+                print("\nNo collision detected\n")
+
+        #Trimesh visualization:
+        scene = trimesh.Scene([room_tri_mesh, tri_quad_mesh, tri_joined_obs_mesh])
+        axis = trimesh.creation.axis(origin_size=0.1, axis_radius=0.01, axis_length=6.0)
+        scene.add_geometry(axis)
+        scene.show()

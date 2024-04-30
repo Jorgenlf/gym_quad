@@ -149,14 +149,25 @@ class LV_VAE_MESH(gym.Env):
         ## 1. Path and obstacle generation based on scenario
         scenario = self.scenario_switch.get(self.scenario, lambda: print("Invalid scenario"))
         init_state = scenario() #Called such that the obstacles are generated and the init state of the quadcopter is set
+        #The function called above sets self.path and self.obstacles(if obstacles are to be generated) and returns the init state of the quadcopter
 
         ## 2. Generate room
         if self.enclose_scene:
-            bounds, _ = get_scene_bounds(self.obstacles, self.path, padding=15)
+            #For some reason the collison manager detects immeadiate collision if only the room is present
+            #Hacky workaround is checking if there are no obstacles and adding a far away dummy obstacle
+            bounds = None
+            if self.obstacles == []:
+                dummy_obstacle = SphereMeshObstacle(device=self.device, path = self.mesh_path, radius=1, center_position=torch.tensor([100,100,100]), isDummy=True)
+                self.obstacles.append(dummy_obstacle) #This will be used when joining the collision scene later
+                bounds, _ = get_scene_bounds([], self.path, padding=self.padding)
+            else:
+                bounds, _ = get_scene_bounds(self.obstacles, self.path, padding=self.padding)
             #calculate the size of the room
-            width = bounds[1] - bounds[0]
-            height = bounds[3] - bounds[2]
-            depth = bounds[5] - bounds[4]
+            width = bounds[1] - bounds[0] #z in tri and pt3d, x in enu
+            height = bounds[3] - bounds[2] #y in tri and pt3d, z in enu
+            depth = bounds[5] - bounds[4] #x in tri and pt3d y in enu
+            # print("Room dimensions in tri/pt3d frame\nwidth z:", width, "  height y:", height, "  depth x:", depth)
+            #The room wants the coordinates in the tri/pt3d format
             room_center = torch.tensor([(bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, (bounds[4] + bounds[5]) / 2])
             cube = CubeMeshObstacle(device=self.device,width=width, height=height, depth=depth, center_position=room_center)
             self.obstacles.append(cube)
@@ -175,7 +186,10 @@ class LV_VAE_MESH(gym.Env):
                     perspective_correct=True, # Doesn't do anything(??), but seems to improve speed
                     cull_backfaces=True # Do not render backfaces. MAKE SURE THIS IS OK WITH THE GIVEN MESH.
                 )
-            scene = Scene(device = self.device, obstacles=self.obstacles)
+            if self.obstacles[0].isDummy: #Means theres just the room and the path
+                scene = Scene(device = self.device, obstacles=[self.obstacles[1]])
+            else:
+                scene = Scene(device = self.device, obstacles=self.obstacles)
 
             self.renderer = DepthMapRenderer(device=self.device, 
                                             raster_settings=raster_settings, 
@@ -201,7 +215,8 @@ class LV_VAE_MESH(gym.Env):
             self.collision_manager = trimesh.collision.CollisionManager() #Creating the collision manager
             self.collision_manager.add_object("obstacles", tri_joined_obs_mesh) #Adding the obstacles to the collision manager (Stationary objects)
             #Do not add quadcopter to collision manager as it is moving and will be checked in the step function
-
+            if self.obstacles[0].isDummy: #Means theres just the room and the path
+                self.obstacles.pop(0) #Remove the dummy obstacle from the list of obstacles
 
         # Generate Quadcopter
         self.quadcopter = Quad(self.step_size, init_state)

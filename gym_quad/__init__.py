@@ -13,6 +13,7 @@ lv_vae_config = {
     "max_t_steps"               : 30000,        # Maximum number of timesteps in the simulation before it is terminated
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the quadcopter
     "enclose_scene"             : True,        # Enclose the scene with a box thats scaled to the scene size
+    "padding"                   : 5,           # Padding of the scene box [m]
 #Depth camera parameters    
     "FOV_vertical"              : 75,           # Vertical field of view of the depth camera
     "FOV_horizontal"            : 62,           # Horizontal field of view of the depth camera

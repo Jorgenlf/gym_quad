@@ -241,13 +241,13 @@ if __name__ == "__main__":
 
     #Generating n_steps positions and orientations for the camera in ENU frame
     #This will also decide how many depthmaps get saved
-    n_steps = 24*4
+    n_steps = 24
     positions = np.zeros((n_steps, 3)) # x, y, z in meters
     orientations = np.zeros((n_steps, 3)) # roll about x, pitch about y, yaw about z (ENU) in radians
 
 
     ####Change this to visualize different scenes and movement of the camera
-    referencetype = 'enclosed_circle'
+    referencetype = 'enclosed_spin'
     # 'line' - Camera moves in a line along the x-axis
     # 'circle' - Camera moves in a circle around the origin
     # 'spin' - Camera spins about its z axis (ENU) with position equal to the the origin
@@ -299,14 +299,15 @@ if __name__ == "__main__":
         obs5 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=0.2, center_position=torch.tensor([0, 3, 0]))
         obs6 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=0.2, center_position=torch.tensor([0, -3, 0]))
         obs_list = [obs1, obs2, obs3, obs4, obs5, obs6]
+        obs_list = []
 
         #path gen
-        # n_waypoints = generate_random_waypoints(3,"line")
-        # path = QPMI(n_waypoints)
-        path = None
+        n_waypoints = generate_random_waypoints(3,"line")
+        path = QPMI(n_waypoints)
+        # path = None
 
         #find bounds
-        bounds, _ = get_scene_bounds(obs_list,path,padding=0)
+        bounds, _ = get_scene_bounds(obs_list,path,padding=10)
 
         #Finding width, height and depth of the cube to encase the scene
         c_width = bounds[1] - bounds[0]
@@ -327,20 +328,21 @@ if __name__ == "__main__":
         obs3 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=0.5, center_position=torch.tensor([0, 0, 0]))
         obs4 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=0.5, center_position=torch.tensor([0, -1, 0]))
         obs_list = [obs1,obs2,obs3]
-        # obs_list = [obs3]
+        obs_list = []
 
         #path gen
-        # n_waypoints = generate_random_waypoints(3,"line")
-        # path = QPMI(n_waypoints)
-        path = None
+        n_waypoints = generate_random_waypoints(3,"line")
+        path = QPMI(n_waypoints)
+        # path = None
 
         #Homemade bounds calculation
-        bounds, scaled_bounds = get_scene_bounds(obs_list,path,padding=3)
+        bounds, scaled_bounds = get_scene_bounds(obs_list,path,padding=4)
         #Finding width, height and depth of the cube to encase the scene
         c_width = bounds[1] - bounds[0]
         c_height = bounds[3] - bounds[2]
         c_depth = bounds[5] - bounds[4]
         #Finding the center of the cube
+        print("width: ", c_width, "height: ", c_height, "depth: ", c_depth)
         c_center = torch.tensor([(bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, (bounds[4] + bounds[5]) / 2])
         #Creating the cube obstacle
         cube_obstacle = CubeMeshObstacle(device=device, width=c_width, height=c_height, depth=c_depth, center_position = c_center)
