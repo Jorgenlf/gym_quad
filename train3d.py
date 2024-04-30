@@ -251,3 +251,9 @@ if __name__ == '__main__':
         del agent
         print("ENVIRONMENT CLOSED\n")        
     print(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
+    #Saving of total training time.
+    with open(f'{experiment_dir}/training_time.txt', 'w') as file:
+        file.write(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
+        file.write("\nSCENARIOS TRAINED IN:")
+        for scen, steps in scenarios.items():
+            file.write(f"\n{scen}: {steps} timesteps")
