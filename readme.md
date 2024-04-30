@@ -14,7 +14,7 @@ https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md
 
 Essentially on windows do these:
 1. 
-``` conda create -n c112_quad3D python=3.10 ```
+``` conda create -n [name] python=3.10 ```
 
 2. Choose cuda version to use (suggest 12.1 as most up to date which is compatible at time of writing). 
 If you dont have cuda: https://developer.nvidia.com/cuda-11-8-0-download-archive?target_os=Windows&target_arch=x86_64&target_version=10&target_type=exe_network 
