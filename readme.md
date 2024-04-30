@@ -8,15 +8,60 @@ To install all packages needed in your virtual environment, run:
 ```
 conda env create -f environment.yml
 ```
-#### If you want to download the stuff yourself:
-Follow this:
+#### If you want to download the stuff yourself or the .yml file doesnt work:
+Follow this guide:
 https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md
 
+Essentially on windows do these:
+1. 
+``` conda create -n c112_quad3D python=3.10 ```
 
-#### Cuda version swapping
-See this guide:
-https://github.com/bycloudai/SwapCudaVersionWindows  
+2. Choose cuda version to use (suggest 12.1 as most up to date which is compatible at time of writing). 
+If you dont have cuda: https://developer.nvidia.com/cuda-11-8-0-download-archive?target_os=Windows&target_arch=x86_64&target_version=10&target_type=exe_network 
 
+If you have cuda and need to change version:
+https://github.com/bycloudai/SwapCudaVersionWindows   
+
+cuda 12.1:
+``` conda install pytorch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 pytorch-cuda=12.1 -c pytorch -c nvidia ```
+
+cuda 11.8:
+``` conda install pytorch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 pytorch-cuda=11.8 -c pytorch -c nvidia ```
+
+3. 
+``` conda install -c fvcore -c iopath -c conda-forge fvcore iopath ```
+
+4. 
+``` pip install "git+https://github.com/facebookresearch/pytorch3d.git" ``` 
+
+5. 
+```pip install gymnasium stable-baselines3 rich numba trimesh python-fcl vispy tensorboard```
+
+
+<!-- 
+5.
+``` pip install gymnasium ```
+
+6. 
+``` pip install stable-baselines3 ```
+
+7. 
+``` pip install rich ```
+
+8. 
+``` pip install numba ```
+
+9. 
+``` pip install trimesh ```
+
+10. 
+``` pip install python-fcl ```
+
+11. 
+``` pip install vispy ```
+
+12. 
+``` pip install tensorboard ``` -->
 
 ### Training an agent:
 
