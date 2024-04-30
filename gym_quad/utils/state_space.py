@@ -4,8 +4,9 @@ from numpy.linalg import inv
 from math import cos, sin
 
 
-#REMEMBER THAT A SEPARATE STATESPACE IS DEFINED IN ODE45JIT.PY 
+#REMEMBER THAT A SEPARATE STATESPACE IS DEFINED IN ODE45JIT.PY #TODO make this more elgant/merge stuff
 #ENSURE THAT IT MATCHES THE ONE IN THIS FILE (STATE_SPACE.PY)
+#PER NOW THEY MATCH 30.04.2024
 
 I3 = np.identity(3)
 zero3= 0 * I3
