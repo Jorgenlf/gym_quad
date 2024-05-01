@@ -164,8 +164,10 @@ class CubeMeshObstacle:
                  height: float,
                  depth: float,
                  center_position: torch.Tensor,
-                 inverted: bool = True):
+                 inverted: bool = True,
+                 isDummy: bool = False):
 
+        self.isDummy = isDummy
         self.device = device
 
         self.center_position = center_position.to(device=self.device).float() # Centre of the cube in camera world frame

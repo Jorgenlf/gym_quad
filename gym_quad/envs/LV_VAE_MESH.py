@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
 from gym_quad.utils.ODE45JIT import j_Rzyx
-from gym_quad.utils.geomutils import enu_to_pytorch3d, enu_to_tri, tri_to_enu
+from gym_quad.utils.geomutils import enu_to_pytorch3d, enu_to_tri
 from gym_quad.objects.quad import Quad
 from gym_quad.objects.IMU import IMU
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
@@ -24,7 +24,7 @@ class LV_VAE_MESH(gym.Env):
 
     def __init__(self, env_config, scenario="line"):
         # np.random.seed(0) #Uncomment to make the environment deterministic
-        print("ENVIRONMENT: LV_VAE_MESH")
+        # print("ENVIRONMENT: LV_VAE_MESH") #Used to verify that the correct environment is being used
         # Set all the parameters from GYM_QUAD/qym_quad/__init__.py as attributes of the class
         for key in env_config:
             setattr(self, key, env_config[key])
@@ -85,6 +85,7 @@ class LV_VAE_MESH(gym.Env):
             "proficient": self.scenario_proficient,
             # "advanced": self.scenario_advanced,
             "expert": self.scenario_expert,
+            "expert_random": self.scenario_expert_random,
             # Testing scenarios
             "test_path": self.scenario_test_path,
             "test": self.scenario_test,
@@ -92,6 +93,7 @@ class LV_VAE_MESH(gym.Env):
             "vertical": self.scenario_vertical_test,
             "deadend": self.scenario_deadend_test,
             "crash": self.scenario_dev_test_crash,
+            "crash_cube": self.scenario_dev_test_cube_crash,
         }
 
         #New init values for sensor using depth camera, mesh and pt3d
@@ -987,6 +989,33 @@ class LV_VAE_MESH(gym.Env):
 
         return initial_state
 
+
+    def scenario_expert_random(self):
+        initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
+        obstacle_radius = np.random.uniform(low=4,high=10)
+        obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
+        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+ 
+        lengths = np.linspace(self.path.length*1.5/6, self.path.length*5/6, 5)
+        for l in lengths:
+            obstacle_radius = np.random.uniform(low=4,high=10)
+            obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
+            obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
+            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)            
+            obstacle = SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path)
+            if self.check_object_overlap(obstacle):
+                continue
+            #Check that the quadcopter is not spawned inside an obstacle
+            elif torch.norm(obstacle_coords - torch.tensor(initial_state[0:3],device=self.device).float().squeeze()) < obstacle_radius + 5:
+                continue
+            else:
+                self.obstacles.append(obstacle)
+ 
+        return initial_state  
+
+
     def scenario_test_path(self):
         # test_waypoints = np.array([np.array([0,0,0]), np.array([1,1,0]), np.array([9,9,0]), np.array([10,10,0])])
         # test_waypoints = np.array([np.array([0,0,0]), np.array([5,0,0]), np.array([10,0,0]), np.array([15,0,0])])
@@ -1089,4 +1118,17 @@ class LV_VAE_MESH(gym.Env):
         obstacle_coords = torch.tensor(self.path.waypoints[1],device=self.device).float().squeeze()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
         self.obstacles.append(SphereMeshObstacle(radius = 20,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+        return initial_state
+    
+    def scenario_dev_test_cube_crash(self):
+        initial_state = np.zeros(6)
+        waypoints = generate_random_waypoints(3,'line')
+        self.path = QPMI(waypoints)
+        init_pos = [0, 0, 0]
+        init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
+        initial_state = np.hstack([init_pos, init_attitude])
+        #Place one large obstacle at the second waypoint
+        obstacle_coords = torch.tensor(self.path.waypoints[1],device=self.device).float().squeeze()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(CubeMeshObstacle(width=20, height=20, depth=20, center_position=pt3d_obs_coords, device=self.device, inverted=False))
         return initial_state

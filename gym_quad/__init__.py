@@ -13,7 +13,7 @@ lv_vae_config = {
     "max_t_steps"               : 30000,        # Maximum number of timesteps in the simulation before it is terminated
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the quadcopter
     "enclose_scene"             : True,        # Enclose the scene with a box thats scaled to the scene size
-    "padding"                   : 8,           # Padding of the scene box [m]
+    "padding"                   : 8,           # Padding of the box that encloses the scene [m]
 #Depth camera parameters    
     "FOV_vertical"              : 75,           # Vertical field of view of the depth camera
     "FOV_horizontal"            : 62,           # Horizontal field of view of the depth camera
@@ -46,7 +46,8 @@ lv_vae_config = {
     'existence_reward'          : -0.005,       # reward for existing
     'danger_range'              : 10,          # Range between quadcopter and obstacle within which the quadcopter is in danger #TODO change this to the max_depth?
     'danger_angle'              : 20,           # Angle between quadcopter and obstacle within which the quadcopter is in danger #TODO this is outdated for mesh env unless we get global distances somehow
-    'abs_inv_CA_min_rew'        : 1/16,          #1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x
+    'abs_inv_CA_min_rew'        : 1/16,          #1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x 
+    #TODO Make it take in 16 instead of 1/16 and invert it in the function also no longer angle involved so remove that
 }
 
 register(

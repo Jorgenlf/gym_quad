@@ -21,7 +21,7 @@ def parse_experiment_info():
     parser.add_argument("--RT_vis", default=False, type=bool, help="Whether to visualize in realtime training or not")
     parser.add_argument("--save_depth_maps", default=False, type=bool, help="Whether to save depth maps or not")
     args = parser.parse_args()
-    
+
 
     experiment_dir = os.path.join(r"./log", r"{}".format(args.env), r"Experiment {}".format(args.exp_id))
 
@@ -89,7 +89,7 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
     normed_domain_observations = []
 
     while not done: 
-        action = agent.predict(env.observation, deterministic=True)[0]
+        action = agent.predict(env.unwrapped.observation, deterministic=True)[0]
         _, _, done, _, info = env.step(action)
         
         if sdm:
@@ -141,13 +141,13 @@ def save_depth_maps(env, test_dir):
         os.mkdir(path)
 
     try:
-        if env.nearby_obstacles != []: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
-            env.renderer.save_depth_map(f"{path}/depth_map_{env.total_t_steps}", env.depth_map)
+        if env.unwrapped.nearby_obstacles != []: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
+            env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.depth_map)
         else:
             pass
     except AttributeError:
-        if env.closest_measurement < env.danger_range: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
-            env.renderer.save_depth_map(f"{path}/depth_map_{env.total_t_steps}", env.depth_map)
+        if env.unwrapped.closest_measurement < env.unwrapped.danger_range: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
+            env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.depth_map)
         else:
             pass
         #Comment/uncomment if you want to save the empty depth maps from envs without obstacles
@@ -428,7 +428,7 @@ def plot_3d(env, sim_df, test_dir):
     ax.set_yticklabels([])
     ax.set_zticklabels([])
   
-    ax = env.plot3D(leave_out_first_wp=True)#(wps_on=False) # leave out first waypoint when initial position is same as first waypoint
+    ax = env.unwrapped.plot3D(leave_out_first_wp=True)#(wps_on=False) # leave out first waypoint when initial position is same as first waypoint
     ax.scatter3D(sim_df[r"$X$"][0], sim_df[r"$Y$"][0], sim_df[r"$Z$"][0], color="#66FF66", label="Initial Position")
     ax.plot3D(sim_df[r"$X$"], sim_df[r"$Y$"], sim_df[r"$Z$"], color="#EECC55", label="Quadcopter Path")#, linestyle="dotted")
     ax.set_xlabel(xlabel="x [m]")
@@ -466,7 +466,7 @@ def plot_multiple_3d(env, sim_dfs):
     c = ['#EE6666', '#88BB44', '#EECC55']
     styles = ["dashed", "dashed", "dashed"]
     plt.rc('lines', linewidth=3)
-    ax = env.plot3D()#(wps_on=False)
+    ax = env.unwrapped.plot3D()#(wps_on=False)
     for i,sim_df in enumerate(sim_dfs):
         ax.plot3D(sim_df[r"$X$"], sim_df[r"$Y$"], sim_df[r"$Z$"], color=c[i], linestyle=styles[i])
     ax.set_xlabel(xlabel="North [m]", fontsize=14)
@@ -534,8 +534,8 @@ def write_report(test_dir: str, sim_df: pd.DataFrame, env, episode: int) -> None
     avg_ape = np.sqrt(episode_df[r'$e$']**2 + episode_df[r'$h$']**2).mean()
     iae_cross, iae_vertical = calculate_IAE(episode_df)
     progression = episode_df['Progression'].max()
-    success = int(env.success)
-    collision = int(env.collided)
+    success = int(env.unwrapped.success)
+    collision = int(env.unwrapped.collided)
     data = {
         'Episode': episode, 
         'Timesteps': timesteps, 

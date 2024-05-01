@@ -26,33 +26,7 @@ Essentially on windows do these:
 
 4.  ``` pip install "git+https://github.com/facebookresearch/pytorch3d.git" ``` 
 
-5.  ```pip install gymnasium stable-baselines3 rich numba trimesh python-fcl vispy tensorboard imageio```
-
-
-<!-- 
-5.
-``` pip install gymnasium ```
-
-6. 
-``` pip install stable-baselines3 ```
-
-7. 
-``` pip install rich ```
-
-8. 
-``` pip install numba ```
-
-9. 
-``` pip install trimesh ```
-
-10. 
-``` pip install python-fcl ```
-
-11. 
-``` pip install vispy ```
-
-12. 
-``` pip install tensorboard ``` -->
+5.  ```pip install gymnasium stable-baselines3 rich numba trimesh python-fcl vispy tensorboard imageio snakeviz scipy```
 
 ### Training an agent:
 

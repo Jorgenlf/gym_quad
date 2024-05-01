@@ -114,7 +114,7 @@ if __name__ == "__main__":
         elif args.RT_vis == True: 
             for episode in range(args.episodes):
                 obs,info = env.reset()
-                visualizer = EnvironmentVisualizer(env.obstacles, env.quadcopter.position, env.quadcopter.attitude)
+                visualizer = EnvironmentVisualizer(env.unwrapped.obstacles, env.quadcopter.position, env.quadcopter.attitude)
                 visualizer.draw_path(env.path.waypoints)
                 while True:
                     action = agent.predict(env.observation, deterministic=True)[0] #[a,dtype,None] so action[0] is the action
