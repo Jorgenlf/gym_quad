@@ -103,7 +103,7 @@ class Plotter3D:
             'xtitle': 'x [m]',
             'ytitle': 'y [m]',
             'ztitle': 'z [m]',
-            'font_size': 50,
+            'font_size': 40,
             'padding': 0.5, #maybe change later
             'font_family': 'times',
             'fmt':'%.0f',
@@ -118,7 +118,7 @@ class Plotter3D:
                 self.plotter.add_mesh(mesh, color="red", show_edges=False, smooth_shading=True)
         self.plotter.add_points(self.quadratic_path, color="#619CFF", point_size=8, label="Path")
         self.plotter.add_points(self.drone_traj, color="#00BA38", point_size=8, label="Drone Trajectory ")
-        self.plotter.add_points(self.initial_position, color="black", point_size=30, label="Initial Position")
+        self.plotter.add_points(self.initial_position, color="black", point_size=30, label="Initial Position", render_points_as_spheres=True)
         self.plotter.show_grid(**grid_kw_args)
         #self.plotter.add_legend(border=False, bcolor='w', face=None, size=(0.12,0.12)) #bcolor="#eaeae8"
 
@@ -138,6 +138,8 @@ class Plotter3D:
 
         # Camera stuff
         self.plotter.camera.zoom(0.9)
+        self.plotter.camera.azimuth = 90 # Controls the rotation of the camera around the scene, + is anti-clockwise rotation about scene center
+        #self.plotter.camera.elevation = -5 # Controls the angle of the camera above the scene, + makes you see the scene from higher above
         
         #if self.nosave: self.plotter.show()
         self.plotter.show()
