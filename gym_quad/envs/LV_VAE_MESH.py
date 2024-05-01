@@ -318,12 +318,6 @@ class LV_VAE_MESH(gym.Env):
         relevant_distance = 20 #For this value and lower the observation will be changing i.e. giving info if above or below its clipped to -1 or 1 
         #TODO make this a hypervariable or make it dependent on e.g. the scene
 
-        #OLD WAY to get closest point which was dumb as it causes the optimization in QPMI to be done twice as much as needed
-        #As self.prog contains the result from doing this optimization (the u paramter that describes the closest point on the path)
-        # x,y,z = self.quadcopter.position
-        # closest_point = self.path.get_closest_position([x,y,z], self.waypoint_index) 
-
-        #NEW WAY to get closest point on path using the self.prog variable and using the path __call__ method which turns a u parameter into a point on the path
         closest_point = self.path(self.prog)
 
         closest_point_body = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(closest_point - self.quadcopter.position)
