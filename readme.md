@@ -8,8 +8,8 @@ To install all packages needed in your virtual environment, run:
 ```
 conda env create -f environment.yml
 ```
-#### If you want to download the stuff yourself or the .yml file doesnt work:
-Follow this guide:
+### If you want to download the stuff yourself or the .yml file doesnt work:
+You can follow this guide or do the steps below:
 https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md
 
 Essentially on windows do these:
