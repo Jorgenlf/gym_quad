@@ -36,7 +36,7 @@ cuda 11.8:
 ``` pip install "git+https://github.com/facebookresearch/pytorch3d.git" ``` 
 
 5. 
-```pip install gymnasium stable-baselines3 rich numba trimesh python-fcl vispy tensorboard```
+```pip install gymnasium stable-baselines3 rich numba trimesh python-fcl vispy tensorboard imageio```
 
 
 <!-- 

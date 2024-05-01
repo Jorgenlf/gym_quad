@@ -22,10 +22,6 @@ def parse_experiment_info():
     parser.add_argument("--save_depth_maps", default=False, type=bool, help="Whether to save depth maps or not")
     args = parser.parse_args()
     
-    #Renaming: 
-    #controller_scenario -> trained_scenario  
-    #scenario -> run_scenario
-    #controller -> agent
 
     experiment_dir = os.path.join(r"./log", r"{}".format(args.env), r"Experiment {}".format(args.exp_id))
 
