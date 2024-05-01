@@ -14,33 +14,19 @@ https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md
 
 Essentially on windows do these:
 
-1. 
-``` conda create -n [name] python=3.10 ```
+1.  ``` conda create -n [name] python=3.10 ```
 
-2. Choose cuda version to use
+2. Choose cuda version to use (suggest 12.1 as it is most up to date and compatible with the rest of the packages at time of writing). 
+- If you dont have cuda: https://developer.nvidia.com/cuda-12-1-0-download-archive 
+- If you have cuda and need to change version follow this guide: https://github.com/bycloudai/SwapCudaVersionWindows   
+- cuda 12.1: ``` conda install pytorch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 pytorch-cuda=12.1 -c pytorch -c nvidia ```
+- cuda 11.8: ``` conda install pytorch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 pytorch-cuda=11.8 -c pytorch -c nvidia ```
 
-(suggest 12.1 as it is most up to date and compatible with the rest of the packages at time of writing). 
+3.  ``` conda install -c fvcore -c iopath -c conda-forge fvcore iopath ```
 
-If you dont have cuda: https://developer.nvidia.com/cuda-12-1-0-download-archive 
+4.  ``` pip install "git+https://github.com/facebookresearch/pytorch3d.git" ``` 
 
-If you have cuda and need to change version follow this guide: https://github.com/bycloudai/SwapCudaVersionWindows   
-
-cuda 12.1:
-
-``` conda install pytorch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 pytorch-cuda=12.1 -c pytorch -c nvidia ```
-
-cuda 11.8:
-
-``` conda install pytorch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 pytorch-cuda=11.8 -c pytorch -c nvidia ```
-
-3. 
-``` conda install -c fvcore -c iopath -c conda-forge fvcore iopath ```
-
-4. 
-``` pip install "git+https://github.com/facebookresearch/pytorch3d.git" ``` 
-
-5. 
-```pip install gymnasium stable-baselines3 rich numba trimesh python-fcl vispy tensorboard imageio```
+5.  ```pip install gymnasium stable-baselines3 rich numba trimesh python-fcl vispy tensorboard imageio```
 
 
 <!-- 
