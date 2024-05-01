@@ -603,10 +603,12 @@ def plot_lidar():
 
 def rew_from_dist(danger_range, drone_closest_obs_dist, inv_abs_min_rew):
     r = -(((danger_range + inv_abs_min_rew*danger_range)/(drone_closest_obs_dist + inv_abs_min_rew*danger_range))-1)
+    if r>0: r = 0
     return r
 
 def rew_from_angle(danger_angle, angle_diff, inv_abs_min_rew):
     r = -(((danger_angle + inv_abs_min_rew*danger_angle)/(angle_diff + inv_abs_min_rew*danger_angle))-1)
+    if r>0: r = 0
     return r
 
 
@@ -648,35 +650,58 @@ if __name__ == "__main__":
 
     # plot_lidar()
 
-    ###Plotting of the collision avoidance reward###
+    ###Plotting of the collision avoidance reward### #OLD with angles
+    # datapoints = 50
+    # obsdists = np.linspace(0, 50, datapoints)
+    # angle_diffs = np.linspace(0, 50, datapoints)
+    # danger_range = 10 #m
+    # danger_angle = 20 #deg
+    # inv_abs_min_rew = 1/8
+    # dist_rew = []
+    # angle_rew = []
+    # for i in range(len(obsdists)):
+    #     dist_rew.append(rew_from_dist(danger_range, obsdists[i], inv_abs_min_rew))
+    #     angle_rew.append(rew_from_angle(danger_angle, angle_diffs[i], inv_abs_min_rew))
+    
+    # capped_rew = collision_avoidance_reward_function(obsdists, angle_diffs, danger_range, danger_angle, inv_abs_min_rew)
+
+    # set_default_plot_rc()
+    # plt.plot(dist_rew)
+    # plt.plot(angle_rew)
+    # plt.plot(capped_rew)
+    # plt.plot(np.array(dist_rew) + np.array(angle_rew))
+    # plt.axhline(y=0, color='gray', linewidth=1)
+    # plt.plot(np.argwhere(np.diff(np.sign(dist_rew)))[0], 0, 'ro')
+    # plt.text(np.argwhere(np.diff(np.sign(dist_rew)))[0], 0, f"({np.argwhere(np.diff(np.sign(dist_rew)))[0][0]},{0})", fontsize=12)
+    # plt.plot(np.argwhere(np.diff(np.sign(angle_rew)))[0], 0, 'ro')
+    # plt.text(np.argwhere(np.diff(np.sign(angle_rew)))[0], 0, f"({np.argwhere(np.diff(np.sign(angle_rew)))[0][0]},{0})", fontsize=12)
+    # plt.text(datapoints/2, -1/inv_abs_min_rew, f"danger range: {danger_range}m\n danger angle: {danger_angle}deg", fontsize=12)
+    # plt.xlabel("Distance or angle [m or deg]")
+    # plt.ylabel("Reward")
+    # plt.legend(["Distance reward", "Angle reward", "Capped total reward", "Total reward"])
+    # plt.title("Collision Avoidance Reward Parts")
+    # plt.show()
+    
+    ###Plotting of the collision avoidance reward### #NEW only using distance
     datapoints = 50
     obsdists = np.linspace(0, 50, datapoints)
-    angle_diffs = np.linspace(0, 50, datapoints)
     danger_range = 10 #m
-    danger_angle = 20 #deg
-    inv_abs_min_rew = 1/8
+    inv_abs_min_rew = 1/16
     dist_rew = []
-    angle_rew = []
     for i in range(len(obsdists)):
         dist_rew.append(rew_from_dist(danger_range, obsdists[i], inv_abs_min_rew))
-        angle_rew.append(rew_from_angle(danger_angle, angle_diffs[i], inv_abs_min_rew))
     
-    capped_rew = collision_avoidance_reward_function(obsdists, angle_diffs, danger_range, danger_angle, inv_abs_min_rew)
-
     set_default_plot_rc()
-    plt.plot(dist_rew)
-    plt.plot(angle_rew)
-    plt.plot(capped_rew)
-    plt.plot(np.array(dist_rew) + np.array(angle_rew))
+    plt.plot(dist_rew,label="Collision avoidance reward")
     plt.axhline(y=0, color='gray', linewidth=1)
-    plt.plot(np.argwhere(np.diff(np.sign(dist_rew)))[0], 0, 'ro')
-    plt.text(np.argwhere(np.diff(np.sign(dist_rew)))[0], 0, f"({np.argwhere(np.diff(np.sign(dist_rew)))[0][0]},{0})", fontsize=12)
-    plt.plot(np.argwhere(np.diff(np.sign(angle_rew)))[0], 0, 'ro')
-    plt.text(np.argwhere(np.diff(np.sign(angle_rew)))[0], 0, f"({np.argwhere(np.diff(np.sign(angle_rew)))[0][0]},{0})", fontsize=12)
-    plt.text(datapoints/2, -1/inv_abs_min_rew, f"danger range: {danger_range}m\n danger angle: {danger_angle}deg", fontsize=12)
-    plt.xlabel("Distance or angle [m or deg]")
+
+    plt.plot(10, 0, 'co',label="Sensor range")
+    plt.text(10, 0, 10, fontsize=12)
+
+    plt.plot(0, -1/inv_abs_min_rew, 'mo',label="s3")
+    plt.text(0, -1/inv_abs_min_rew, f"{int(-1/inv_abs_min_rew)}", fontsize=12)
+
+    plt.xlabel("Distance [m]")
     plt.ylabel("Reward")
-    plt.legend(["Distance reward", "Angle reward", "Capped total reward", "Total reward"])
-    plt.title("Collision Avoidance Reward Parts")
+    plt.legend()
     plt.show()
-    ###Plotting of the collision avoidance reward###
