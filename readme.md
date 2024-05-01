@@ -13,20 +13,24 @@ Follow this guide:
 https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md
 
 Essentially on windows do these:
+
 1. 
 ``` conda create -n [name] python=3.10 ```
 
-2. Choose cuda version to use 
+2. Choose cuda version to use
+
 (suggest 12.1 as it is most up to date and compatible with the rest of the packages at time of writing). 
+
 If you dont have cuda: https://developer.nvidia.com/cuda-12-1-0-download-archive 
 
-If you have cuda and need to change version follow this guide:
-https://github.com/bycloudai/SwapCudaVersionWindows   
+If you have cuda and need to change version follow this guide: https://github.com/bycloudai/SwapCudaVersionWindows   
 
 cuda 12.1:
+
 ``` conda install pytorch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 pytorch-cuda=12.1 -c pytorch -c nvidia ```
 
 cuda 11.8:
+
 ``` conda install pytorch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 pytorch-cuda=11.8 -c pytorch -c nvidia ```
 
 3. 
