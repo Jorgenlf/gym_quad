@@ -89,8 +89,8 @@ if __name__ == "__main__":
                 sim_df[sim_df['Episode']==episode]
                 drone_traj = np.stack((sim_df[r"$X$"], sim_df[r"$Y$"], sim_df[r"$Z$"]), axis=-1)
                 init_pos = drone_traj[0]
-                print(init_pos.shape)
                 obstacles = env.obstacles
+                # change obstacles to tri frame before plotting Todod
                 plotter = Plotter3D(obstacles=obstacles, 
                                     path=path, 
                                     drone_traj=drone_traj,

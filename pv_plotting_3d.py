@@ -6,6 +6,7 @@ import trimesh
 
 from gym_quad.objects.mesh_obstacles import SphereMeshObstacle, CubeMeshObstacle, Scene
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
+from gym_quad.utils.geomutils import enu_to_tri, tri_to_enu
 
 class Plotter3D:
     def __init__(self, obstacles, path: QPMI, drone_traj: np.ndarray, initial_position: np.ndarray, nosave=False):
@@ -16,11 +17,17 @@ class Plotter3D:
         self.nosave = nosave
 
         self.meshes = self.obstacles_to_pyvista_meshes(obstacles)
-        self.quadratic_path = self.get_path_as_arr(path)
+        self.quadratic_path = self.dash_path(self.get_path_as_arr(path))
         self.bounds, self.scaled_bounds = self.get_scene_bounds(obstacles, path, drone_traj, padding=0)
 
         
         self.plotter = pv.Plotter(window_size=[4000, 4000], off_screen=not nosave)
+    
+    def dash_path(self, path: np.ndarray, n=100):
+        """Makes the path equal zeros except for evety nth element"""
+        new_path = np.zeros_like(path)
+        new_path[::n] = path[::n]
+        return new_path
 
     def get_path_as_arr(self, path: QPMI):
         u = np.linspace(path.us[0], path.us[-1], 10000)
@@ -39,7 +46,7 @@ class Plotter3D:
     
         if obstacles != [] :
             obs_meshes = [o.mesh for o in obstacles]
-            tri_obs_meshes = [trimesh.Trimesh(vertices=o.verts_packed().cpu().numpy(), faces=o.faces_packed().cpu().numpy()) for o in obs_meshes]
+            tri_obs_meshes = [trimesh.Trimesh(vertices=tri_to_enu(o.verts_packed().cpu().numpy().T).T, faces=tri_to_enu(o.faces_packed().cpu().numpy().T).T) for o in obs_meshes]
             for mesh in tri_obs_meshes:
                 for point in mesh.vertices:
                     bounds[0] = min(bounds[0], point[0])
@@ -83,7 +90,7 @@ class Plotter3D:
     
     def obstacles_to_pyvista_meshes(self, obstacles: list):
         obs_meshes = [o.mesh for o in obstacles]
-        tri_obs_meshes = [trimesh.Trimesh(vertices=o.verts_packed().cpu().numpy(), faces=o.faces_packed().cpu().numpy()) for o in obs_meshes]
+        tri_obs_meshes = [trimesh.Trimesh(vertices=tri_to_enu(o.verts_packed().cpu().numpy().T).T, faces=tri_to_enu(o.faces_packed().cpu().numpy().T).T) for o in obs_meshes]
         meshes = []    
         for mesh in tri_obs_meshes:
             pv_mesh = pv.wrap(mesh)
@@ -97,29 +104,45 @@ class Plotter3D:
             'ytitle': 'y [m]',
             'ztitle': 'z [m]',
             'font_size': 50,
-            'padding': 0.1, #maybe change later
+            'padding': 0.5, #maybe change later
             'font_family': 'times',
-            #'ticks': 'both',
+            'fmt':'%.0f',
+            'ticks': 'outside',
             # axes_ranges just changes values on the axes, not the actual scene, do not use
         }
         self.plotter.add_mesh(pv.Cube(bounds=self.scaled_bounds), opacity=0.0)
         for i, mesh in enumerate(self.meshes):
             if i == 0:
-                self.plotter.add_mesh(mesh, color="red", show_edges=False, label="Obstacles", smooth_shading=True)
+                self.plotter.add_mesh(mesh, color="red", show_edges=False, label="Obstacles", smooth_shading=False)
             else:
                 self.plotter.add_mesh(mesh, color="red", show_edges=False, smooth_shading=True)
-        self.plotter.add_points(self.quadratic_path, color="blue", point_size=2, label="Path")
-        self.plotter.add_points(self.drone_traj, color="green", point_size=2, label="Drone Trajectory ")
-        self.plotter.add_points(self.initial_position, color="black", point_size=10, label="Initial Position")
+        self.plotter.add_points(self.quadratic_path, color="#619CFF", point_size=8, label="Path")
+        self.plotter.add_points(self.drone_traj, color="#00BA38", point_size=8, label="Drone Trajectory ")
+        self.plotter.add_points(self.initial_position, color="black", point_size=30, label="Initial Position")
         self.plotter.show_grid(**grid_kw_args)
-        self.plotter.add_legend(border=False, bcolor='w', face=None, size=(0.15,0.15)) #bcolor="#eaeae8"
+        #self.plotter.add_legend(border=False, bcolor='w', face=None, size=(0.12,0.12)) #bcolor="#eaeae8"
+
+        # Custom legend
+        offset_x = 900
+        offset_y = 500
+        offset_between = 100
+        legend_pos = [self.plotter.window_size[0] - offset_x, self.plotter.window_size[1] - offset_y]
+        drone_color = '#00BA38'
+        path_color = '#00B6EB'
+        obs_color = 'red'
+        initial_pos_color = 'black'
+        self.plotter.add_text("Obstacles", position=legend_pos, font_size=40, color=obs_color, font='times')
+        self.plotter.add_text("Path", position=[legend_pos[0], legend_pos[1] - offset_between], font_size=40, color=path_color, font='times')
+        self.plotter.add_text("Drone Trajectory", position=[legend_pos[0], legend_pos[1] - 2*offset_between], font_size=40, color=drone_color, font='times')
+        self.plotter.add_text("Initial Position", position=[legend_pos[0], legend_pos[1] - 3*offset_between], font_size=40, color=initial_pos_color, font='times')
+
+        # Camera stuff
+        self.plotter.camera.zoom(0.9)
         
         #if self.nosave: self.plotter.show()
         self.plotter.show()
         if save_path and not self.nosave:
             self.plotter.screenshot(save_path, scale=40, window_size = [1000, 1000])
-            #self.plotter.save_graphic("testhahsssssa2.pdf")
-
 
 
 
