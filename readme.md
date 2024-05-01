@@ -16,10 +16,11 @@ Essentially on windows do these:
 1. 
 ``` conda create -n [name] python=3.10 ```
 
-2. Choose cuda version to use (suggest 12.1 as most up to date which is compatible at time of writing). 
-If you dont have cuda: https://developer.nvidia.com/cuda-11-8-0-download-archive?target_os=Windows&target_arch=x86_64&target_version=10&target_type=exe_network 
+2. Choose cuda version to use 
+(suggest 12.1 as it is most up to date and compatible with the rest of the packages at time of writing). 
+If you dont have cuda: https://developer.nvidia.com/cuda-12-1-0-download-archive 
 
-If you have cuda and need to change version:
+If you have cuda and need to change version follow this guide:
 https://github.com/bycloudai/SwapCudaVersionWindows   
 
 cuda 12.1:
