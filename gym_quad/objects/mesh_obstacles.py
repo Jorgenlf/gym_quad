@@ -4,7 +4,6 @@ from pytorch3d.structures import join_meshes_as_scene
 
 #For collisionchecking
 from pytorch3d.structures import Meshes
-from pytorch3d.ops import utils as pt3d_utils
 
 import numpy as np
 
@@ -17,7 +16,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(script_dir)
 grand_parent_dir = os.path.dirname(parent_dir)
 sys.path.append(grand_parent_dir)
-from gym_quad.utils.geomutils import pytorch3d_to_enu, enu_to_tri 
+from gym_quad.utils.geomutils import pytorch3d_to_enu, enu_to_pytorch3d, enu_to_tri 
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 
 #Utility funcition to get the bounds of the scene given the obstacles and the path
@@ -155,8 +154,6 @@ class SphereMeshObstacle: #TODO can make the mesh here as done in cubemehsobstac
         return [x,y,z]
 
 
-
-
 class CubeMeshObstacle:
     def __init__(self,
                  device: torch.device,
@@ -169,7 +166,6 @@ class CubeMeshObstacle:
 
         self.isDummy = isDummy
         self.device = device
-
         self.center_position = center_position.to(device=self.device).float() # Centre of the cube in camera world frame
         self.position = pytorch3d_to_enu(center_position,device=self.device).float() # Centre of the cube in ENU frame
 
@@ -255,8 +251,46 @@ class CubeMeshObstacle:
                       [-1, 1, 1, -1, -1, -1, -1, 1]])
         return [x,y,z]
 
+class ImportedMeshObstacle:
+    def __init__(self, device: torch.device, path: str, center_position: torch.Tensor, isDummy: bool = False):
+        self.device = device
+        self.isDummy = isDummy
+        self.path = path
+        self.center_position = center_position.to(device=self.device).float()
+        self.position = pytorch3d_to_enu(center_position,device=self.device).float()
+        self.mesh = load_objs_as_meshes([path], device=self.device)
+        self.mesh.offset_verts_(vert_offsets_packed=self.center_position)
 
-#OUR SCENE CLASS #WORKS
+    def move(self, new_center_position):
+        # Check if new_center_position is a list and convert to tensor if necessary
+        if isinstance(new_center_position, list):
+            new_center_position = torch.tensor(new_center_position, device=self.device, dtype=torch.float32)
+        elif isinstance(new_center_position, torch.Tensor) and new_center_position.device != self.device:
+            new_center_position = new_center_position.to(self.device)
+        
+        # Ensure the tensor is of dtype float32
+        new_center_position = new_center_position.float()
+
+        # Calculate displacement and update mesh position and center_position attribute
+        displacement = new_center_position - self.center_position
+        self.mesh.offset_verts_(vert_offsets_packed=displacement)
+        self.center_position = new_center_position
+
+    def set_device(self, new_device: torch.device):
+        self.device = new_device
+        self.mesh.to(new_device)
+        self.center_position.to(new_device)
+    
+    def get_bounding_box(self):
+        # Compute the bounding box by taking the min and max of vertices
+        vertices = self.mesh.verts_packed()  # This will return all vertices in the mesh
+        min_vals, _ = torch.min(vertices, dim=0)
+        max_vals, _ = torch.max(vertices, dim=0)
+        return min_vals, max_vals
+    
+
+
+#OUR SCENE CLASS
 class Scene:
     def __init__(self,
                  device: torch.device,
@@ -298,24 +332,46 @@ if __name__ == "__main__":
     #"Camera" how to use the obstacle classes for camera (pytorch3d)
     # "Collision" how to use the obstacle classes for collision checking (trimesh)
     # "Line_path_collision" how to use the obstacle classes for collision checking with a room generated depending on path (trimesh)
-    mode = "Line_path_collision" 
+    # "convert_to_obj" how to convert e.g. dae files to obj files
+    # "rotate_mesh_ENU_to_TRI" how to rotate and save a mesh from ENU to TRI/PT3D frame
+    mode = "rotate_mesh_ENU_to_TRI" 
+    mode= "mesh"
 
     if mode == "mesh":
         ## MESH CREATION ### 
-        cube = create_cube(1,4,1)
+        # cube = create_cube(1,4,1)
         # cylinder = create_cylinder()
         
         #Export the meshes to .obj files
         # cube.export("cube.obj")
         # cylinder.export("cylinder.obj")
         
+        #Load the meshes
+        house = trimesh.load("gym_quad/meshes/house_TRI.obj")
+
         #Visualize the meshes
-        scene = trimesh.Scene([cube])
+        scene = trimesh.Scene([house])
 
         axis = trimesh.creation.axis(origin_size=0.1, axis_radius=0.01, axis_length=6.0)
         scene.add_geometry(axis)
         scene.show()
 
+    elif mode == "convert_to_obj":
+        #Convert e.g. dae files to obj files
+        #Import the file to be converted
+        mesh = trimesh.load("gym_quad/meshes/house.dae")
+        #Export the mesh to an obj file
+        mesh.export("gym_quad/meshes/house_ENU.obj")
+
+    elif mode == "rotate_mesh_ENU_to_TRI":
+        #Load the mesh you want to rotate
+        mesh = trimesh.load("gym_quad/meshes/house_ENU.obj")
+        #Rotate the mesh to be in the TRI/PT3D frame
+        mesh.apply_transform(trimesh.transformations.rotation_matrix(np.pi/2, [0, 0, 1])) #Rotate 90 degrees around z-axis
+        mesh.apply_transform(trimesh.transformations.rotation_matrix(-np.pi/2, [1, 0, 0])) #Rotate -90 degrees around x-axis
+        mesh.apply_transform(trimesh.transformations.rotation_matrix(np.pi, [0, 1, 0])) #Rotate 180 degrees around y-axis
+        #Export the rotated mesh to an obj file
+        mesh.export("gym_quad/meshes/house_TRI.obj")
 
     elif mode == "camera":
         ####PYTORCH3D FOR CAMERA For more use see depth_camera.py

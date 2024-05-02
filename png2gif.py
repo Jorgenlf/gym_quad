@@ -23,8 +23,8 @@ if option == 'A':
 elif option == 'B':
 
     exp_id = 4
-    test_id = 5
-    scenario = "crash_cube"
+    test_id = 14
+    scenario = "house"
 
     filenames = sorted(glob.glob(f'log/LV_VAE_MESH-v0/Experiment {exp_id}/{scenario}/tests/test{test_id}/depth_maps/depth_map_*.png'))
 

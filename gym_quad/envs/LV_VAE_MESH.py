@@ -13,7 +13,7 @@ from gym_quad.objects.quad import Quad
 from gym_quad.objects.IMU import IMU
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.depth_camera import DepthMapRenderer, FoVPerspectiveCameras, RasterizationSettings
-from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle, get_scene_bounds
+from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle, get_scene_bounds, ImportedMeshObstacle
 
 
 
@@ -89,6 +89,7 @@ class LV_VAE_MESH(gym.Env):
             # Testing scenarios
             "test_path": self.scenario_test_path,
             "test": self.scenario_test,
+            "house": self.scenario_house,
             "horizontal": self.scenario_horizontal_test,
             "vertical": self.scenario_vertical_test,
             "deadend": self.scenario_deadend_test,
@@ -101,8 +102,7 @@ class LV_VAE_MESH(gym.Env):
 
         #Init the quadcopter mesh for collison detection only needed to be done once so it is done here
         self.tri_quad_mesh = trimesh.load("gym_quad/meshes/sphere.obj")
-        #resize the quadcopter sphere mesh to have radius r #TODO update this to a hyperparameter like "safety distance"
-        r = 1
+        r = self.drone_radius_for_collision
         self.tri_quad_mesh.apply_scale(r)
 
         #Reset environment to init state
@@ -1122,6 +1122,23 @@ class LV_VAE_MESH(gym.Env):
         self.obstacles.append(SphereMeshObstacle(radius = 100,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
 
         return initial_state
+
+    def scenario_house(self):
+        initial_state = np.zeros(6)
+        waypoints = generate_random_waypoints(self.n_waypoints,'house')
+        self.path = QPMI(waypoints)
+
+        init_pos = waypoints[0]# + np.random.uniform(low=-5, high=5, size=(1,3))
+
+        init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
+        initial_state = np.hstack([np.array(init_pos), init_attitude])
+
+        obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI.obj", center_position=pt3d_obs_coords))
+        return initial_state
+
+
 
     #Development scenarios
     def scenario_dev_test_crash(self):
