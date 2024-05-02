@@ -150,7 +150,15 @@ class LV_VAE_MESH(gym.Env):
         self.closest_measurement = None
         self.collided = False
 
+        # Depth camera variables
+        self.sigma = 0.1 # [m] Standard deviation of the Gaussian noise added to the depth map
         self.depth_map = torch.zeros((self.depth_map_size[0], self.depth_map_size[1]), dtype=torch.float32, device=self.device)
+        self.noisy_depth_map = torch.zeros((self.depth_map_size[0], self.depth_map_size[1]), dtype=torch.float32, device=self.device)
+
+        # Camera pos/orient noise
+        self.camera_look_direction = np.array([1, 0, 0])
+        self.camera_look_direction_noisy = self.camera_look_direction + np.random.normal(0, 0.01, 3)
+        self.camera_pos_noise = np.random.normal(0, 0.005, 3)
 
         self.passed_waypoints = np.zeros((1, 3), dtype=np.float32)
         self.total_t_steps = 0
@@ -263,8 +271,9 @@ class LV_VAE_MESH(gym.Env):
         #Depth camera observation
         if self.obstacles!=[]:
             pos = self.quadcopter.position
+            pos_noisy = pos + self.camera_pos_noise
             orientation = self.quadcopter.attitude
-            Rcam,Tcam = self.renderer.camera_R_T_from_quad_pos_orient(pos, orientation)
+            Rcam,Tcam = self.renderer.camera_R_T_from_quad_pos_orient(pos_noisy, orientation, self.camera_look_direction_noisy)
             self.renderer.update_R(Rcam)
             self.renderer.update_T(Tcam)
             self.depth_map = self.renderer.render_depth_map()
@@ -277,7 +286,15 @@ class LV_VAE_MESH(gym.Env):
         
         # if self.closest_measurement < self.max_depth:
         #     print("Closest measurement:", self.closest_measurement, "  Max depth:", self.max_depth)
-            
+
+        # Add Gaussian noise to depth map (naive noise model)
+        noise = torch.normal(mean=0, std=self.sigma, size=temp_depth_map.size(), device=self.device)
+        temp_depth_map += noise
+        self.noisy_depth_map = temp_depth_map
+        # noise = torch.tensor(0).to(self.device)
+        # scale = temp_depth_map * sigma
+        # sampled_noise = noise.repeat(*temp_depth_map.size()).normal_() * scale
+        # temp_depth_map += sampled_noise
 
         normalized_depth_map = temp_depth_map / self.max_depth
         
@@ -297,7 +314,7 @@ class LV_VAE_MESH(gym.Env):
         #Migh be unfortunate to change the tensor to np.array here as it will be done every time the observation is called
         #Having to move the tensor to the cpu....
         #Per now we cast to np.array here
-
+        
         sensor_readings = resized_depth_map.detach().cpu().numpy() 
         self.closest_measurement = self.closest_measurement.item()  #Moves from CPU to GPU if closest meas is on GPU..
         

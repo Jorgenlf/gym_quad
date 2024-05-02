@@ -93,7 +93,7 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
         _, _, done, _, info = env.step(action)
         
         if sdm:
-            save_depth_maps(env, test_dir)  #Now this saves depthmaps online per timestep when obstacle is close, might be better to save up all then save all at once
+            save_depth_maps(env, test_dir, noisy=True)  #Now this saves depthmaps online per timestep when obstacle is close, might be better to save up all then save all at once
         
         total_t_steps = info['env_steps']
         progression.append(info['progression'])
@@ -135,21 +135,34 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
     return df, env
 
 #saving depth maps
-def save_depth_maps(env, test_dir):
+def save_depth_maps(env, test_dir, noisy=False):
     path = os.path.join(test_dir, "depth_maps")
     if not os.path.exists(path):
         os.mkdir(path)
 
-    try:
-        if env.unwrapped.nearby_obstacles != []: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
-            env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.depth_map)
-        else:
-            pass
-    except AttributeError:
-        if env.unwrapped.closest_measurement < env.unwrapped.danger_range: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
-            env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.depth_map)
-        else:
-            pass
+    if noisy:
+        try:
+            if env.unwrapped.nearby_obstacles != []: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
+                env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.noisy_depth_map)
+            else:
+                pass
+        except AttributeError:
+            if env.unwrapped.closest_measurement < env.unwrapped.danger_range: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
+                env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.noisy_depth_map)
+            else:
+                pass
+    else:
+        try:
+            if env.unwrapped.nearby_obstacles != []: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
+                env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.depth_map)
+            else:
+                pass
+        except AttributeError:
+            if env.unwrapped.closest_measurement < env.unwrapped.danger_range: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
+                env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.depth_map)
+            else:
+                pass
+
         #Comment/uncomment if you want to save the empty depth maps from envs without obstacles
         # depth=env.depth_map
         # path = f"{path}/depth_map_{env.total_t_steps}"
