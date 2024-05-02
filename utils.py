@@ -21,11 +21,7 @@ def parse_experiment_info():
     parser.add_argument("--RT_vis", default=False, type=bool, help="Whether to visualize in realtime training or not")
     parser.add_argument("--save_depth_maps", default=False, type=bool, help="Whether to save depth maps or not")
     args = parser.parse_args()
-    
-    #Renaming: 
-    #controller_scenario -> trained_scenario  
-    #scenario -> run_scenario
-    #controller -> agent
+
 
     experiment_dir = os.path.join(r"./log", r"{}".format(args.env), r"Experiment {}".format(args.exp_id))
 
@@ -93,7 +89,7 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
     normed_domain_observations = []
 
     while not done: 
-        action = agent.predict(env.observation, deterministic=True)[0]
+        action = agent.predict(env.unwrapped.observation, deterministic=True)[0]
         _, _, done, _, info = env.step(action)
         
         if sdm:
@@ -145,13 +141,13 @@ def save_depth_maps(env, test_dir):
         os.mkdir(path)
 
     try:
-        if env.nearby_obstacles != []: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
-            env.renderer.save_depth_map(f"{path}/depth_map_{env.total_t_steps}", env.depth_map)
+        if env.unwrapped.nearby_obstacles != []: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
+            env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.depth_map)
         else:
             pass
     except AttributeError:
-        if env.closest_measurement < env.danger_range: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
-            env.renderer.save_depth_map(f"{path}/depth_map_{env.total_t_steps}", env.depth_map)
+        if env.unwrapped.closest_measurement < env.unwrapped.danger_range: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
+            env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.depth_map)
         else:
             pass
         #Comment/uncomment if you want to save the empty depth maps from envs without obstacles
@@ -432,7 +428,7 @@ def plot_3d(env, sim_df, test_dir):
     ax.set_yticklabels([])
     ax.set_zticklabels([])
   
-    ax = env.plot3D(leave_out_first_wp=True)#(wps_on=False) # leave out first waypoint when initial position is same as first waypoint
+    ax = env.unwrapped.plot3D(leave_out_first_wp=True)#(wps_on=False) # leave out first waypoint when initial position is same as first waypoint
     ax.scatter3D(sim_df[r"$X$"][0], sim_df[r"$Y$"][0], sim_df[r"$Z$"][0], color="#66FF66", label="Initial Position")
     ax.plot3D(sim_df[r"$X$"], sim_df[r"$Y$"], sim_df[r"$Z$"], color="#EECC55", label="Quadcopter Path")#, linestyle="dotted")
     ax.set_xlabel(xlabel="x [m]")
@@ -470,7 +466,7 @@ def plot_multiple_3d(env, sim_dfs):
     c = ['#EE6666', '#88BB44', '#EECC55']
     styles = ["dashed", "dashed", "dashed"]
     plt.rc('lines', linewidth=3)
-    ax = env.plot3D()#(wps_on=False)
+    ax = env.unwrapped.plot3D()#(wps_on=False)
     for i,sim_df in enumerate(sim_dfs):
         ax.plot3D(sim_df[r"$X$"], sim_df[r"$Y$"], sim_df[r"$Z$"], color=c[i], linestyle=styles[i])
     ax.set_xlabel(xlabel="North [m]", fontsize=14)
@@ -538,8 +534,8 @@ def write_report(test_dir: str, sim_df: pd.DataFrame, env, episode: int) -> None
     avg_ape = np.sqrt(episode_df[r'$e$']**2 + episode_df[r'$h$']**2).mean()
     iae_cross, iae_vertical = calculate_IAE(episode_df)
     progression = episode_df['Progression'].max()
-    success = int(env.success)
-    collision = int(env.collided)
+    success = int(env.unwrapped.success)
+    collision = int(env.unwrapped.collided)
     data = {
         'Episode': episode, 
         'Timesteps': timesteps, 
@@ -607,10 +603,12 @@ def plot_lidar():
 
 def rew_from_dist(danger_range, drone_closest_obs_dist, inv_abs_min_rew):
     r = -(((danger_range + inv_abs_min_rew*danger_range)/(drone_closest_obs_dist + inv_abs_min_rew*danger_range))-1)
+    if r>0: r = 0
     return r
 
 def rew_from_angle(danger_angle, angle_diff, inv_abs_min_rew):
     r = -(((danger_angle + inv_abs_min_rew*danger_angle)/(angle_diff + inv_abs_min_rew*danger_angle))-1)
+    if r>0: r = 0
     return r
 
 
@@ -652,35 +650,58 @@ if __name__ == "__main__":
 
     # plot_lidar()
 
-    ###Plotting of the collision avoidance reward###
+    ###Plotting of the collision avoidance reward### #OLD with angles
+    # datapoints = 50
+    # obsdists = np.linspace(0, 50, datapoints)
+    # angle_diffs = np.linspace(0, 50, datapoints)
+    # danger_range = 10 #m
+    # danger_angle = 20 #deg
+    # inv_abs_min_rew = 1/8
+    # dist_rew = []
+    # angle_rew = []
+    # for i in range(len(obsdists)):
+    #     dist_rew.append(rew_from_dist(danger_range, obsdists[i], inv_abs_min_rew))
+    #     angle_rew.append(rew_from_angle(danger_angle, angle_diffs[i], inv_abs_min_rew))
+    
+    # capped_rew = collision_avoidance_reward_function(obsdists, angle_diffs, danger_range, danger_angle, inv_abs_min_rew)
+
+    # set_default_plot_rc()
+    # plt.plot(dist_rew)
+    # plt.plot(angle_rew)
+    # plt.plot(capped_rew)
+    # plt.plot(np.array(dist_rew) + np.array(angle_rew))
+    # plt.axhline(y=0, color='gray', linewidth=1)
+    # plt.plot(np.argwhere(np.diff(np.sign(dist_rew)))[0], 0, 'ro')
+    # plt.text(np.argwhere(np.diff(np.sign(dist_rew)))[0], 0, f"({np.argwhere(np.diff(np.sign(dist_rew)))[0][0]},{0})", fontsize=12)
+    # plt.plot(np.argwhere(np.diff(np.sign(angle_rew)))[0], 0, 'ro')
+    # plt.text(np.argwhere(np.diff(np.sign(angle_rew)))[0], 0, f"({np.argwhere(np.diff(np.sign(angle_rew)))[0][0]},{0})", fontsize=12)
+    # plt.text(datapoints/2, -1/inv_abs_min_rew, f"danger range: {danger_range}m\n danger angle: {danger_angle}deg", fontsize=12)
+    # plt.xlabel("Distance or angle [m or deg]")
+    # plt.ylabel("Reward")
+    # plt.legend(["Distance reward", "Angle reward", "Capped total reward", "Total reward"])
+    # plt.title("Collision Avoidance Reward Parts")
+    # plt.show()
+    
+    ###Plotting of the collision avoidance reward### #NEW only using distance
     datapoints = 50
     obsdists = np.linspace(0, 50, datapoints)
-    angle_diffs = np.linspace(0, 50, datapoints)
     danger_range = 10 #m
-    danger_angle = 20 #deg
-    inv_abs_min_rew = 1/8
+    inv_abs_min_rew = 1/16
     dist_rew = []
-    angle_rew = []
     for i in range(len(obsdists)):
         dist_rew.append(rew_from_dist(danger_range, obsdists[i], inv_abs_min_rew))
-        angle_rew.append(rew_from_angle(danger_angle, angle_diffs[i], inv_abs_min_rew))
     
-    capped_rew = collision_avoidance_reward_function(obsdists, angle_diffs, danger_range, danger_angle, inv_abs_min_rew)
-
     set_default_plot_rc()
-    plt.plot(dist_rew)
-    plt.plot(angle_rew)
-    plt.plot(capped_rew)
-    plt.plot(np.array(dist_rew) + np.array(angle_rew))
+    plt.plot(dist_rew,label="Collision avoidance reward")
     plt.axhline(y=0, color='gray', linewidth=1)
-    plt.plot(np.argwhere(np.diff(np.sign(dist_rew)))[0], 0, 'ro')
-    plt.text(np.argwhere(np.diff(np.sign(dist_rew)))[0], 0, f"({np.argwhere(np.diff(np.sign(dist_rew)))[0][0]},{0})", fontsize=12)
-    plt.plot(np.argwhere(np.diff(np.sign(angle_rew)))[0], 0, 'ro')
-    plt.text(np.argwhere(np.diff(np.sign(angle_rew)))[0], 0, f"({np.argwhere(np.diff(np.sign(angle_rew)))[0][0]},{0})", fontsize=12)
-    plt.text(datapoints/2, -1/inv_abs_min_rew, f"danger range: {danger_range}m\n danger angle: {danger_angle}deg", fontsize=12)
-    plt.xlabel("Distance or angle [m or deg]")
+
+    plt.plot(10, 0, 'co',label="Sensor range")
+    plt.text(10, 0, 10, fontsize=12)
+
+    plt.plot(0, -1/inv_abs_min_rew, 'mo',label="s3")
+    plt.text(0, -1/inv_abs_min_rew, f"{int(-1/inv_abs_min_rew)}", fontsize=12)
+
+    plt.xlabel("Distance [m]")
     plt.ylabel("Reward")
-    plt.legend(["Distance reward", "Angle reward", "Capped total reward", "Total reward"])
-    plt.title("Collision Avoidance Reward Parts")
+    plt.legend()
     plt.show()
-    ###Plotting of the collision avoidance reward###

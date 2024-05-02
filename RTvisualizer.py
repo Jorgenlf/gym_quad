@@ -29,8 +29,12 @@ class EnvironmentVisualizer(app.Canvas):
         # Create obstacle visuals
         self.obstacle_visuals = []
         for obstacle in self.obstacles:
-            obstacle_visual = self.create_obstacle_visual(obstacle.position, obstacle.radius)
-            self.obstacle_visuals.append(obstacle_visual)
+            try:
+                obstacle_visual = self.create_obstacle_visual(obstacle.position, obstacle.radius)
+                self.obstacle_visuals.append(obstacle_visual)
+            except AttributeError:
+                print("Obstacle does not have position and radius attributes")
+                pass
 
         # Create quadcopter visual
         half_length = 0.25
