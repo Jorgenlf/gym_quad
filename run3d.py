@@ -95,7 +95,7 @@ if __name__ == "__main__":
                                     path=path, 
                                     drone_traj=drone_traj,
                                     initial_position=init_pos,
-                                    nosave=False)
+                                    nosave=True) #TODO make it both save and display interactive plot
                 plotter.plot_scene_and_trajs(os.path.join(test_dir, "plots", f"episode{int(sim_df['Episode'].iloc[0])}.png"))
 
 

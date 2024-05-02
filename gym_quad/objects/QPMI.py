@@ -357,6 +357,30 @@ def generate_random_waypoints(nwaypoints,scen):
     #         z = waypoints[i][2] + distance*np.sin(elevation)
     #         wp = np.array([x, y, z])
     #         waypoints.append(wp)
+    if scen == "house": #TODO update this to randomly pick from the list of waypoints Håvard sends us :)
+        waypoints = [] #reset the waypoints list that we will generate
+        
+        #Assume that we have a list of possible waypoints in the house 
+        #and a data structure that describes the connections between them a graph with edges as dist between waypoints and waypoints as nodes would be nice
+        #Alternatively for ease of implementation we could just have a list of waypoints and a list of connections between them
+        valid_wps = np.array([np.array([0,0,0]), np.array([20,10,15]), np.array([50,20,20]), np.array([80,20,15]), np.array([90,50,20]), np.array([80,80,15])])
+        connection_indices = [[1],[0,2,3],[1],[1],[1],[4]] #This is a list of lists where the first list is the connections of the first waypoint and so on
+        #The waypoints are in the form of [x,y,z]
+        stop_path_gen = False
+        while not stop_path_gen:
+            #Select a random starting waypoint
+            start_wp_idx = np.random.randint(0,len(valid_wps))
+            waypoints.append(valid_wps[start_wp_idx])
+            #Select a random number of waypoints to generate
+            n_waypoints = np.random.randint(3,5) #Must minimum be 3
+            for i in range(n_waypoints):
+                #Select a random connection from the current waypoint
+                connections = connection_indices[start_wp_idx]
+                next_wp_idx = np.random.choice(connections)
+                waypoints.append(valid_wps[next_wp_idx])
+                start_wp_idx = next_wp_idx
+            stop_path_gen = True
+
 
     if scen =='3d_new':
         a_start_angle=np.random.uniform(-np.pi,np.pi)
@@ -439,6 +463,7 @@ if __name__ == "__main__":
                     np.array([80,80,60]), np.array([50,80,20]), np.array([20,60,15]), np.array([20,40,10]), np.array([0,0,0])])
     #wps = np.array([np.array([0,0,0]), np.array([20,25,22]), np.array([50,40,30]), np.array([90,55,60]), np.array([130,95,110]), np.array([155,65,86])])
     #wps = generate_random_waypoints(10)
+    wps = generate_random_waypoints(10,scen='house')
     path = QPMI(wps)
    
     point = path(20)

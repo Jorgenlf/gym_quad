@@ -166,7 +166,6 @@ class CubeMeshObstacle:
 
         self.isDummy = isDummy
         self.device = device
-
         self.center_position = center_position.to(device=self.device).float() # Centre of the cube in camera world frame
         self.position = pytorch3d_to_enu(center_position,device=self.device).float() # Centre of the cube in ENU frame
 
@@ -253,8 +252,9 @@ class CubeMeshObstacle:
         return [x,y,z]
 
 class ImportedMeshObstacle:
-    def __init__(self, device: torch.device, path: str, center_position: torch.Tensor):
+    def __init__(self, device: torch.device, path: str, center_position: torch.Tensor, isDummy: bool = False):
         self.device = device
+        self.isDummy = isDummy
         self.path = path
         self.center_position = center_position.to(device=self.device).float()
         self.position = pytorch3d_to_enu(center_position,device=self.device).float()
