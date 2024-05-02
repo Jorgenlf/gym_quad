@@ -10,6 +10,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.patches import Rectangle
 from PIL import Image
 from RTvisualizer import *
+from pv_plotting_3d import Plotter3D
 
 from mpl_toolkits.mplot3d import Axes3D
 from stable_baselines3 import PPO
@@ -83,10 +84,24 @@ if __name__ == "__main__":
                 
                 #Creates folders for plots
                 create_plot_folders(test_dir)
+                #NEW PLOTTING
+                path = env.path
+                sim_df[sim_df['Episode']==episode]
+                drone_traj = np.stack((sim_df[r"$X$"], sim_df[r"$Y$"], sim_df[r"$Z$"]), axis=-1)
+                init_pos = drone_traj[0]
+                obstacles = env.obstacles
+                # change obstacles to tri frame before plotting Todod
+                plotter = Plotter3D(obstacles=obstacles, 
+                                    path=path, 
+                                    drone_traj=drone_traj,
+                                    initial_position=init_pos,
+                                    nosave=False)
+                plotter.plot_scene_and_trajs(os.path.join(test_dir, "plots", f"episode{int(sim_df['Episode'].iloc[0])}.png"))
+
 
                 #Path and quadcopter travel
-                plot_3d(env, sim_df[sim_df['Episode']==episode], test_dir)
-                plt.show()
+                #plot_3d(env, sim_df[sim_df['Episode']==episode], test_dir)
+                #plt.show()
 
                 # Observations
                 #normalized
