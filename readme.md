@@ -26,7 +26,7 @@ Essentially on windows do these:
 
 4.  ``` pip install "git+https://github.com/facebookresearch/pytorch3d.git" ``` 
 
-5.  ```pip install gymnasium stable-baselines3 rich numba trimesh python-fcl vispy tensorboard imageio snakeviz scipy```
+5.  ```pip install gymnasium stable-baselines3 rich numba trimesh python-fcl vispy tensorboard imageio snakeviz scipy pycollada pyglet```
 
 ### Training an agent:
 

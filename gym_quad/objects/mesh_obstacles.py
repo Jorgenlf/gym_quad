@@ -4,7 +4,6 @@ from pytorch3d.structures import join_meshes_as_scene
 
 #For collisionchecking
 from pytorch3d.structures import Meshes
-from pytorch3d.ops import utils as pt3d_utils
 
 import numpy as np
 
@@ -155,8 +154,6 @@ class SphereMeshObstacle: #TODO can make the mesh here as done in cubemehsobstac
         return [x,y,z]
 
 
-
-
 class CubeMeshObstacle:
     def __init__(self,
                  device: torch.device,
@@ -255,8 +252,48 @@ class CubeMeshObstacle:
                       [-1, 1, 1, -1, -1, -1, -1, 1]])
         return [x,y,z]
 
+class ImportedMeshObstacle:
+    def __init__(self, device: torch.device, path: str, center_position: torch.Tensor):
+        self.device = device
+        self.path = path
+        self.center_position = center_position.to(device=self.device).float()
+        self.position = pytorch3d_to_enu(center_position,device=self.device).float()
+        self.mesh = load_objs_as_meshes([path], device=self.device)
+        self.mesh.offset_verts_(vert_offsets_packed=self.center_position)
 
-#OUR SCENE CLASS #WORKS
+    def move(self, new_center_position):
+        # Check if new_center_position is a list and convert to tensor if necessary
+        if isinstance(new_center_position, list):
+            new_center_position = torch.tensor(new_center_position, device=self.device, dtype=torch.float32)
+        elif isinstance(new_center_position, torch.Tensor) and new_center_position.device != self.device:
+            new_center_position = new_center_position.to(self.device)
+        
+        # Ensure the tensor is of dtype float32
+        new_center_position = new_center_position.float()
+
+        # Calculate displacement and update mesh position and center_position attribute
+        displacement = new_center_position - self.center_position
+        self.mesh.offset_verts_(vert_offsets_packed=displacement)
+        self.center_position = new_center_position
+
+    def set_device(self, new_device: torch.device):
+        self.device = new_device
+        self.mesh.to(new_device)
+        self.center_position.to(new_device)
+    
+    def get_bounding_box(self):
+        # Compute the bounding box by taking the min and max of vertices
+        vertices = self.mesh.verts_packed()  # This will return all vertices in the mesh
+        min_vals, _ = torch.min(vertices, dim=0)
+        max_vals, _ = torch.max(vertices, dim=0)
+        return min_vals, max_vals
+    
+
+
+
+
+
+#OUR SCENE CLASS
 class Scene:
     def __init__(self,
                  device: torch.device,
@@ -298,19 +335,22 @@ if __name__ == "__main__":
     #"Camera" how to use the obstacle classes for camera (pytorch3d)
     # "Collision" how to use the obstacle classes for collision checking (trimesh)
     # "Line_path_collision" how to use the obstacle classes for collision checking with a room generated depending on path (trimesh)
-    mode = "Line_path_collision" 
+    mode = "mesh" 
 
     if mode == "mesh":
         ## MESH CREATION ### 
-        cube = create_cube(1,4,1)
+        # cube = create_cube(1,4,1)
         # cylinder = create_cylinder()
         
         #Export the meshes to .obj files
         # cube.export("cube.obj")
         # cylinder.export("cylinder.obj")
         
+        #Load the meshes
+        house = trimesh.load("gym_quad/meshes/model.dae")
+
         #Visualize the meshes
-        scene = trimesh.Scene([cube])
+        scene = trimesh.Scene([house])
 
         axis = trimesh.creation.axis(origin_size=0.1, axis_radius=0.01, axis_length=6.0)
         scene.add_geometry(axis)
