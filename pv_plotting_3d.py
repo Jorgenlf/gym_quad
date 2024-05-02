@@ -116,7 +116,7 @@ class Plotter3D:
             if i == 0:
                 self.plotter.add_mesh(mesh, color="red", show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params)
             else:
-                self.plotter.add_mesh(mesh, color="red", show_edges=False, smooth_shading=True,backface_params=backface_params)
+                self.plotter.add_mesh(mesh, color="red", show_edges=False, smooth_shading=False, backface_params=backface_params)
         self.plotter.add_points(self.quadratic_path, color="#619CFF", point_size=8, label="Path")
         self.plotter.add_points(self.drone_traj, color="#00BA38", point_size=8, label="Drone Trajectory ")
         self.plotter.add_points(self.initial_position, color="black", point_size=30, label="Initial Position", render_points_as_spheres=True)

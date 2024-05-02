@@ -344,12 +344,12 @@ class QPMI():
         return ax
 
 
-def generate_random_waypoints(nwaypoints,scen):
+def generate_random_waypoints(nwaypoints, scen, segmentlength=50): #Decide a reasonbale segment length
     waypoints = [np.array([0,0,0])]
 
     # if scen == '3d':
     #     for i in range(nwaypoints-1):
-    #         distance = 50
+    #         distance = segmentlength
     #         azimuth = np.random.uniform(-np.pi/4, np.pi/4)
     #         elevation = np.random.uniform(-np.pi/4, np.pi/4)
     #         x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
@@ -389,7 +389,7 @@ def generate_random_waypoints(nwaypoints,scen):
         a_start_angle=np.random.uniform(-np.pi,np.pi)
         e_start_angle=np.random.uniform(-np.pi,np.pi) 
         e_start_angle=0
-        distance = 50
+        distance = segmentlength
         for i in range(nwaypoints-1):
             azimuth = a_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
             elevation = e_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
@@ -401,7 +401,7 @@ def generate_random_waypoints(nwaypoints,scen):
 
     elif scen =='horizontal':
         for i in range(nwaypoints-1):
-            distance = 50
+            distance = segmentlength
             azimuth = np.random.uniform(-np.pi/4, np.pi/4)
             elevation = np.random.uniform(-np.pi/4, np.pi/4)
             x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
@@ -413,7 +413,7 @@ def generate_random_waypoints(nwaypoints,scen):
     elif scen =='horizontal_new':
         a_start_angle=np.random.uniform(-np.pi,np.pi)
         e_start_angle=np.random.uniform(-np.pi,np.pi) 
-        distance = 50
+        distance = segmentlength
         for i in range(nwaypoints-1):
             azimuth = a_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
             x = waypoints[i][0] + distance*np.cos(azimuth)
@@ -424,7 +424,7 @@ def generate_random_waypoints(nwaypoints,scen):
 
     elif scen=='line':
         for i in range(nwaypoints-1):
-            distance = 50
+            distance = segmentlength
             azimuth = np.random.uniform(-np.pi/4, np.pi/4)
             elevation = np.random.uniform(-np.pi/4, np.pi/4)
             x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
@@ -437,7 +437,7 @@ def generate_random_waypoints(nwaypoints,scen):
         a_start_angle=np.random.uniform(-np.pi,np.pi)
         azimuth = a_start_angle+np.random.uniform(-np.pi/4, np.pi/4)
         elevation = np.random.uniform(-np.pi/4, np.pi/4)
-        distance = 50
+        distance = segmentlength
         for i in range(nwaypoints-1):
             x = waypoints[i][0] + distance*np.cos(azimuth)
             y = waypoints[i][1] + distance*np.sin(azimuth)

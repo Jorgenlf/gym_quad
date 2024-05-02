@@ -11,43 +11,50 @@ lv_vae_config = {
 #General parameters    
     "step_size"                 : 0.01,         # Step size of the simulation
     "max_t_steps"               : 30000,        # Maximum number of timesteps in the simulation before it is terminated
-    "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle
-    "enclose_scene"             : False,        # Enclose the scene with a box thats scaled to the scene size
-    "padding"                   : 8,           # Padding of the box that encloses the scene [m]
-    "drone_radius_for_collision": 0.3,         # Radius of the drone for collision detection [m]
+    "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle #TODO idk if this should be here might move it
+    "enclose_scene"             : True,         # Enclose the scene with a box thats scaled to the scene size
+    "perturb_sim"               : True,         # Perturb the simulation with noise
+    "padding"                   : 8,            # Padding of the box that encloses the scene [m]
+    "drone_radius_for_collision": 0.28,         # Radius of the drone for collision detection [m] #Actual radius is 0.25m
 #Depth camera parameters    
-    "FOV_vertical"              : 75,           # Vertical field of view of the depth camera
-    "FOV_horizontal"            : 62,           # Horizontal field of view of the depth camera
-    "depth_map_size"            : (240, 320),   # Size of the depth map Earlier sensor suite
-    "max_depth"                 : 10,           # Maximum depth of the depth camera
-    "camera_FPS"                : 15,           # Frequency of the sensors
+    "FOV_vertical"              : 75,            # Vertical field of view of the depth camera
+    "FOV_horizontal"            : 62,            # Horizontal field of view of the depth camera
+    "depth_map_size"            : (240, 320),    # Size of the depth map Earlier sensor suite
+    "max_depth"                 : 10,            # Maximum depth of the depth camera
+    "camera_FPS"                : 10,            # Frequency of the sensors
 #VAE parameters    
-    "compressed_depth_map_size" : 224,          # Size of depth map after compression
-    "latent_dim"                : 32,           # Dimension of the latent space
+    "compressed_depth_map_size" : 224,           # Size of depth map after compression
+    "latent_dim"                : 32,            # Dimension of the latent space
 #Path planner parameters
     "la_dist"                   : 20,            # Look ahead distance aka distance to the point on path to be followed
-    "accept_rad"                : 5,            # Acceptance radius for the quadcopter to consider the end as reached
-    "n_waypoints"               : 4,            # Number of waypoints to be generated
+    "accept_rad"                : 5,             # Acceptance radius for the quadcopter to consider the end as reached
+    "n_waypoints"               : 4,             # Number of waypoints to be generated
+    "segment_length"            : 50,            # Length of the segments between waypoints #TODO pass this to the scenario fcns
 #Drone controller parameters
-    "s_max"                     : 2.5,          # Maximum speed of the quadcopter m/s
-    "i_max"                     : deg2rad(80/2),      # Maximum inclination angle of commanded velocity wrt x-axis #TODO decide this now set it to half of vertical sensor span
-    "r_max"                     : deg2rad(30),          # Maximum commanded yaw rate rad/s
-    "kv"                        : 2.5,          # Velocity gain             Been for long time: 2.5
-    "kangvel"                   : 0.8,          # Angular velocity gain     Been for long time: 0.8
-    "kR"                        : 0.8,          # Attitude gain             Been for long time: 0.8
+    "s_max"                     : 2,             # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  
+    "i_max"                     : deg2rad(80/2), # Maximum inclination angle of commanded velocity wrt x-axis #TODO decide this. Per now set it to ish half of vertical sensor span
+    "r_max"                     : deg2rad(30),   # Maximum commanded yaw rate rad/s
+    "kv"                        : 2.5,           # Velocity gain             Been for long time: 2.5
+    "kangvel"                   : 0.8,           # Angular velocity gain     Been for long time: 0.8
+    "kR"                        : 0.8,           # Attitude gain             Been for long time: 0.8
 #Reward parameters
-    "min_reward"                : -1e4,         # Minimum reward before the simulation is terminated
+    "min_reward"                : -1e4,          # Minimum reward before the simulation is terminated
+
     'PA_band_edge'              : 10,            # edge of Path adherence band
-    'PA_scale'                  : 3,            # scale of Path adherence reward [-PA_scale, PA_scale]
-    'PP_vel_scale'              : 0.7,          # scaling of velocity reward e.g. 1-> make 2.5m/s
-    'PP_rew_max'                : 2.5,          # maximum reward for path progression
-    'PP_rew_min'                : -1,           # minimum reward for path progression
-    'rew_collision'             : -50,          # reward for collision
-    'rew_reach_end'             : 30,           # reward for reaching the end of the path
-    'existence_reward'          : -0.005,       # reward for existing
-    'danger_range'              : 10,          # Range between quadcopter and obstacle within which the quadcopter is in danger #TODO change this to the max_depth?
-    'danger_angle'              : 20,           # Angle between quadcopter and obstacle within which the quadcopter is in danger #TODO this is outdated for mesh env unless we get global distances somehow
-    'abs_inv_CA_min_rew'        : 1/16,          #1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x 
+    'PA_scale'                  : 3,             # scale of Path adherence reward [-PA_scale, PA_scale]
+
+    'PP_vel_scale'              : 0.7,           # scaling of velocity reward e.g. 1-> make 2.5m/s
+    'PP_rew_max'                : 2.5,           # maximum reward for path progression
+    'PP_rew_min'                : -1,            # minimum reward for path progression
+
+    'rew_collision'             : -50,           # reward for collision
+
+    'rew_reach_end'             : 30,            # reward for reaching the end of the path
+
+    'existence_reward'          : -0.005,        # reward for existing
+
+    'danger_range'              : 10,            # Range between quadcopter and obstacle within which the quadcopter is in danger
+    'abs_inv_CA_min_rew'        : 1/16,          # 1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x 
     #TODO Make it take in 16 instead of 1/16 and invert it in the function also no longer angle involved so remove that
 }
 

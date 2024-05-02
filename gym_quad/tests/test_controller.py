@@ -14,6 +14,7 @@ sys.path.append(grand_parent_dir)
 
 import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
+from gym_quad.utils.ODE45JIT import j_Rzyx
 from gym_quad.objects.quad import Quad
 from old.controllers2 import LeeVelocityController
 
@@ -390,7 +391,114 @@ class TestController(unittest.TestCase):
         F = np.clip(F, ss.thrust_min, ss.thrust_max)
         return F
 
+    def active_geom_ctrlv2(self, action): #TODO turn into torch operations might speed up the simulation
+        #Translate the action to the desired velocity and yaw rate
+        cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1]*self.i_max)
+        cmd_v_y = 0
+        cmd_v_z = self.s_max * ((action[0]+1)/2)*np.sin(action[1]*self.i_max)
+        cmd_r = self.r_max * action[2]
+        self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r]) #For plotting
 
+        #Gains, z-axis-basis=e3 and rotation matrix #TODO add stochasticity to make sim2real robust
+        kv = 2.0
+        kR = 0.9
+        kangvel = 0.9
+
+        e3 = np.array([0, 0, 1]) #z-axis basis
+
+        # R = geom.Rzyx(*self.quadcopter.attitude) #OLD
+        R = j_Rzyx(*self.quadcopter.attitude)  #NEW using jit version
+
+        #Essentially three different velocities that one can choose to track:
+        #Think body or world frame velocity control is the best choice
+        ###---###
+        ##Vehicle frame velocity control i.e. intermediary frame between body and world frame
+        # vehicleR = geom.Rzyx(0, 0, self.quadcopter.attitude[2])
+        # vehicle_vels = vehicleR.T @ self.quadcopter.velocity
+        # ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - vehicle_vels
+        ###---###
+        #World frame velocity control
+        # ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.position_dot
+
+        #Body frame velocity control
+        ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.velocity
+        #Which one to use? vehicle_vels or self.quadcopter.velocity
+
+        #Thrust command (along body z axis)
+        f = kv*ev + ss.m*ss.g*e3 + ss.d_w*self.quadcopter.heave*e3
+        thrust_command = np.dot(f, R[2])
+
+        #Rd calculation as in Kulkarni aerial gym (works fairly well)
+        c_phi_s_theta = f[0]
+        s_phi = -f[1]
+        c_phi_c_theta = f[2]
+
+        pitch_setpoint = np.arctan2(c_phi_s_theta, c_phi_c_theta)
+        roll_setpoint = np.arctan2(s_phi, np.sqrt(c_phi_c_theta**2 + c_phi_s_theta**2))
+        yaw_setpoint = self.quadcopter.attitude[2]
+        # Rd = geom.Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint) #OLD
+        Rd = j_Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint) #NEW using jit version
+        self.att_des = np.array([roll_setpoint, pitch_setpoint, yaw_setpoint]) # Save the desired attitude for plotting in during testing
+
+
+        eR = 1/2*(Rd.T @ R - R.T @ Rd)
+        eatt = geom.vee_map(eR)
+        eatt = np.reshape(eatt, (3,))
+
+        des_angvel = np.array([0.0, 0.0, cmd_r])
+
+        #Kulkarni approach desired angular rate in body frame:
+        s_pitch = np.sin(self.quadcopter.attitude[1])
+        c_pitch = np.cos(self.quadcopter.attitude[1])
+        s_roll = np.sin(self.quadcopter.attitude[0])
+        c_roll = np.cos(self.quadcopter.attitude[0])
+        R_euler_to_body = np.array([[1, 0, -s_pitch],
+                                    [0, c_roll, s_roll*c_pitch],
+                                    [0, -s_roll, c_roll*c_pitch]]) #Uncertain about how this came to be
+
+        des_angvel_body = R_euler_to_body @ des_angvel
+
+        eangvel = self.quadcopter.angular_velocity - R.T @ (Rd @ des_angvel_body) #Kulkarni approach
+
+        torque = -kR*eatt - kangvel*eangvel + np.cross(self.quadcopter.angular_velocity,ss.Ig@self.quadcopter.angular_velocity)
+
+        u = np.zeros(4)
+        u[0] = thrust_command
+        u[1:] = torque
+
+        F = np.linalg.inv(ss.B()[2:]).dot(u)
+        F = np.clip(F, ss.thrust_min, ss.thrust_max)
+        return F
+    
+
+#Function that calculates the timeconstant of the step response:
+def timeconstant(timesteps, statelog, ref): #TODO verify that this function works as intended
+    """
+    Function that calculates the timeconstant of the step response.
+    """
+    #Find the time constant of the step response
+    #The time constant is the time it takes for the step response to reach 63.2% of the final value
+    #The time constant is found by fitting an exponential curve to the step response
+    #The exponential curve is of the form y = A(1 - e^(-t/tau))
+    #Where y is the step response, A is the final value of the step response, t is time and tau is the time constant
+    #The time constant is found by fitting the curve to the step response and finding the value of tau
+    #The time constant is found by minimizing the sum of the squared differences between the curve and the step response
+    #The time constant is found by using the scipy.optimize.curve_fit function
+    #The time constant is found by fitting the curve to the step response and finding the value of tau
+    #The time constant is found by minimizing the sum of the squared differences between the curve and the step response
+    #The time constant is found by using the scipy.optimize.curve_fit function
+    from scipy.optimize import curve_fit
+
+    def exponential_curve(t, A, tau):
+        return A*(1 - np.exp(-t/tau))
+
+    #Find the final value of the step response
+    A = np.mean(statelog[-100:])
+    #Find the time constant of the step response
+    tau = curve_fit(exponential_curve, timesteps, statelog, p0=[A, 1])[0][1]
+    # print("Time constant: ", tau)
+    return tau
+    
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
@@ -507,7 +615,8 @@ if __name__ == '__main__':
         # F = Test.PID_PD_Lin_velocity_controller(action)
         # F = Test.geometric_velocity_controller(action)
         # F = Test.leectrl(action)
-        F = Test.geom_ctrlv2(action)
+        # F = Test.geom_ctrlv2(action)
+        F = Test.active_geom_ctrlv2(action)
         Test.quadcopter.step(F)
         Test.total_t_steps += 1
 
@@ -672,6 +781,23 @@ if __name__ == '__main__':
     plt.ylabel('Attitude (degrees)')
     plt.xlabel('Timesteps[s]')
     plt.legend()
+
+
+    # print("Time constant of the step response: ", timeconstant(timesteps, [v[0] for v in actual_vel_world], vel_ref))
+    # print("Time constant of the step response: ", timeconstant(timesteps, [v[1] for v in actual_vel_world], vel_ref))
+    # print("Time constant of the step response: ", timeconstant(timesteps, [v[2] for v in actual_vel_world], vel_ref))
+    print("Time constant of the step response Velocity body x: ", timeconstant(timesteps, [v[0] for v in actual_vel_body], vel_ref))
+    print("Time constant of the step response Velocity body y: ", timeconstant(timesteps, [v[1] for v in actual_vel_body], vel_ref))
+    print("Time constant of the step response Velocity body z", timeconstant(timesteps, [v[2] for v in actual_vel_body], vel_ref))
+    print("Time constant of the step response Yaw rate: ", timeconstant(timesteps, actual_yaw_rate, yaw_rate_ref))
+    print("Time constant of the step response Incline: ", timeconstant(timesteps, actual_incl_angle_body, incline_ref))
+    print("Time constant of the step response AoA: ", timeconstant(timesteps, aoa, incline_ref))
+    print("Time constant of the step response Roll: ", timeconstant(timesteps, roll, des_roll))
+    print("Time constant of the step response Pitch: ", timeconstant(timesteps, pitch, des_pitch))
+    print("Time constant of the step response Yaw: ", timeconstant(timesteps, yaw, des_yaw))
+
+
+
 
     plt.show()
 
