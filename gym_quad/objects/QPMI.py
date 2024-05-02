@@ -357,13 +357,16 @@ def generate_random_waypoints(nwaypoints,scen):
     #         z = waypoints[i][2] + distance*np.sin(elevation)
     #         wp = np.array([x, y, z])
     #         waypoints.append(wp)
-    if scen == "house": #TODO update this to randomly pick from the list of waypoints Håvard sends us :)
+    if scen == "house": 
         waypoints = [] #reset the waypoints list that we will generate
         
         #Assume that we have a list of possible waypoints in the house 
         #and a data structure that describes the connections between them a graph with edges as dist between waypoints and waypoints as nodes would be nice
         #Alternatively for ease of implementation we could just have a list of waypoints and a list of connections between them
-        valid_wps = np.array([np.array([0,0,0]), np.array([20,10,15]), np.array([50,20,20]), np.array([80,20,15]), np.array([90,50,20]), np.array([80,80,15])])
+
+        #TODO update this to randomly pick from the list of waypoints Håvard sends us :)
+        #NB might have to change them from enu to pt3d???
+        valid_wps = np.array([np.array([0,0,0]), np.array([1,2,2]), np.array([5,10,2]), np.array([10,5,2]), np.array([-10,2,8]), np.array([-8,5,8])])
         connection_indices = [[1],[0,2,3],[1],[1],[1],[4]] #This is a list of lists where the first list is the connections of the first waypoint and so on
         #The waypoints are in the form of [x,y,z]
         stop_path_gen = False

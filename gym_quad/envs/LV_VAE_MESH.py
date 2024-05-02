@@ -1111,14 +1111,14 @@ class LV_VAE_MESH(gym.Env):
         waypoints = generate_random_waypoints(self.n_waypoints,'house')
         self.path = QPMI(waypoints)
 
-        init_pos = np.array([0, 0, 1])# + np.random.uniform(low=-5, high=5, size=(1,3))
+        init_pos = waypoints[0]# + np.random.uniform(low=-5, high=5, size=(1,3))
 
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
-        initial_state = np.hstack([init_pos[0], init_attitude])
+        initial_state = np.hstack([np.array(init_pos), init_attitude])
 
         obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-        self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/sphere.obj", center_position=pt3d_obs_coords))
+        self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI.obj", center_position=pt3d_obs_coords))
         return initial_state
 
 

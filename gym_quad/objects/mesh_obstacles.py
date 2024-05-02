@@ -16,7 +16,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(script_dir)
 grand_parent_dir = os.path.dirname(parent_dir)
 sys.path.append(grand_parent_dir)
-from gym_quad.utils.geomutils import pytorch3d_to_enu, enu_to_tri 
+from gym_quad.utils.geomutils import pytorch3d_to_enu, enu_to_pytorch3d, enu_to_tri 
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 
 #Utility funcition to get the bounds of the scene given the obstacles and the path
@@ -290,9 +290,6 @@ class ImportedMeshObstacle:
     
 
 
-
-
-
 #OUR SCENE CLASS
 class Scene:
     def __init__(self,
@@ -335,7 +332,10 @@ if __name__ == "__main__":
     #"Camera" how to use the obstacle classes for camera (pytorch3d)
     # "Collision" how to use the obstacle classes for collision checking (trimesh)
     # "Line_path_collision" how to use the obstacle classes for collision checking with a room generated depending on path (trimesh)
-    mode = "mesh" 
+    # "convert_to_obj" how to convert e.g. dae files to obj files
+    # "rotate_mesh_ENU_to_TRI" how to rotate and save a mesh from ENU to TRI/PT3D frame
+    mode = "rotate_mesh_ENU_to_TRI" 
+    mode= "mesh"
 
     if mode == "mesh":
         ## MESH CREATION ### 
@@ -347,7 +347,7 @@ if __name__ == "__main__":
         # cylinder.export("cylinder.obj")
         
         #Load the meshes
-        house = trimesh.load("gym_quad/meshes/model.dae")
+        house = trimesh.load("gym_quad/meshes/house_TRI.obj")
 
         #Visualize the meshes
         scene = trimesh.Scene([house])
@@ -356,6 +356,22 @@ if __name__ == "__main__":
         scene.add_geometry(axis)
         scene.show()
 
+    elif mode == "convert_to_obj":
+        #Convert e.g. dae files to obj files
+        #Import the file to be converted
+        mesh = trimesh.load("gym_quad/meshes/house.dae")
+        #Export the mesh to an obj file
+        mesh.export("gym_quad/meshes/house_ENU.obj")
+
+    elif mode == "rotate_mesh_ENU_to_TRI":
+        #Load the mesh you want to rotate
+        mesh = trimesh.load("gym_quad/meshes/house_ENU.obj")
+        #Rotate the mesh to be in the TRI/PT3D frame
+        mesh.apply_transform(trimesh.transformations.rotation_matrix(np.pi/2, [0, 0, 1])) #Rotate 90 degrees around z-axis
+        mesh.apply_transform(trimesh.transformations.rotation_matrix(-np.pi/2, [1, 0, 0])) #Rotate -90 degrees around x-axis
+        mesh.apply_transform(trimesh.transformations.rotation_matrix(np.pi, [0, 1, 0])) #Rotate 180 degrees around y-axis
+        #Export the rotated mesh to an obj file
+        mesh.export("gym_quad/meshes/house_TRI.obj")
 
     elif mode == "camera":
         ####PYTORCH3D FOR CAMERA For more use see depth_camera.py

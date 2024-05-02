@@ -47,8 +47,8 @@ if __name__ == "__main__":
 
     #----#----#For running of file without the need of command line arguments#----#----#
 
-    # args = Namespace(manual_control=True, env = "LV_VAE_MESH-v0", save_depth_maps=True) 
-    manual_scenario = "line" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash", "easy"
+    # args = Namespace(manual_control=True, env = "LV_VAE_MESH-v0", save_depth_maps=False) 
+    manual_scenario = "house" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash", "easy"
     
     #Temp variables for debugging
     quad_pos_log = []
@@ -85,11 +85,11 @@ if __name__ == "__main__":
                 #Creates folders for plots
                 create_plot_folders(test_dir)
                 #NEW PLOTTING
-                path = env.path
+                path = env.unwrapped.path
                 sim_df[sim_df['Episode']==episode]
                 drone_traj = np.stack((sim_df[r"$X$"], sim_df[r"$Y$"], sim_df[r"$Z$"]), axis=-1)
                 init_pos = drone_traj[0]
-                obstacles = env.obstacles
+                obstacles = env.unwrapped.obstacles
                 # change obstacles to tri frame before plotting Todod
                 plotter = Plotter3D(obstacles=obstacles, 
                                     path=path, 
@@ -129,19 +129,19 @@ if __name__ == "__main__":
         elif args.RT_vis == True: 
             for episode in range(args.episodes):
                 obs,info = env.reset()
-                visualizer = EnvironmentVisualizer(env.unwrapped.obstacles, env.quadcopter.position, env.quadcopter.attitude)
-                visualizer.draw_path(env.path.waypoints)
+                visualizer = EnvironmentVisualizer(env.unwrapped.obstacles, env.unwrapped.quadcopter.position, env.unwrapped.quadcopter.attitude)
+                visualizer.draw_path(env.unwrapped.path.waypoints)
                 while True:
-                    action = agent.predict(env.observation, deterministic=True)[0] #[a,dtype,None] so action[0] is the action
+                    action = agent.predict(env.unwrapped.observation, deterministic=True)[0] #[a,dtype,None] so action[0] is the action
                     _, _, done, _, _ = env.step(action)
                     
-                    quad_pos = env.quadcopter.position
-                    quad_att = env.quadcopter.attitude
+                    quad_pos = env.unwrapped.quadcopter.position
+                    quad_att = env.unwrapped.quadcopter.attitude
                     visualizer.update_quad_visual(quad_pos, quad_att)
 
-                    world_LApoint = env.path.get_lookahead_point(quad_pos, 5, env.waypoint_index) #Maybe faster to use env.wolrd_LApoint and env.closest_path_point
-                    closest_path_point = env.path.get_closest_position(quad_pos,env.waypoint_index)
-                    velocity_world = env.quadcopter.position_dot
+                    world_LApoint = env.unwrapped.path.get_lookahead_point(quad_pos, 5, env.unwrapped.waypoint_index) #Maybe faster to use env.wolrd_LApoint and env.closest_path_point
+                    closest_path_point = env.unwrapped.path.get_closest_position(quad_pos,env.unwrapped.waypoint_index)
+                    velocity_world = env.unwrapped.quadcopter.position_dot
                     b1 = geom.Rzyx(*quad_att) @ np.array([1,0,0])
                     b2 = geom.Rzyx(*quad_att) @ np.array([0,1,0])
                     b3 = geom.Rzyx(*quad_att) @ np.array([0,0,1])
@@ -179,8 +179,8 @@ if __name__ == "__main__":
             obs,info = env.reset()
             input = [0, 0, 0] #speed -1 = 0, inclination of velocity vector wrt x-axis and yaw rate 
             update_text = False
-            visualizer = EnvironmentVisualizer(env.obstacles, env.quadcopter.position, env.quadcopter.attitude)
-            visualizer.draw_path(env.path.waypoints)
+            visualizer = EnvironmentVisualizer(env.unwrapped.obstacles, env.unwrapped.quadcopter.position, env.unwrapped.quadcopter.attitude)
+            visualizer.draw_path(env.unwrapped.path.waypoints)
             @visualizer.scene.events.key_press.connect
             def on_key(event):
                 nonlocal input
@@ -210,13 +210,13 @@ if __name__ == "__main__":
             done = False
             while True:
                 obs, rew, done, _, info = env.step(action=input)
-                quad_pos = env.quadcopter.position
-                quad_att = env.quadcopter.attitude
+                quad_pos = env.unwrapped.quadcopter.position
+                quad_att = env.unwrapped.quadcopter.attitude
                 visualizer.update_quad_visual(quad_pos, quad_att)
 
-                world_LApoint = env.path.get_lookahead_point(quad_pos, 5, env.waypoint_index)
-                closest_path_point = env.path.get_closest_position(quad_pos,env.waypoint_index)
-                velocity_world = env.quadcopter.position_dot
+                world_LApoint = env.unwrapped.path.get_lookahead_point(quad_pos, 5, env.unwrapped.waypoint_index)
+                closest_path_point = env.unwrapped.path.get_closest_position(quad_pos,env.unwrapped.waypoint_index)
+                velocity_world = env.unwrapped.quadcopter.position_dot
                 # vel_world_from_transform = geom.Rzyx(*quad_att) @ env.quadcopter.velocity  #equivalent to the pos_dot :)
                 b1 = geom.Rzyx(*quad_att) @ np.array([1,0,0])
                 b2 = geom.Rzyx(*quad_att) @ np.array([0,1,0])
@@ -243,7 +243,7 @@ if __name__ == "__main__":
                 # quad_mesh_pos_log.append(env.quad_mesh_pos)
 
                 #blue point for realtime plotting of the quadcopter mesh 
-                visualizer.update_point(env.quad_mesh_pos, color=[0,0,1], id="Quad_mesh")
+                visualizer.update_point(env.unwrapped.quad_mesh_pos, color=[0,0,1], id="Quad_mesh")
 
                 #Saving of depthmaps:
                 if args.save_depth_maps:
