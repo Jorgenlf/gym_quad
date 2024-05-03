@@ -117,7 +117,6 @@ class DepthMapRenderer:
         return img
 
     # Function to find the R and T matrices for the camera object in Pytorch3D
-    #TODO maybe update input to be able to change lookat point on the fly
     def camera_R_T_from_quad_pos_orient(self, position: np.array, orientation: np.array, look_direction:np.array = np.array([1, 0, 0]) ) -> tuple:
         '''
         Input:

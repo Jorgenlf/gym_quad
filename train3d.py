@@ -80,7 +80,7 @@ scenarios = {   "line"          :   1e5,
 
 
 
-# scenarios = {"vertical"          :   2e5} #For profiling purposes
+scenarios = {"vertical"          :   2e5} #For profiling purposes
 
 
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###

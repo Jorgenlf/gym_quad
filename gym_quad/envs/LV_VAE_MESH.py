@@ -207,7 +207,6 @@ class LV_VAE_MESH(gym.Env):
         self.collided = False
 
         # Depth camera variables
-        self.sigma = 0.1 # [m] Standard deviation of the Gaussian noise added to the depth map
         self.depth_map = torch.zeros((self.depth_map_size[0], self.depth_map_size[1]), dtype=torch.float32, device=self.device)
         self.noisy_depth_map = torch.zeros((self.depth_map_size[0], self.depth_map_size[1]), dtype=torch.float32, device=self.device)
 
@@ -325,15 +324,17 @@ class LV_VAE_MESH(gym.Env):
             temp_depth_map = self.depth_map
             # print("\nTemp depth map type:", type(temp_depth_map), "  shape:", temp_depth_map.shape, "  dtype:", temp_depth_map.dtype)
         else:
-            temp_depth_map = self.depth_map #Handles the case where there are no obstacles
+            temp_depth_map = self.depth_map #Handles the case where there are no obstacles, Is equal to the init of self.depth_map which is all pixels at max_depth
 
-        self.closest_measurement = torch.min(temp_depth_map) #TODO this obly gives the sensors closest but not globally closests might be troublesome for reward calc?
+        self.closest_measurement = torch.min(temp_depth_map) #TODO this only gives the sensors closest but not globally closests might be troublesome for reward calc?
+                                                             #Is not really a problem as the quad is constrained to move in the fov of the camera
         
         # if self.closest_measurement < self.max_depth:
         #     print("Closest measurement:", self.closest_measurement, "  Max depth:", self.max_depth)
 
         # Add Gaussian noise to depth map (naive noise model)
-        noise = torch.normal(mean=0, std=self.sigma, size=temp_depth_map.size(), device=self.device)
+        sigma = 0.1 # [m] Standard deviation of the Gaussian noise added to the depth map
+        noise = torch.normal(mean=0, std=sigma, size=temp_depth_map.size(), device=self.device)
         temp_depth_map += noise
         self.noisy_depth_map = temp_depth_map
         # noise = torch.tensor(0).to(self.device)
@@ -354,14 +355,14 @@ class LV_VAE_MESH(gym.Env):
         resized_depth_map = resize_transform(normalized_depth_map_PIL)
 
         # sensor_readings = resized_depth_map #Might rename sensorreadings to comp_normed_depth_map or VAE_ready_depth_map
-        #TODO throws warnings about wanting a np.array instead of a tensor
-        #Decide if we let the box change to np.array or if we change the tensor to a np.array here.
         #Migh be unfortunate to change the tensor to np.array here as it will be done every time the observation is called
         #Having to move the tensor to the cpu....
         #Per now we cast to np.array here
         
+        self.closest_measurement = self.closest_measurement.item()  
         sensor_readings = resized_depth_map.detach().cpu().numpy() 
-        self.closest_measurement = self.closest_measurement.item()  #Moves from CPU to GPU if closest meas is on GPU..
+        #.item() and .detach.cpu.numpy Moves the data from GPU to CPU so we do it here close to the tensor to numpy conversion as
+        #it is suggested to clump gpu to cpu operations together to save time
         
         #To check if observation is outside bounds
         # if max(sensor_readings.flatten()) > 1 or min(sensor_readings.flatten()) < 0:
