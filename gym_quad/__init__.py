@@ -13,7 +13,7 @@ lv_vae_config = {
     "max_t_steps"               : 30000,        # Maximum number of timesteps in the simulation before it is terminated
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle #TODO idk if this should be here might move it
     "enclose_scene"             : True,         # Enclose the scene with a box thats scaled to the scene size
-    "perturb_sim"               : True,         # Perturb the simulation with noise
+    "perturb_sim"               : False,         # Perturb the simulation with noise Some scenarios will overwrite this
     "padding"                   : 8,            # Padding of the box that encloses the scene [m]
     "drone_radius_for_collision": 0.28,         # Radius of the drone for collision detection [m] #Actual radius is 0.25m
 #Depth camera parameters    
@@ -21,7 +21,7 @@ lv_vae_config = {
     "FOV_horizontal"            : 62,            # Horizontal field of view of the depth camera
     "depth_map_size"            : (240, 320),    # Size of the depth map Earlier sensor suite
     "max_depth"                 : 10,            # Maximum depth of the depth camera
-    "camera_FPS"                : 10,            # Frequency of the sensors
+    "camera_FPS"                : 15,            # Frequency of the sensors
 #VAE parameters    
     "compressed_depth_map_size" : 224,           # Size of depth map after compression
     "latent_dim"                : 32,            # Dimension of the latent space
@@ -43,7 +43,7 @@ lv_vae_config = {
     'PA_band_edge'              : 10,            # edge of Path adherence band
     'PA_scale'                  : 3,             # scale of Path adherence reward [-PA_scale, PA_scale]
 
-    'PP_vel_scale'              : 0.7,           # scaling of velocity reward e.g. 1-> make 2.5m/s
+    'PP_vel_scale'              : 1,           # scaling of velocity reward e.g. 1-> make 2.5m/s
     'PP_rew_max'                : 2.5,           # maximum reward for path progression
     'PP_rew_min'                : -1,            # minimum reward for path progression
 

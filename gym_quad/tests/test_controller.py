@@ -22,6 +22,11 @@ from old.controllers2 import LeeVelocityController
     # "i_max": 0.5, # Maximum inclination angle of commanded velocity wrt x-axis
     # "omega_max": 0.5, # Maximum commanded yaw rate
 
+def deg2rad(deg):
+    return deg * np.pi / 180
+
+def rad2deg(rad):
+    return rad * 180 / np.pi
 
 
 class TestController(unittest.TestCase):
@@ -30,8 +35,8 @@ class TestController(unittest.TestCase):
         self.quadcopter = Quad(0.01,np.zeros(6))
         self.quadcopter.state[2] = 1 # Set the initial height to 1m
         self.s_max = 2
-        self.i_max = np.pi/2 #90 degrees
-        self.r_max = np.pi/3 #60 degrees per second
+        self.i_max = deg2rad(80/2) 
+        self.r_max = deg2rad(30) 
         self.total_t_steps = 0
         self.step_size = 0.01
 
@@ -400,9 +405,9 @@ class TestController(unittest.TestCase):
         self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r]) #For plotting
 
         #Gains, z-axis-basis=e3 and rotation matrix #TODO add stochasticity to make sim2real robust
-        kv = 2.0
-        kR = 0.9
-        kangvel = 0.9
+        kv = 2.5
+        kR = 0.8
+        kangvel = 0.8
 
         e3 = np.array([0, 0, 1]) #z-axis basis
 
@@ -436,10 +441,9 @@ class TestController(unittest.TestCase):
         pitch_setpoint = np.arctan2(c_phi_s_theta, c_phi_c_theta)
         roll_setpoint = np.arctan2(s_phi, np.sqrt(c_phi_c_theta**2 + c_phi_s_theta**2))
         yaw_setpoint = self.quadcopter.attitude[2]
-        # Rd = geom.Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint) #OLD
         Rd = j_Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint) #NEW using jit version
-        self.att_des = np.array([roll_setpoint, pitch_setpoint, yaw_setpoint]) # Save the desired attitude for plotting in during testing
-
+        self.att_des = np.array([-roll_setpoint, pitch_setpoint, yaw_setpoint]) # Save the desired attitude for plotting during testing
+        #TODO there is something funky about the roll setpoint, it is inverted for some reason
 
         eR = 1/2*(Rd.T @ R - R.T @ Rd)
         eatt = geom.vee_map(eR)
@@ -514,7 +518,11 @@ if __name__ == '__main__':
     # referencetype = "z_velocity" # "hover", "x_velocity", "z_velocity", "yaw_rate", "yaw_rate_xvel", "velocity_step", "incline_step", "velx_yaw_rate_velx"
     # referencetype = "yaw_rate_xvel"
     # referencetype = "velx_yaw_rate_velx"
-    referencetype = "complex"
+    # referencetype = "complex"
+    referencetype = "x_velocity"
+    referencetype = "manual_input" #Mimics manual input
+
+    save_forces = True #If flipped saves the forces to file so can be used in e.g. IMU
 
     if referencetype == "hover": # Creates reference for hovering at 1m height check initial state of the quadcopter in setUp
         for t in range(tot_time):
@@ -594,6 +602,49 @@ if __name__ == '__main__':
             vel_ref.append(0.1*np.sin(0.1*t))
             incline_ref.append(0.1*np.sin(0.1*t))
             yaw_rate_ref.append(0.1*np.sin(0.1*t))
+    
+    elif referencetype == "manual_input":
+        for t in range(tot_time):
+            if t < 100:
+                #Move forward along xaxis
+                vel_ref.append(1)
+                incline_ref.append(0.3)
+                yaw_rate_ref.append(0)
+            elif t > 100 and t < 200:
+                #Move up along zaxis
+                vel_ref.append(1)
+                incline_ref.append(1)
+                yaw_rate_ref.append(0)
+            elif t > 200 and t < 300:
+                #Move rotate right
+                vel_ref.append(-1)
+                incline_ref.append(0)
+                yaw_rate_ref.append(-1)
+            elif t > 300 and t < 400:
+                #move forward along xaxis
+                vel_ref.append(1)
+                incline_ref.append(0.3)
+                yaw_rate_ref.append(0)
+            elif t > 400 and t < 500:
+                #Move down along zaxis
+                vel_ref.append(1)
+                incline_ref.append(-1)
+                yaw_rate_ref.append(0)
+            elif t > 500 and t < 600:
+                #Rotate left
+                vel_ref.append(-1)
+                incline_ref.append(0)
+                yaw_rate_ref.append(1)
+            elif t > 600 and t < 700:
+                #Move forward along xaxis
+                vel_ref.append(1)
+                incline_ref.append(0.3)
+                yaw_rate_ref.append(0)
+            else:
+                #Hvover
+                vel_ref.append(-1)
+                incline_ref.append(0)
+                yaw_rate_ref.append(0)
 
            
     actual_vel_world = []
@@ -638,7 +689,11 @@ if __name__ == '__main__':
         aoa.append(Test.quadcopter.aoa)
         statelog.append(Test.quadcopter.state)
     
-    # integrate the commanded velocity and commanded yaw rate commands to get the reference path
+    #save forces to a npy file
+    if save_forces:
+        np.save(f"forces_{referencetype}.npy", np.array(forces))
+
+    # integrate the commanded velocity and commanded yaw rate commands to get the reference path (is this ish correct)
     pos_ref = np.zeros((tot_time, 3))
     pos_ref[0][2] = 1
     for t in range(tot_time):
@@ -655,7 +710,14 @@ if __name__ == '__main__':
     velxlim = (min(0, min(x_vel_cmd),np.min(actual_vel_world[:,0]), np.min(actual_vel_body[:,0]))-0.1, max(max(x_vel_cmd), np.max(actual_vel_world[:,0]), np.max(actual_vel_body[:,0])) +0.1)
     velylim = (min(0, min(y_vel_cmd),np.min(actual_vel_world[:,1]),np.min(actual_vel_body[:,1]))-0.1, max(max(y_vel_cmd),np.max(actual_vel_world[:,1]),np.max(actual_vel_body[:,1]))+0.1)
     velzlim = (min(0, min(z_vel_cmd),np.min(actual_vel_world[:,2]), np.min(actual_vel_body[:,2]))-0.1, max(max(z_vel_cmd),np.max(actual_vel_world[:,2]), np.max(actual_vel_body[:,2]))+0.1)
-    #Make the reference name the title of the plot
+
+    plt.style.use('ggplot')
+    plt.rc('font', family='serif')
+    plt.rc('xtick', labelsize=12)
+    plt.rc('ytick', labelsize=12)
+    plt.rc('axes', labelsize=12)
+
+    #Commanded vs actual velocity and yaw rate
     plt.figure(1)
     plt.suptitle(referencetype)
     plt.subplot(2, 2, 1)
@@ -687,7 +749,6 @@ if __name__ == '__main__':
     actual_yaw_rate = np.array(actual_yaw_rate)
     plt.plot(timesteps,yaw_rate_cmd*180/np.pi, label='yaw rate command')
     plt.plot(timesteps,actual_yaw_rate*180/np.pi, label='yaw rate actual')
-    #scale so y axis displays 180 degrees
     plt.ylim(-90, 90)
     plt.ylabel('Yaw rate (deg/s)')
     plt.xlabel('Timesteps[s]')
@@ -724,7 +785,7 @@ if __name__ == '__main__':
     plt.figure(3)
     plt.suptitle(referencetype)
     ax = plt.axes(projection='3d')
-    ax.plot3D(pos_ref[:,0], pos_ref[:,1], pos_ref[:,2], 'tab:blue', label='reference path')
+    # ax.plot3D(pos_ref[:,0], pos_ref[:,1], pos_ref[:,2], 'tab:blue', label='reference path') #THIS PATH IS ONLY SOMEWHAT CORRECT AS IT INTEGRATES THE VELOCITY COMMANDS BUT DOES NOT ACCOUNT FOR DYNAMICS OR THE YAW
     ax.plot3D(x, y, z, 'gray', label='actual path')
     ax.set_xlabel('x')
     ax.set_ylabel('y')
@@ -739,20 +800,20 @@ if __name__ == '__main__':
     ax.set_ylim([-max_range, max_range])
     ax.set_zlim([0, max_range])
 
-    #Plot the actual incline angle and the reference incline angle if upsilon is the inclination angle
-    plt.figure(4)
-    # actual_incl_angle_world=np.array(actual_incl_angle_world)*180/np.pi
-    actual_incl_angle_body=np.array(actual_incl_angle_body)*180/np.pi
-    aoa=np.array(aoa)*180/np.pi
-    incline_ref=np.array(incline_ref)*180/np.pi
-    # plt.plot(timesteps, actual_incl_angle_world, label='actual incline angle world')
-    plt.suptitle(referencetype)
-    # plt.plot(timesteps, actual_incl_angle_body, label='actual incline angle body')
-    plt.plot(timesteps,aoa, label='angle of attack')
-    plt.plot(timesteps, incline_ref, label='incline ref')
-    plt.ylabel('Incline angle (degrees)')
-    plt.xlabel('Timesteps[s]')
-    plt.legend()
+    # #Plot the actual incline angle and the reference incline angle if upsilon is the inclination angle
+    # plt.figure(4)
+    # # actual_incl_angle_world=np.array(actual_incl_angle_world)*180/np.pi
+    # actual_incl_angle_body=np.array(actual_incl_angle_body)*180/np.pi
+    # aoa=np.array(aoa)*180/np.pi
+    # incline_ref=np.array(incline_ref)*180/np.pi
+    # # plt.plot(timesteps, actual_incl_angle_world, label='actual incline angle world')
+    # plt.suptitle(referencetype)
+    # # plt.plot(timesteps, actual_incl_angle_body, label='actual incline angle body')
+    # plt.plot(timesteps,aoa, label='angle of attack')
+    # plt.plot(timesteps, incline_ref, label='incline ref')
+    # plt.ylabel('Incline angle (degrees)')
+    # plt.xlabel('Timesteps[s]')
+    # plt.legend()
 
     #Plot the attitude of the quadcopter in subplot
     roll = np.array([s[3] for s in statelog])*180/np.pi
@@ -782,22 +843,19 @@ if __name__ == '__main__':
     plt.xlabel('Timesteps[s]')
     plt.legend()
 
-
+    #This might be faulty
     # print("Time constant of the step response: ", timeconstant(timesteps, [v[0] for v in actual_vel_world], vel_ref))
     # print("Time constant of the step response: ", timeconstant(timesteps, [v[1] for v in actual_vel_world], vel_ref))
     # print("Time constant of the step response: ", timeconstant(timesteps, [v[2] for v in actual_vel_world], vel_ref))
-    print("Time constant of the step response Velocity body x: ", timeconstant(timesteps, [v[0] for v in actual_vel_body], vel_ref))
-    print("Time constant of the step response Velocity body y: ", timeconstant(timesteps, [v[1] for v in actual_vel_body], vel_ref))
-    print("Time constant of the step response Velocity body z", timeconstant(timesteps, [v[2] for v in actual_vel_body], vel_ref))
-    print("Time constant of the step response Yaw rate: ", timeconstant(timesteps, actual_yaw_rate, yaw_rate_ref))
-    print("Time constant of the step response Incline: ", timeconstant(timesteps, actual_incl_angle_body, incline_ref))
-    print("Time constant of the step response AoA: ", timeconstant(timesteps, aoa, incline_ref))
-    print("Time constant of the step response Roll: ", timeconstant(timesteps, roll, des_roll))
-    print("Time constant of the step response Pitch: ", timeconstant(timesteps, pitch, des_pitch))
-    print("Time constant of the step response Yaw: ", timeconstant(timesteps, yaw, des_yaw))
-
-
-
+    # print("Time constant of the step response Velocity body x: ", timeconstant(timesteps, [v[0] for v in actual_vel_body], vel_ref))
+    # print("Time constant of the step response Velocity body y: ", timeconstant(timesteps, [v[1] for v in actual_vel_body], vel_ref))
+    # print("Time constant of the step response Velocity body z", timeconstant(timesteps, [v[2] for v in actual_vel_body], vel_ref))
+    # print("Time constant of the step response Yaw rate: ", timeconstant(timesteps, actual_yaw_rate, yaw_rate_ref))
+    # print("Time constant of the step response Incline: ", timeconstant(timesteps, actual_incl_angle_body, incline_ref))
+    # print("Time constant of the step response AoA: ", timeconstant(timesteps, aoa, incline_ref))
+    # print("Time constant of the step response Roll: ", timeconstant(timesteps, roll, des_roll))
+    # print("Time constant of the step response Pitch: ", timeconstant(timesteps, pitch, des_pitch))
+    # print("Time constant of the step response Yaw: ", timeconstant(timesteps, yaw, des_yaw))
 
     plt.show()
 

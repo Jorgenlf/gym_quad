@@ -15,11 +15,28 @@ from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.depth_camera import DepthMapRenderer, FoVPerspectiveCameras, RasterizationSettings
 from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle, get_scene_bounds, ImportedMeshObstacle
 
+#Helper functions
 def deg2rad(deg):
     return deg * np.pi / 180
 
 def rad2deg(rad):
     return rad * 180 / np.pi
+
+def m1to1(value, min, max): 
+    '''
+    Normalizes a value from the range [min,max] to the range [-1,1]
+    If value is outside the min max range, it will be clipped to the min or max value (ensuring we return a value in the range [-1,1])
+    '''
+    value_normalized = 2.0*(value-min)/(max-min) - 1
+    return np.clip(value_normalized, -1, 1)
+
+def invm1to1(value, min, max):
+    '''
+    Inverse normalizes a value from the range [-1,1] to the range [min,max]
+    If value that got normalized was outside the min max range it may only be inverted to the min or max value (will not be correct if the clip was used in the normalization)
+    '''
+    return (value+1)*(max-min)/2.0 + min
+
 
 class LV_VAE_MESH(gym.Env):
     '''Creates an environment where the actionspace consists of Linear velocity and yaw rate which will be passed to a PD or PID controller,
@@ -152,48 +169,49 @@ class LV_VAE_MESH(gym.Env):
         self.imu_measurement = np.zeros((6,), dtype=np.float32) 
 
         #Perturbing of camera, quadcopter and simulation
-        if self.perturb_sim: #TODO make these values hyperparam?
-            # Camera pos/orient noise
-            self.camera_look_direction = np.array([1, 0, 0])
-            self.camera_look_direction_noisy = self.camera_look_direction + np.random.normal(0, 0.01, 3)
-            self.camera_pos_noise = np.random.normal(0, 0.005, 3)
+
+        #If the simulation is not perturbed the noise values are set to 0
+        #Camera no noise
+        self.camera_look_direction = np.array([1, 0, 0])
+        self.camera_look_direction_noisy = self.camera_look_direction
+        self.camera_pos_noise = np.zeros(3)
+
+        #Domain observation noise #Handeled in the observe function
+
+        #Controller gain noise
+        self.kv_noise = 0
+        self.kangvel_noise = 0
+        self.kR_noise = 0
+
+        #Sensor latency - no latency
+        self.sensor_latency = 0
+
+        ##TODO Random forces and torques 
+        
+        if self.perturb_sim: #TODO make these values hyperparam? #TODO decide which should be set here in reset and which should be updated per step
+            
+            # Camera pos/orient noise #TODO might remove this noise as it is quite damaging
+            # self.camera_look_direction = np.array([1, 0, 0])
+            # self.camera_look_direction_noisy = self.camera_look_direction + np.random.normal(0, 0.01, 3)
+            # self.camera_pos_noise = np.random.normal(0, 0.005, 3)
 
             #IMU
             self.imu.set_noise(0.001, 0.01) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
             #TODO decide on these values
-            #TODO maybe make it WGN instead of sampling from a normal distribution
 
             #Domain observation noise #Happens in the observe function as it should vary every timestep.
 
             #Controller gain noise #TODO make it such that the timeconstant of the response is at max +-10% of the original
             #These values are probalby okish but not scientifically derived in any way
-            self.kv_noise = np.random.uniform(-0.2, 0.2) #Velocity gain
-            self.kangvel_noise = np.random.uniform(-0.1, 0.1) #Angular velocity gain
-            self.kR_noise = np.random.uniform(-0.1, 0.1) #Attitude gain
+            # self.kv_noise = np.random.uniform(-0.2, 0.2) #Velocity gain
+            # self.kangvel_noise = np.random.uniform(-0.1, 0.1) #Angular velocity gain
+            # self.kR_noise = np.random.uniform(-0.1, 0.1) #Attitude gain
 
             #Sensor latency - vary the time between the physics sim and the camera
-            self.sensor_latency = np.random.uniform(-2, 2) #When running 15fps camera and 100Hz physics sim the steps are 6.67ms long so with the sensor latency the steps will range from 4.67ms to 8.67ms
+            # self.sensor_latency = np.random.uniform(-1, 1)  #When running 15fps camera and 100Hz physics sim the steps are 6.67ms long so with the sensor latency the steps will range from 4.67ms to 8.67ms
                                                             #When running 10fps camera and 100Hz physics sim the steps are 10ms long so with the sensor latency the steps will range from 8ms to 12ms
 
             #TODORandom forces and torques 
-                                                                        
-        else:
-            #Camera no noise
-            self.camera_look_direction = np.array([1, 0, 0])
-            self.camera_look_direction_noisy = self.camera_look_direction
-            self.camera_pos_noise = np.zeros(3)
-
-            #Domain observation noise #Handeled in the observe function
-
-            #Controller gain noise
-            self.kv_noise = 0
-            self.kangvel_noise = 0
-            self.kR_noise = 0
-
-            #Sensor latency - no latency
-            self.sensor_latency = 0
-
-            ##TODO Random forces and torques 
 
         
         #For contiouns reach end reward #TODO decide if it is neccessary to implement
@@ -307,12 +325,13 @@ class LV_VAE_MESH(gym.Env):
         #IMU observation
         self.imu_measurement = self.imu.measure(self.quadcopter)
         #Both linear acceleration and angvel is not in [-1,1] clipping it using the max speed of the quadcopter
-        self.imu_measurement[0:3] = self.m1to1(self.imu_measurement[0:3], -self.s_max*2, self.s_max*2)
-        self.imu_measurement[3:6] = self.m1to1(self.imu_measurement[3:6], -self.r_max*2, self.r_max*2)
+        self.imu_measurement[0:3] = m1to1(self.imu_measurement[0:3], -self.s_max*2, self.s_max*2)
+        self.imu_measurement[3:6] = m1to1(self.imu_measurement[3:6], -self.r_max*2, self.r_max*2)
         self.imu_measurement = self.imu_measurement.astype(np.float32)
 
 
         #Depth camera observation
+        temp_depth_map = None
         if self.obstacles!=[]:
             pos = self.quadcopter.position
             pos_noisy = pos + self.camera_pos_noise
@@ -322,25 +341,18 @@ class LV_VAE_MESH(gym.Env):
             self.renderer.update_T(Tcam)
             self.depth_map = self.renderer.render_depth_map()
             temp_depth_map = self.depth_map
-            # print("\nTemp depth map type:", type(temp_depth_map), "  shape:", temp_depth_map.shape, "  dtype:", temp_depth_map.dtype)
         else:
             temp_depth_map = self.depth_map #Handles the case where there are no obstacles, Is equal to the init of self.depth_map which is all pixels at max_depth
 
         self.closest_measurement = torch.min(temp_depth_map) #TODO this only gives the sensors closest but not globally closests might be troublesome for reward calc?
                                                              #Is not really a problem as the quad is constrained to move in the fov of the camera
         
-        # if self.closest_measurement < self.max_depth:
-        #     print("Closest measurement:", self.closest_measurement, "  Max depth:", self.max_depth)
-
         # Add Gaussian noise to depth map (naive noise model)
-        sigma = 0.1 # [m] Standard deviation of the Gaussian noise added to the depth map
-        noise = torch.normal(mean=0, std=sigma, size=temp_depth_map.size(), device=self.device)
-        temp_depth_map += noise
-        self.noisy_depth_map = temp_depth_map
-        # noise = torch.tensor(0).to(self.device)
-        # scale = temp_depth_map * sigma
-        # sampled_noise = noise.repeat(*temp_depth_map.size()).normal_() * scale
-        # temp_depth_map += sampled_noise
+        if self.perturb_sim:
+            sigma = 0.1 # [m] Standard deviation of the Gaussian noise added to the depth map
+            noise = torch.normal(mean=0, std=sigma, size=temp_depth_map.size(), device=self.device)
+            temp_depth_map += noise
+            self.noisy_depth_map = temp_depth_map #For saving the noisy depth map for debugging
 
         normalized_depth_map = temp_depth_map / self.max_depth
         
@@ -353,30 +365,21 @@ class LV_VAE_MESH(gym.Env):
         ])        
 
         resized_depth_map = resize_transform(normalized_depth_map_PIL)
-
-        # sensor_readings = resized_depth_map #Might rename sensorreadings to comp_normed_depth_map or VAE_ready_depth_map
-        #Migh be unfortunate to change the tensor to np.array here as it will be done every time the observation is called
-        #Having to move the tensor to the cpu....
-        #Per now we cast to np.array here
         
         self.closest_measurement = self.closest_measurement.item()  
         sensor_readings = resized_depth_map.detach().cpu().numpy() 
         #.item() and .detach.cpu.numpy Moves the data from GPU to CPU so we do it here close to the tensor to numpy conversion as
         #it is suggested to clump gpu to cpu operations together to save time
         
-        #To check if observation is outside bounds
-        # if max(sensor_readings.flatten()) > 1 or min(sensor_readings.flatten()) < 0:
-        #     print("\nMAX VALUE IN SENSORREADINGS:",max(sensor_readings.flatten()),"\nMIN VALUE IN SENSORREADINGS:", min(sensor_readings.flatten()))
 
         #Domain observation
-        self.update_errors() #Updates the errors chi_error and upsilon_error
+        self.update_errors() #Updates the errors chi_error and upsilon_error also crosstrack and vertical track error which is used to calc IAE during run3d.py
 
         chi_error_noise = 0
         upsilon_error_noise = 0
         quad_pos_noise = np.zeros(3)
         quad_att_noise = np.zeros(3)
         if self.perturb_sim:
-            #angle noise in +-3 degrees
             deg_as_rad = deg2rad(3)
             chi_error_noise = np.random.uniform(-deg_as_rad, deg_as_rad)
             upsilon_error_noise = np.random.uniform(-deg_as_rad, deg_as_rad)
@@ -402,9 +405,9 @@ class LV_VAE_MESH(gym.Env):
         closest_point = self.path(self.prog)
 
         closest_point_body = np.transpose(geom.Rzyx(*quad_att)).dot(closest_point - quad_pos)
-        domain_obs[4] = self.m1to1(closest_point_body[0], -relevant_distance,relevant_distance) 
-        domain_obs[5] = self.m1to1(closest_point_body[1], -relevant_distance, relevant_distance) 
-        domain_obs[6] = self.m1to1(closest_point_body[2], -relevant_distance,relevant_distance) 
+        domain_obs[4] = m1to1(closest_point_body[0], -relevant_distance,relevant_distance) 
+        domain_obs[5] = m1to1(closest_point_body[1], -relevant_distance, relevant_distance) 
+        domain_obs[6] = m1to1(closest_point_body[2], -relevant_distance,relevant_distance) 
     
         # Two angles to describe direction of the vector between the drone and the closeset point on path
         x_b_cpp = closest_point_body[0]
@@ -421,22 +424,17 @@ class LV_VAE_MESH(gym.Env):
         #euclidean norm of the distance from drone to next waypoint
         relevant_distance = (self.path.length / self.n_waypoints-1)*2 #Should be n-1 waypoints to get m segments
         distance_to_next_wp = 0
-        # OLD try:
-        #     distance_to_next_wp = np.linalg.norm(self.path.waypoints[self.waypoint_index+1] - self.quadcopter.position)
-        # except IndexError:
-        #     distance_to_next_wp = np.linalg.norm(self.path.waypoints[-1] - self.quadcopter.position)
-        #Rewrite the try except to an if instead as it is faster since the exception is raised a fair amount of times:
         if self.waypoint_index+1 < len(self.path.waypoints):
             distance_to_next_wp = np.linalg.norm(self.path.waypoints[self.waypoint_index+1] - quad_pos)
         else:
             distance_to_next_wp = np.linalg.norm(self.path.waypoints[-1] - quad_pos)
 
-        domain_obs[11] = self.m1to1(distance_to_next_wp, -relevant_distance, relevant_distance)
+        domain_obs[11] = m1to1(distance_to_next_wp, -relevant_distance, relevant_distance)
         # print("dist_nxt_wp", np.round(distance_to_next_wp),"  normed", np.round(domain_obs[18],2))
 
         #euclidean norm of the distance from drone to the final waypoint
         distance_to_end = np.linalg.norm(self.path.get_endpoint() - quad_pos)
-        domain_obs[12] = self.m1to1(distance_to_end, -self.path.length*2, self.path.length*2)
+        domain_obs[12] = m1to1(distance_to_end, -self.path.length*2, self.path.length*2)
 
         #body coordinates of the look ahead point
         lookahead_world = self.path.get_lookahead_point(quad_pos, self.la_dist, self.waypoint_index)
@@ -449,9 +447,9 @@ class LV_VAE_MESH(gym.Env):
 
         lookahead_body = np.transpose(geom.Rzyx(*quad_att)).dot(lookahead_world - quad_pos)
         relevant_distance = self.la_dist*2 #TODO decide this value
-        domain_obs[13] = self.m1to1(lookahead_body[0], -relevant_distance,relevant_distance)
-        domain_obs[14] = self.m1to1(lookahead_body[1], -relevant_distance, relevant_distance)
-        domain_obs[15] = self.m1to1(lookahead_body[2], -relevant_distance,relevant_distance)
+        domain_obs[13] = m1to1(lookahead_body[0], -relevant_distance,relevant_distance)
+        domain_obs[14] = m1to1(lookahead_body[1], -relevant_distance, relevant_distance)
+        domain_obs[15] = m1to1(lookahead_body[2], -relevant_distance,relevant_distance)
 
         #Give the previous action as an observation
         domain_obs[16] = self.prev_action[0]    
@@ -480,7 +478,7 @@ class LV_VAE_MESH(gym.Env):
 
         return {'perception':sensor_readings,   #Noise from camera 
                 'IMU':self.imu_measurement,     #Noise from IMU
-                'domain':domain_obs}            #Noise perturbations added
+                'domain':domain_obs}            #Noise perturbations
 
 
     def step(self, action):
@@ -511,8 +509,8 @@ class LV_VAE_MESH(gym.Env):
         #Such that the oberservation has access to the previous action
         self.prev_action = action
 
-        self.prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
         # Check if a waypoint is passed
+        self.prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
         k = self.path.get_u_index(self.prog)
         if k > self.waypoint_index:
             print("Passed waypoint {:d}".format(k+1), self.path.waypoints[k], "\tquad position:", self.quadcopter.position)
@@ -602,32 +600,20 @@ class LV_VAE_MESH(gym.Env):
         if self.obstacles != []: #If there are no obstacles, no need to calculate the reward
             inv_abs_min_rew = self.abs_inv_CA_min_rew 
             danger_range = self.danger_range
-            
-            #OLD
-            # danger_angle = self.danger_angle            
-            # quad_pos_torch = torch.tensor(self.quadcopter.position, dtype=torch.float32, device=self.device) 
-            # drone_closest_obs_dist = torch.norm(self.nearby_obstacles[0].position - quad_pos_torch).item() - self.nearby_obstacles[0].radius
-
             drone_closest_obs_dist = self.closest_measurement #TODO now we only use the depth map to determine the closest obstacle Can probably use trimesh to determine the closest obstacle in the mesh
             
             #Determine lambda reward for path following and path adherence based on the distance to the closest obstacle
             #This would benefit from using global information about the obstacles
             #Can let it trickle back to normal based on time assuming that the quadcopter will have moved away from the obstacle
+            #TODO decide if this should affect the path progression reward as well?
             if (drone_closest_obs_dist < danger_range):
                 lambda_PA = (drone_closest_obs_dist/danger_range)/2
                 if lambda_PA < 0.10 : lambda_PA = 0.10
                 lambda_CA = 1-lambda_PA
-            
-            #Must give up on the angle diff when using meshes 
-            #TODO Can use the positions in the depthmap and penalize the closer and obstacle is to the center.
-            #Determine the angle difference between the velocity vector and the vector to the closest obstacle
-            # velocity_vec_torch = torch.tensor(self.quadcopter.velocity, dtype=torch.float32, device=self.device)
-            # drone_to_obstacle_vec = self.nearby_obstacles[0].position - quad_pos_torch
-            # angle_diff = torch.arccos(torch.dot(drone_to_obstacle_vec, velocity_vec_torch)/(torch.norm(drone_to_obstacle_vec)*torch.norm(velocity_vec_torch))).item()
 
             reward_collision_avoidance = 0 #TODO decide if we rather use a 2D gaussian times the depthmap to determine the reward
             if (drone_closest_obs_dist < danger_range):
-                range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1) #same fcns below
+                range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1)
                 if range_rew > 0: range_rew = 0
                 reward_collision_avoidance = range_rew 
             else:
@@ -754,23 +740,6 @@ class LV_VAE_MESH(gym.Env):
         F = np.linalg.inv(ss.B()[2:]).dot(u)
         F = np.clip(F, ss.thrust_min, ss.thrust_max)
         return F
-
-
-    #### UTILS ####
-    def m1to1(self,value, min, max): 
-        '''
-        Normalizes a value from the range [min,max] to the range [-1,1]
-        If value is outside the min max range, it will be clipped to the min or max value (ensuring we return a value in the range [-1,1])
-        '''
-        value_normalized = 2.0*(value-min)/(max-min) - 1
-        return np.clip(value_normalized, -1, 1)
-
-    def invm1to1(self, value, min, max):
-        '''
-        Inverse normalizes a value from the range [-1,1] to the range [min,max]
-        If value that got normalized was outside the min max range it may only be inverted to the min or max value (will not be correct if the clip was used in the normalization)
-        '''
-        return (value+1)*(max-min)/2.0 + min
 
 
     #### UPDATE FUNCTION####
@@ -1100,7 +1069,61 @@ class LV_VAE_MESH(gym.Env):
  
         return initial_state  
 
+    def scenario_easy_perturbed_sim(self): #Surround the path with 1-4 obstacles But ensure no obstacles on path
+        initial_state = self.scenario_3d_new()
+        n_obstacles = np.random.randint(1,5)
+        self.generate_obstacles(n = n_obstacles, rmin=2, rmax=6, path = self.path, mean = 0, std = 5, onPath=False)
+        self.perturb_sim = True
+        return initial_state
 
+    def scenario_proficient_perturbed_sim(self):
+        initial_state = self.scenario_3d_new()
+        obstacle_radius = np.random.uniform(low=4,high=10)
+        obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
+        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze() #go from [[x,y,z]] to [x,y,z]
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+
+        lengths = np.linspace(self.path.length*1/6, self.path.length*5/6, 2)
+        for l in lengths:
+            obstacle_radius = np.random.uniform(low=4,high=10)
+            obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
+            obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze() #TODO apply squeeze to all other obstacle_coords that are [[]] and not []
+            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+            obstacle = SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path)
+            
+            if self.check_object_overlap(obstacle):
+                continue
+            else:
+                self.obstacles.append(obstacle)
+        self.perturb_sim = True
+        return initial_state
+    
+    def scenario_expert_perturbed_sim(self):
+        initial_state = self.scenario_3d_new()
+        obstacle_radius = np.random.uniform(low=4,high=10)
+        obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
+        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+
+        lengths = np.linspace(self.path.length*1.5/6, self.path.length*5/6, 5)
+        for l in lengths:
+            obstacle_radius = np.random.uniform(low=4,high=10)
+            obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
+            obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
+            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)            
+            obstacle = SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path)
+            if self.check_object_overlap(obstacle):
+                continue
+            else:
+                self.obstacles.append(obstacle)
+        self.perturb_sim = True
+        return initial_state
+
+
+
+#Testing scenarios
     def scenario_test_path(self):
         # test_waypoints = np.array([np.array([0,0,0]), np.array([1,1,0]), np.array([9,9,0]), np.array([10,10,0])])
         # test_waypoints = np.array([np.array([0,0,0]), np.array([5,0,0]), np.array([10,0,0]), np.array([15,0,0])])
@@ -1208,7 +1231,8 @@ class LV_VAE_MESH(gym.Env):
 
 
 
-    #Development scenarios
+
+#Development scenarios
     def scenario_dev_test_crash(self):
         initial_state = np.zeros(6)
         waypoints = generate_random_waypoints(3,'line')

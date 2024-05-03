@@ -33,10 +33,13 @@ class IMU():
         bodyaccl = quad.state_dot(quad.state)[6:9] #Speed derivative of the body frame velocity
 
         # R_b_to_w = geom.Rzyx(*quad.attitude)
-        # self.measurement[0:3] = bodyaccl @ R_b_to_w.T + np.random.normal(0, self.noiseLinAcc, 3) #linear acceleration #TODO deciide which to use when more brainpower available
-        self.measurement[0:3] = bodyaccl + np.random.normal(0, self.noiseLinAcc, 3) #linear acceleration
+        # gravity_effect = R_b_to_w.T @ np.array([0, 0, ss.g])
+
+        #linear acceleration
+        self.measurement[0:3] = bodyaccl + np.random.normal(0, self.noiseLinAcc, 3) #- gravity_effect  #Commented out gravity effect since it is already in the state_dot function
         
-        self.measurement[3:6] = quad.angular_velocity  + np.random.normal(0, self.noiseAngAcc, 3) #angular velocity aka angular rate
+        #angular velocity aka angular rate
+        self.measurement[3:6] = quad.angular_velocity  + np.random.normal(0, self.noiseAngAcc, 3) 
 
         return self.measurement
 
@@ -55,14 +58,28 @@ if __name__ == "__main__":
     quad = Quad(0.01,np.zeros(6))
     quad.state[2] = 1
 
-    totT = 800
-    force_ref = []
+    reference_type = "offset_force_then_no_force"
+    reference_type = "no_force"
+    reference_type = "constant_force"
 
-    for t in range(totT):
-        if t > 100 and t <110:
-            force_ref.append([1.2, 1, 1.2, 1])
-        else: 
-            force_ref.append([0, 0, 0, 0])
+    read_force_from_file = True
+
+    if read_force_from_file:
+        force_ref = np.load("gym_quad/tests/trajectories/forces_manual_input.npy")
+        totT = len(force_ref)
+    else:
+        totT = 800
+        force_ref = []
+        for t in range(totT):
+            if reference_type == "no_force":
+                force_ref.append([0, 0, 0, 0])
+            elif reference_type == "constant_force":
+                force_ref.append([1.2, 1.2, 1.2, 1.2])
+            elif reference_type == "offset_force_then_no_force":
+                if t > 100 and t <110:
+                    force_ref.append([1.2, 1, 1.2, 1])
+                else: 
+                    force_ref.append([0, 0, 0, 0])
 
     timesteps = []
     imu_meas = np.zeros((6, totT))
@@ -74,17 +91,28 @@ if __name__ == "__main__":
         quad.step(np.array(force_ref[t]))
         imu_meas[:,t] = imu.measure(quad)
         state_log[:,t] = quad.state
+        
         #save ax az and ay 
-        axazayActual_w[:,t] = quad.state_dot(quad.state)[0:3]  #World frame acceleration Should mabye be in body frame
-        R_b_to_w = geom.Rzyx(*quad.attitude)
-        axazayActual_b[:,t] = quad.state_dot(quad.state)[0:3] @ R_b_to_w.T #Body frame acceleration Should mabye be in body frame
+        #Body frame acceleration 
+        axazayActual_b[:,t] = quad.state_dot(quad.state)[6:9]  
+        
+        #World frame acceleration 
+        #Do not have access to world frame acceleration as this would be the double derivative of the position which is not in the state
+        #The state is [x, y, z, phi, theta, psi, u, v, w, p, q, r] where u, v, w are velocities in the body frame
+        # R_b_to_w = geom.Rzyx(*quad.attitude)
+        # axazayActual_b[:,t] = quad.state_dot(quad.state)[6:9] @ R_b_to_w.T 
 
     timesteps = np.array(timesteps)*0.01
+
+    plt.style.use('ggplot')
+    plt.rc('font', family='serif')
+    plt.rc('xtick', labelsize=12)
+    plt.rc('ytick', labelsize=12)
+    plt.rc('axes', labelsize=12)
 
     plt.figure(1)
     plt.subplot(3,1,1)
     plt.plot(timesteps, imu_meas[0,:], label='ax measured')
-    plt.plot(timesteps, axazayActual_w[0,:], label='ax actual w')
     plt.plot(timesteps, axazayActual_b[0,:], label='ax actual b')
     plt.ylabel('Acceleration [m/s^2]')
     plt.xlabel('Time [s]')
@@ -92,7 +120,6 @@ if __name__ == "__main__":
 
     plt.subplot(3,1,2)
     plt.plot(timesteps, imu_meas[1,:], label='ay measured')
-    plt.plot(timesteps, axazayActual_w[1,:], label='ay actual w')
     plt.plot(timesteps, axazayActual_b[1,:], label='ay actual b')
     plt.ylabel('Acceleration [m/s^2]')
     plt.xlabel('Time [s]')
@@ -100,7 +127,6 @@ if __name__ == "__main__":
     
     plt.subplot(3,1,3)
     plt.plot(timesteps, imu_meas[2,:], label='az measured')
-    plt.plot(timesteps, axazayActual_w[2,:], label='az actual w')
     plt.plot(timesteps, axazayActual_b[2,:], label='az actual b')
     plt.ylabel('Acceleration [m/s^2]')
     plt.xlabel('Time [s]')

@@ -17,7 +17,7 @@ from gym_quad import lv_vae_config
 from logger import TensorboardLogger
 
 from PPO_feature_extractor import *
-from utils import parse_experiment_info
+from train_run_utils import parse_experiment_info
 
 import warnings
 # Filter out the specific warning
@@ -70,17 +70,29 @@ scenarios = {   "line"          :   1e5,
 
 #Newest config using the sameish setup as the one succesful one,
 #but added easy_random which randomizes the position and attitude of the quad
-scenarios = {   "line"          :   1e5,
-                "easy"          :   1e6,
-                "easy_random"   :   1e6, #Randomized pos and att of quad in easy scenario
-                "proficient"    :   1e6,
-                "intermediate"  :   1e6,
-                "expert"        :   1e6
+# scenarios = {   "line"          :   1e5,
+#                 "easy"          :   1e6,
+#                 "easy_random"   :   1e6, #Randomized pos and att of quad in easy scenario
+#                 "proficient"    :   1e6,
+#                 "intermediate"  :   1e6,
+#                 "expert"        :   1e6
+#              }
+
+
+scenarios = {   "line"                 :  1e5,
+                "easy"                 :  1e6,
+                "proficient"           :  1e6,
+                "intermediate"         :  1e6,
+                "expert"               :  1e6,
+                "easy_perturbed"       :  1e6, #Perturbed by noise
+                "proficient_perturbed" :  1e6,
+                "expert_perturbed"     :  1e6
              }
 
 
 
-scenarios = {"vertical"          :   2e5} #For profiling purposes
+# scenarios = {"vertical"          :   2e5} #For profiling purposes
+
 
 
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
@@ -113,7 +125,7 @@ PPO_hyperparams = {
 
 #VAE
 # encoder_path = None #If you want to train the encoder from scratch
-encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_1000_seed1.json"
+encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_2000_seed1.json"
 lock_params = True #True if you want to lock the encoder parameters. False to let them be trained
 
 #PPO

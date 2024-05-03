@@ -14,7 +14,7 @@ from pv_plotting_3d import Plotter3D
 
 from mpl_toolkits.mplot3d import Axes3D
 from stable_baselines3 import PPO
-from utils import *
+from train_run_utils import *
 from argparse import Namespace
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # Tensflow logging level
