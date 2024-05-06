@@ -13,7 +13,7 @@ lv_vae_config = {
     "max_t_steps"               : 30000,        # Maximum number of timesteps in the simulation before it is terminated
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle #TODO idk if this should be here might move it
     "enclose_scene"             : True,         # Enclose the scene with a box thats scaled to the scene size
-    "perturb_sim"               : False,         # Perturb the simulation with noise Some scenarios will overwrite this
+    "perturb_sim"               : True,         # Perturb the simulation with noise Some scenarios will overwrite this
     "padding"                   : 8,            # Padding of the box that encloses the scene [m]
     "drone_radius_for_collision": 0.28,         # Radius of the drone for collision detection [m] #Actual radius is 0.25m
 #Depth camera parameters    

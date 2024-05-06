@@ -100,12 +100,15 @@ class LV_VAE_MESH(gym.Env):
             "3d_new": self.scenario_3d_new,
             "easy": self.scenario_easy,
             "easy_random": self.scenario_random_pos_att_easy,
+            "easy_perturbed":self.scenario_easy_perturbed_sim,
             "helix": self.scenario_helix,
             "intermediate": self.scenario_intermediate,
             "proficient": self.scenario_proficient,
+            "proficient_perturbed": self.scenario_proficient_perturbed_sim,
             # "advanced": self.scenario_advanced,
             "expert": self.scenario_expert,
             "expert_random": self.scenario_expert_random,
+            "expert_perturbed": self.scenario_expert_perturbed_sim,
             # Testing scenarios
             "test_path": self.scenario_test_path,
             "test": self.scenario_test,
@@ -203,12 +206,12 @@ class LV_VAE_MESH(gym.Env):
 
             #Controller gain noise #TODO make it such that the timeconstant of the response is at max +-10% of the original
             #These values are probalby okish but not scientifically derived in any way
-            # self.kv_noise = np.random.uniform(-0.2, 0.2) #Velocity gain
-            # self.kangvel_noise = np.random.uniform(-0.1, 0.1) #Angular velocity gain
-            # self.kR_noise = np.random.uniform(-0.1, 0.1) #Attitude gain
+            self.kv_noise = np.random.uniform(-0.2, 0.2) #Velocity gain
+            self.kangvel_noise = np.random.uniform(-0.1, 0.1) #Angular velocity gain
+            self.kR_noise = np.random.uniform(-0.1, 0.1) #Attitude gain
 
             #Sensor latency - vary the time between the physics sim and the camera
-            # self.sensor_latency = np.random.uniform(-1, 1)  #When running 15fps camera and 100Hz physics sim the steps are 6.67ms long so with the sensor latency the steps will range from 4.67ms to 8.67ms
+            self.sensor_latency = np.random.uniform(-1, 1)  #When running 15fps camera and 100Hz physics sim the steps are 6.67ms long so with the sensor latency the steps will range from 4.67ms to 8.67ms
                                                             #When running 10fps camera and 100Hz physics sim the steps are 10ms long so with the sensor latency the steps will range from 8ms to 12ms
 
             #TODORandom forces and torques 
@@ -353,6 +356,7 @@ class LV_VAE_MESH(gym.Env):
             noise = torch.normal(mean=0, std=sigma, size=temp_depth_map.size(), device=self.device)
             temp_depth_map += noise
             self.noisy_depth_map = temp_depth_map #For saving the noisy depth map for debugging
+            pass
 
         normalized_depth_map = temp_depth_map / self.max_depth
         
