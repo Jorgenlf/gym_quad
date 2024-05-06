@@ -125,8 +125,8 @@ PPO_hyperparams = {
 
 #VAE
 # encoder_path = None #If you want to train the encoder from scratch
-encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_2000_seed1.json"
-lock_params = True #True if you want to lock the encoder parameters. False to let them be trained
+encoder_path = None # f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_2000_seed1.json"
+lock_params = False #True if you want to lock the encoder parameters. False to let them be trained
 
 #PPO
 #From Ørjan:    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32])
