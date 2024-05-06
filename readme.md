@@ -1,6 +1,11 @@
 # Path Following and Collision Avoidance for Quadcopters using Deep Reinforcement Learning
-
 This repo implements a 6-DOF simulation model for a quadcopter according to the stable baselines (OpenAI) interface for reinforcement learning control.
+
+
+## Quick results overview
+Gifs of what the quadcopter sees with an animation og where it is in the scene do last part if possible.
+
+
 ## Getting Started
 
 To install all packages needed in your virtual environment, run:
