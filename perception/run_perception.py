@@ -11,6 +11,7 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from utils_perception.data_reader import DataReader, SunRGBD, CustomDepthDataset, RealSenseDataset, RealSenseDataset_v2, DataReaderRealSensev2, DataReaderSynthetic
 from utils_perception import plotting
+import cv2
 
 #from utils_perception.data_augmentation import DataAugmentation
 
@@ -550,7 +551,7 @@ def main(args):
                 
     if args.mode == 'test':
         seed = args.seed
-        #full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}_dim{LATENT_DIMS}_beta{int(BETA)}'
+        #full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}_dim{LATENT_DIMS}'#_beta{int(BETA)}'
         full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}'
 
         # Load model for testing
@@ -717,6 +718,7 @@ def main(args):
                 plt.imshow(img2.detach().cpu().numpy().squeeze(), cmap='magma')
                 plt.axis('off')
                 plt.savefig(f'{savepath_i}_img2.pdf', bbox_inches='tight')
+
     
             
         
