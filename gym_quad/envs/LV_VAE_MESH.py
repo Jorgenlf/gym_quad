@@ -171,26 +171,19 @@ class LV_VAE_MESH(gym.Env):
         self.imu = IMU()
         self.imu_measurement = np.zeros((6,), dtype=np.float32) 
 
-        #Perturbing of camera, quadcopter and simulation
 
-        #If the simulation is not perturbed the noise values are set to 0
-        #Camera no noise
+        #If the simulation is not to be perturbed the noise values are set to 0
+        #Camera pos orient no noise
         self.camera_look_direction = np.array([1, 0, 0])
         self.camera_look_direction_noisy = self.camera_look_direction
         self.camera_pos_noise = np.zeros(3)
-
-        #Domain observation noise #Handeled in the observe function
 
         #Controller gain noise
         self.kv_noise = 0
         self.kangvel_noise = 0
         self.kR_noise = 0
-
-        #Sensor latency - no latency
-        self.sensor_latency = 0
-
-        ##TODO Random forces and torques 
         
+        #Perturbing of camera, quadcopter and simulation
         if self.perturb_sim: #TODO make these values hyperparam? #TODO decide which should be set here in reset and which should be updated per step
             
             # Camera pos/orient noise #TODO might remove this noise as it is quite damaging
@@ -199,10 +192,9 @@ class LV_VAE_MESH(gym.Env):
             # self.camera_pos_noise = np.random.normal(0, 0.005, 3)
 
             #IMU
-            self.imu.set_noise(0.001, 0.01) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
-            #TODO decide on these values
+            # self.imu.set_noise(0.001, 0.01) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
+            #TODO decide on these values and wether it should be set here in reset or in the observation(each step)
 
-            #Domain observation noise #Happens in the observe function as it should vary every timestep.
 
             #Controller gain noise #TODO make it such that the timeconstant of the response is at max +-10% of the original
             #These values are probalby okish but not scientifically derived in any way
@@ -210,11 +202,11 @@ class LV_VAE_MESH(gym.Env):
             self.kangvel_noise = np.random.uniform(-0.1, 0.1) #Angular velocity gain
             self.kR_noise = np.random.uniform(-0.1, 0.1) #Attitude gain
 
-            #Sensor latency - vary the time between the physics sim and the camera
-            self.sensor_latency = np.random.uniform(-1, 1)  #When running 15fps camera and 100Hz physics sim the steps are 6.67ms long so with the sensor latency the steps will range from 4.67ms to 8.67ms
-                                                            #When running 10fps camera and 100Hz physics sim the steps are 10ms long so with the sensor latency the steps will range from 8ms to 12ms
 
-            #TODORandom forces and torques 
+            #Domain observation noise #Happens in the observe function as it should vary every timestep.
+            #Sensor latency - vary the time between the physics sim and the camera Done in step function
+            
+            #TODORandom forces and torques maybe?
 
         
         #For contiouns reach end reward #TODO decide if it is neccessary to implement
@@ -352,11 +344,11 @@ class LV_VAE_MESH(gym.Env):
         
         # Add Gaussian noise to depth map (naive noise model)
         if self.perturb_sim:
-            sigma = 0.1 # [m] Standard deviation of the Gaussian noise added to the depth map
-            noise = torch.normal(mean=0, std=sigma, size=temp_depth_map.size(), device=self.device)
-            temp_depth_map += noise
-            self.noisy_depth_map = temp_depth_map #For saving the noisy depth map for debugging
-            pass
+            # sigma = 0.1 # [m] Standard deviation of the Gaussian noise added to the depth map
+            # noise = torch.normal(mean=0, std=sigma, size=temp_depth_map.size(), device=self.device)
+            # temp_depth_map += noise
+            # self.noisy_depth_map = temp_depth_map #For saving the noisy depth map for debugging
+            pass #To quickly check the effect of leaving out the noise on depthmaps
 
         normalized_depth_map = temp_depth_map / self.max_depth
         
@@ -384,11 +376,12 @@ class LV_VAE_MESH(gym.Env):
         quad_pos_noise = np.zeros(3)
         quad_att_noise = np.zeros(3)
         if self.perturb_sim:
-            deg_as_rad = deg2rad(3)
-            chi_error_noise = np.random.uniform(-deg_as_rad, deg_as_rad)
-            upsilon_error_noise = np.random.uniform(-deg_as_rad, deg_as_rad)
-            quad_pos_noise = np.random.normal(0, 0.025, 3) #+-2.5cm noise as std dev #TODO decide if we should integrate the IMU to get the quadpos noise I dont think it is wise as the position may come from smarter sources (eg. KF or SLAM) than integrating IMU.
-            quad_att_noise = np.random.normal(0, deg2rad(1), 3) #+-1 degree noise as std dev
+            # deg_as_rad = deg2rad(3)
+            # chi_error_noise = np.random.uniform(-deg_as_rad, deg_as_rad)
+            # upsilon_error_noise = np.random.uniform(-deg_as_rad, deg_as_rad)
+            # quad_pos_noise = np.random.normal(0, 0.025, 3) #+-2.5cm noise as std dev #TODO decide if we should integrate the IMU to get the quadpos noise I dont think it is wise as the position may come from smarter sources (eg. KF or SLAM) than integrating IMU.
+            # quad_att_noise = np.random.normal(0, deg2rad(1), 3) #+-1 degree noise as std dev
+            pass #TO quickly check the effect of leaving out domain noise
         
         quad_pos = self.quadcopter.position + quad_pos_noise #Do this once here and use them in the domain_observation below
         quad_att = self.quadcopter.attitude + quad_att_noise
@@ -489,11 +482,19 @@ class LV_VAE_MESH(gym.Env):
         """
         Simulates the environment one time-step.
         """
+
+        sensor_latency = 0
+        if self.perturb_sim:
+            decide_if_latency_hits = np.random.uniform(0, 1)
+            if decide_if_latency_hits < 0.1: #10% chance of latency
+                sensor_latency = np.random.uniform(-1, 1)  #When running 15fps camera and 100Hz physics sim the steps are 6.67ms long so with the sensor latency the steps will range from 4.67ms to 8.67ms
+                                                                #When running 10fps camera and 100Hz physics sim the steps are 10ms long so with the sensor latency the steps will range from 8ms to 12ms
+
         #Camera is at 15FPS physics is at 100HZ
         #Make the quadcopter step until a new depth map is available
         sim_hz = 1/self.step_size
         cam_hz = self.camera_FPS
-        steps_before_new_depth_map = sim_hz//cam_hz + self.sensor_latency
+        steps_before_new_depth_map = sim_hz//cam_hz + sensor_latency
         for i in range(int(steps_before_new_depth_map)):           
             F = self.geom_ctrlv2(action)
             #TODO maybe need some translation between input u and thrust F i.e translate u to propeller speed? 
