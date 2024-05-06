@@ -26,7 +26,7 @@ if __name__ == "__main__":
     plt.rc('ytick', labelsize=12)
     plt.rc('axes', labelsize=12)
 
-    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+    fig, ax = plt.subplots(1, 1, figsize=(12, 8))
 
     lower_bound = 0
     upper_bound = 0
