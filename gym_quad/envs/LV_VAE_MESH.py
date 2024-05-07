@@ -179,7 +179,7 @@ class LV_VAE_MESH(gym.Env):
         self.camera_pos_noise = np.zeros(3)
 
         #IMU noise
-        self.imu.set_noise(0, 0) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
+        self.imu.set_std(0, 0) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
 
         #Controller gain noise
         self.kv_noise = 0
@@ -195,7 +195,7 @@ class LV_VAE_MESH(gym.Env):
         
         # IMU
         if self.perturb_sim or self.perturb_IMU:
-            self.imu.set_noise(0.001, 0.01) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
+            self.imu.set_std(0.001, 0.01) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
            # TODO decide on these values and wether it should be set here in reset or in the observation(each step)
         
         #Controller gains
@@ -681,8 +681,15 @@ class LV_VAE_MESH(gym.Env):
 
         e3 = np.array([0, 0, 1]) #z-axis basis
 
-        # R = geom.Rzyx(*self.quadcopter.attitude) #OLD
-        R = j_Rzyx(*self.quadcopter.attitude)  #NEW using jit version
+        #TODO use IMU meas as state input to the controller
+        imu_meas = self.imu.measure(self.quadcopter)
+        imu_quad_angvel = np.array([imu_meas[3], imu_meas[4], imu_meas[5]])
+        #Pseudo integration of linear velocity and angular rate
+        #assuming that a filtered version of the integrated rates will result in approx these values
+        imu_quad_vel = self.quadcopter.velocity + self.imu.lin_noise*0.3 #0.3 is a guess
+        imu_quad_att = self.quadcopter.attitude + self.imu.ang_noise*0.3 #0.3 is a guess
+
+        R = j_Rzyx(*imu_quad_att)#*self.quadcopter.attitude)
 
         #Essentially three different velocities that one can choose to track:
         #Think body or world frame velocity control is the best choice
@@ -696,11 +703,11 @@ class LV_VAE_MESH(gym.Env):
         # ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.position_dot
 
         #Body frame velocity control
-        ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.velocity
+        ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - imu_quad_vel #self.quadcopter.velocity Old "pure measurements"
         #Which one to use? vehicle_vels or self.quadcopter.velocity
 
         #Thrust command (along body z axis)
-        f = kv*ev + ss.m*ss.g*e3 + ss.d_w*self.quadcopter.heave*e3
+        f = kv*ev + ss.m*ss.g*e3 + ss.d_w*imu_quad_vel[2]*e3 #ss.d_w*self.quadcopter.heave*e3 Old "pure measurements"
         thrust_command = np.dot(f, R[2])
 
         #Rd calculation as in Kulkarni aerial gym (works fairly well)
@@ -710,7 +717,7 @@ class LV_VAE_MESH(gym.Env):
 
         pitch_setpoint = np.arctan2(c_phi_s_theta, c_phi_c_theta)
         roll_setpoint = np.arctan2(s_phi, np.sqrt(c_phi_c_theta**2 + c_phi_s_theta**2))
-        yaw_setpoint = self.quadcopter.attitude[2]        # Rd = geom.Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint) #OLD
+        yaw_setpoint = imu_quad_att[2] #self.quadcopter.attitude[2]        # Rd = geom.Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint) #OLD
         Rd = j_Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint) #NEW using jit version
 
 
@@ -720,21 +727,22 @@ class LV_VAE_MESH(gym.Env):
 
         des_angvel = np.array([0.0, 0.0, cmd_r])
 
-        #Kulkarni approach desired angular rate in body frame:
-        s_pitch = np.sin(self.quadcopter.attitude[1])
-        c_pitch = np.cos(self.quadcopter.attitude[1])
-        s_roll = np.sin(self.quadcopter.attitude[0])
-        c_roll = np.cos(self.quadcopter.attitude[0])
+        s_pitch = np.sin(imu_quad_att[1])#self.quadcopter.attitude[1]) Old "pure measurements"
+        c_pitch = np.cos(imu_quad_att[1])#self.quadcopter.attitude[1]) Old "pure measurements"
+        s_roll = np.sin(imu_quad_att[0])#self.quadcopter.attitude[0])  Old "pure measurements"                 
+        c_roll = np.cos(imu_quad_att[0])#self.quadcopter.attitude[0])  Old "pure measurements"
         R_euler_to_body = np.array([[1, 0, -s_pitch],
                                     [0, c_roll, s_roll*c_pitch],
-                                    [0, -s_roll, c_roll*c_pitch]]) #Uncertain about how this came to be
+                                    [0, -s_roll, c_roll*c_pitch]]) #Essentially the inverse of Tzyx from geomutils
 
         des_angvel_body = R_euler_to_body @ des_angvel
 
-        eangvel = self.quadcopter.angular_velocity - R.T @ (Rd @ des_angvel_body) #Kulkarni approach
+        # eangvel = self.quadcopter.angular_velocity - R.T @ (Rd @ des_angvel_body) Old "pure measurements"
+        eangvel = imu_quad_angvel - R.T @ (Rd @ des_angvel_body) 
 
-        torque = -kR*eatt - kangvel*eangvel + np.cross(self.quadcopter.angular_velocity,ss.Ig@self.quadcopter.angular_velocity)
-
+        # torque = -kR*eatt - kangvel*eangvel + np.cross(self.quadcopter.angular_velocity,ss.Ig@self.quadcopter.angular_velocity) Old "pure measurements"
+        torque = -kR*eatt - kangvel*eangvel + np.cross(imu_quad_angvel,ss.Ig@imu_quad_angvel)
+        
         u = np.zeros(4)
         u[0] = thrust_command
         u[1:] = torque
@@ -1246,6 +1254,8 @@ class LV_VAE_MESH(gym.Env):
         obstacle_coords = torch.tensor(self.path.waypoints[1],device=self.device).float().squeeze()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
         self.obstacles.append(SphereMeshObstacle(radius = 20,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+        # Decrease the room padding such that a crash is likely
+        self.padding = 3
         return initial_state
     
     def scenario_dev_test_cube_crash(self):
@@ -1259,4 +1269,5 @@ class LV_VAE_MESH(gym.Env):
         obstacle_coords = torch.tensor(self.path.waypoints[1],device=self.device).float().squeeze()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
         self.obstacles.append(CubeMeshObstacle(width=20, height=20, depth=20, center_position=pt3d_obs_coords, device=self.device, inverted=False))
+        self.padding = 3
         return initial_state

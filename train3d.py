@@ -78,7 +78,7 @@ scenarios = {   "line"          :   1e5,
 #                 "expert"        :   1e6
 #              }
 
-
+#This was used and all noise was active the whole run for expid 8 on "Jøreng PC"
 scenarios = {   "line"                 :  1e5,
                 "easy"                 :  1e6,
                 "proficient"           :  1e6,

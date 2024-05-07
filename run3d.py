@@ -47,8 +47,8 @@ if __name__ == "__main__":
 
     #----#----#For running of file without the need of command line arguments#----#----#
 
-    # args = Namespace(manual_control=True, env = "LV_VAE_MESH-v0", save_depth_maps=False) 
-    manual_scenario = "house" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash", "easy"
+    args = Namespace(manual_control=True, env = "LV_VAE_MESH-v0", save_depth_maps=False) 
+    manual_scenario = "line" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash", "easy"
     
     #Temp variables for debugging
     quad_pos_log = []
@@ -243,7 +243,7 @@ if __name__ == "__main__":
                 # quad_mesh_pos_log.append(env.quad_mesh_pos)
 
                 #blue point for realtime plotting of the quadcopter mesh 
-                visualizer.update_point(env.unwrapped.quad_mesh_pos, color=[0,0,1], id="Quad_mesh")
+                # visualizer.update_point(env.unwrapped.quad_mesh_pos, color=[0,0,1], id="Quad_mesh")
 
                 #Saving of depthmaps:
                 if args.save_depth_maps:

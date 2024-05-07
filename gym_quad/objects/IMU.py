@@ -22,9 +22,11 @@ class IMU():
     measurement = [ax, ay, az, p, q, r].T where a is acceleration and p, q, r are angular velocities.
     """
     def __init__(self,  noiseAngAcc=0.0, noiseLinAcc=0.0):
-        self.noiseAngAcc = noiseAngAcc
-        self.noiseLinAcc = noiseLinAcc
+        self.stdAngAcc = noiseAngAcc
+        self.stdLinAcc = noiseLinAcc
         self.measurement = np.zeros((6,))
+        self.lin_noise = np.zeros((3,))
+        self.ang_noise = np.zeros((3,))
 
     def measure(self, quad:Quad):
         """
@@ -34,21 +36,23 @@ class IMU():
 
         # R_b_to_w = geom.Rzyx(*quad.attitude)
         # gravity_effect = R_b_to_w.T @ np.array([0, 0, ss.g])
-
-        #linear acceleration
-        self.measurement[0:3] = bodyaccl + np.random.normal(0, self.noiseLinAcc, 3) #- gravity_effect  #Commented out gravity effect since it is already in the state_dot function
         
+        self.lin_noise = np.random.normal(0, self.stdLinAcc, 3)
+        #linear acceleration
+        self.measurement[0:3] = bodyaccl + self.lin_noise #- gravity_effect  #Commented out gravity effect since it is already in the state_dot function
+        
+        self.ang_noise = np.random.normal(0, self.stdAngAcc, 3)
         #angular velocity aka angular rate
-        self.measurement[3:6] = quad.angular_velocity  + np.random.normal(0, self.noiseAngAcc, 3) 
+        self.measurement[3:6] = quad.angular_velocity  + self.ang_noise
 
         return self.measurement
 
     def reset(self):
         self.measurement = np.zeros((6,))   
     
-    def set_noise(self, noiseAngAcc, noiseLinAcc):
-        self.noiseAngAcc = noiseAngAcc
-        self.noiseLinAcc = noiseLinAcc
+    def set_std(self, noiseAngAcc, noiseLinAcc):
+        self.stdAngAcc = noiseAngAcc
+        self.stdLinAcc = noiseLinAcc
     
 
 if __name__ == "__main__":

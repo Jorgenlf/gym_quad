@@ -55,13 +55,27 @@ For running an agent in any scenario, use:
 python run3d.py --env "" --exp_id x --run_scenario "..." --trained_scenario "..." --agent x --episodes x 
 ```
 
-- env: the gym environment to use
-- exp_id: which experiment to retrieve agent from
-- run_scenario: which scenario to run
-- trained_scenario: which scenario the agent was trained in
-- agent: The timestep of the agent (if left out attempts to use the last model saved model from a completed training)
-- episodes: how many episodes to repeat the run.
+- env: the gym environment to use (defaults to LV_VAE_MESH-v0)
+- exp_id: which experiment to retrieve agent from (defaults to 1)
+- run_scenario: which scenario to run (defaults to line)
+- trained_scenario: which scenario the agent was trained in (defaults to line)
+- agent: The timestep of the agent (defaults to the "last_model.zip" saved model from a completed training)
+- episodes: how many episodes to repeat the run. (defaults to one)
 
 There exists some additional args. For more info view the [gym_quad/utils.py] file and view the parse_experiment_info() function.
+
+#### Running in manual debug mode
+The run3d.py script has a mode for realtime visualization where you can control the quadcopter using wasd and spacebar. 
+
+EITHER 
+
+open the run3d.py script uncomment the 
+    ```args = Namespace(manual_control=True, env = "LV_VAE_MESH-v0", save_depth_maps=False)``` 
+line and run the script using Fn+f5 
+
+OR
+
+run the script from the terminal and set the two arguments --RT_vis True and ----manual_control True.
+
 
 
