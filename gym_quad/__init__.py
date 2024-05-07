@@ -13,9 +13,16 @@ lv_vae_config = {
     "max_t_steps"               : 30000,        # Maximum number of timesteps in the simulation before it is terminated
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle #TODO idk if this should be here might move it
     "enclose_scene"             : True,         # Enclose the scene with a box thats scaled to the scene size
-    "perturb_sim"               : True,         # Perturb the simulation with noise Some scenarios will overwrite this
     "padding"                   : 8,            # Padding of the box that encloses the scene [m]
     "drone_radius_for_collision": 0.28,         # Radius of the drone for collision detection [m] #Actual radius is 0.25m
+#Noise parameters #TODO add the noise values here as well?    
+    "perturb_domain"            : True,         # Perturb the domain observation
+    "perturb_IMU"               : True,         # Perturb the IMU data
+    "perturb_depth_map"         : True,         # Perturb the depth map with noise
+    "perturb_camera_pose"       : True,         # Perturb the camera pose
+    "perturb_ctrl_gains"        : True,         # Perturb the control gains
+    "perturb_latency"           : True,         # Perturb the latency of the sensors
+    "perturb_sim"               : False,        # Activates all the noise above. The perturb scenarios inside LV_VAE_MESH.py set this to True
 #Depth camera parameters    
     "FOV_vertical"              : 75,            # Vertical field of view of the depth camera
     "FOV_horizontal"            : 62,            # Horizontal field of view of the depth camera
