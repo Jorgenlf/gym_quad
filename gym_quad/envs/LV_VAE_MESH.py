@@ -605,13 +605,11 @@ class LV_VAE_MESH(gym.Env):
 
         ####Collision avoidance reward#### (continuous)
         clip_min_PP_rew = False
-        #Find the closest obstacle
+        reward_collision_avoidance = 0
         if self.obstacles != []: #If there are no obstacles, no need to calculate the reward
-            inv_abs_min_rew = self.abs_inv_CA_min_rew 
             danger_range = self.danger_range
             drone_closest_obs_dist = self.closest_measurement #TODO now we only use the depth map to determine the closest obstacle Can probably use trimesh to determine the closest obstacle in the mesh
             
-            reward_collision_avoidance = 0
             # scaled_reward_pre_clip = 0
             # old_reward_collision_avoidance = 0 #For printing and debugging
             if (drone_closest_obs_dist < danger_range):
@@ -631,6 +629,7 @@ class LV_VAE_MESH(gym.Env):
                 reward_collision_avoidance = np.clip(scaled_reward_pre_clip, self.min_CA_rew, 0)
         
                 #OLD naive ish reward function
+                # inv_abs_min_rew = self.abs_inv_CA_min_rew 
                 # range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1)
                 # if range_rew > 0: range_rew = 0
                 # old_reward_collision_avoidance = range_rew 

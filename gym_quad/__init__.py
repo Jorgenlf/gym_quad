@@ -12,9 +12,10 @@ lv_vae_config = {
     "step_size"                 : 0.01,         # Step size of the simulation
     "max_t_steps"               : 30000,        # Maximum number of timesteps in the simulation before it is terminated
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle #TODO idk if this should be here might move it
-    "enclose_scene"             : False,         # Enclose the scene with a box thats scaled to the scene size
+    "enclose_scene"             : True,         # Enclose the scene with a box thats scaled to the scene size
     "padding"                   : 8,            # Padding of the box that encloses the scene [m]
     "drone_radius_for_collision": 0.28,         # Radius of the drone for collision detection [m] #Actual radius is 0.25m
+    "recap_chance"              : 0.1,          #TODO implement this Chance of recapitulating a previous trainig scenario
 #Noise parameters #TODO add the noise values here as well?    
     "perturb_domain"            : False,         # Perturb the domain observation
     "perturb_IMU"               : False,         # Perturb the IMU data
@@ -41,9 +42,9 @@ lv_vae_config = {
     "s_max"                     : 2,             # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  
     "i_max"                     : deg2rad(80/2), # Maximum inclination angle of commanded velocity wrt x-axis #TODO decide this. Per now set it to ish half of vertical sensor span
     "r_max"                     : deg2rad(30),   # Maximum commanded yaw rate rad/s
-    "kv"                        : 2.5,           # Velocity gain             Been for long time: 2.5
-    "kangvel"                   : 0.8,           # Angular velocity gain     Been for long time: 0.8
-    "kR"                        : 0.8,           # Attitude gain             Been for long time: 0.8
+    "kv"                        : 2.5,           # Velocity gain             All tuned in test_controller.py
+    "kangvel"                   : 0.8,           # Angular velocity gain     
+    "kR"                        : 0.8,           # Attitude gain             
 #Reward parameters
     "min_reward"                : -1e4,          # Minimum reward before the simulation is terminated
     #Path adherence reward
