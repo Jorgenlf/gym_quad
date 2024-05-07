@@ -128,6 +128,20 @@ class LV_VAE_MESH(gym.Env):
         r = self.drone_radius_for_collision
         self.tri_quad_mesh.apply_scale(r)
 
+        #The 2D gaussian which is multiplied with the depth map to create the collision avoidance reward
+        #Only needs to be inited once so it is done here
+        #TODO if used. make the numbers into hyperparam.
+        peak = self.TwoDgauss_peak
+        std =self.TwoDgauss_sigma  #Small -> sharp peak, Large -> wide peak
+        TwoD_gaussian = np.zeros((self.depth_map_size[0],self.depth_map_size[1]))
+        for i in range(self.depth_map_size[0]):
+            for j in range(self.depth_map_size[1]):
+                TwoD_gaussian[i,j] = peak*np.exp(-((i-self.depth_map_size[0]/2)**2 + (j-self.depth_map_size[1]/2)**2)/(2*std**2))
+        self.torch_TwoD_gaussian = torch.tensor(TwoD_gaussian, device=self.device)
+
+        # with np.printoptions(threshold=np.inf):
+        #     print("TwoD_gaussian", self.TwoD_gaussian)
+
         #Reset environment to init state
         self.reset()
 
@@ -222,7 +236,7 @@ class LV_VAE_MESH(gym.Env):
         # Depth camera variables
         self.depth_map = torch.zeros((self.depth_map_size[0], self.depth_map_size[1]), dtype=torch.float32, device=self.device)
         self.noisy_depth_map = torch.zeros((self.depth_map_size[0], self.depth_map_size[1]), dtype=torch.float32, device=self.device)
-
+        self.sensor_readings = np.zeros((1, self.compressed_depth_map_size, self.compressed_depth_map_size), dtype=np.float32)
 
         ## 1. Path and obstacle generation based on scenario
         scenario = self.scenario_switch.get(self.scenario, lambda: print("Invalid scenario"))
@@ -361,7 +375,7 @@ class LV_VAE_MESH(gym.Env):
         resized_depth_map = resize_transform(normalized_depth_map_PIL)
         
         self.closest_measurement = self.closest_measurement.item()  
-        sensor_readings = resized_depth_map.detach().cpu().numpy() 
+        self.sensor_readings = resized_depth_map.detach().cpu().numpy()
         #.item() and .detach.cpu.numpy Moves the data from GPU to CPU so we do it here close to the tensor to numpy conversion as
         #it is suggested to clump gpu to cpu operations together to save time
         
@@ -471,7 +485,7 @@ class LV_VAE_MESH(gym.Env):
         #The min max normalized domain observation
         self.info['domain_obs'] = domain_obs
 
-        return {'perception':sensor_readings,   #Noise from camera 
+        return {'perception':self.sensor_readings,   #Noise from camera 
                 'IMU':self.imu_measurement,     #Noise from IMU
                 'domain':domain_obs}            #Noise perturbations
 
@@ -587,42 +601,57 @@ class LV_VAE_MESH(gym.Env):
         reward_path_adherence = -(2*(np.clip(dist_from_path, 0, self.PA_band_edge) / self.PA_band_edge) - 1)*self.PA_scale 
         # print("reward_path_adherence", np.round(reward_path_adherence,2),\
         #       "  dist_from_path", np.round(dist_from_path,2))
-              
+
+
+        ####Collision avoidance reward#### (continuous)
+        clip_min_PP_rew = False
+        #Find the closest obstacle
+        if self.obstacles != []: #If there are no obstacles, no need to calculate the reward
+            inv_abs_min_rew = self.abs_inv_CA_min_rew 
+            danger_range = self.danger_range
+            drone_closest_obs_dist = self.closest_measurement #TODO now we only use the depth map to determine the closest obstacle Can probably use trimesh to determine the closest obstacle in the mesh
+            
+            reward_collision_avoidance = 0
+            # scaled_reward_pre_clip = 0
+            # old_reward_collision_avoidance = 0 #For printing and debugging
+            if (drone_closest_obs_dist < danger_range):
+                #Determine lambda coefficient for path adherence (and PP?) based on the distance to the closest obstacle
+                clip_min_PP_rew = True
+                lambda_PA = (drone_closest_obs_dist/danger_range)/2
+                if lambda_PA < 0.10 : lambda_PA = 0.10
+                lambda_CA = 1-lambda_PA
+
+                #NEW 2D gaussian approach
+                non_singular_depth_map = self.depth_map + self.CA_epsilon #Adding 0.0001 to avoid singular matrix
+                div_by_one_depth_map = 1 / non_singular_depth_map
+                reward_collision_avoidance_pre_clip = -torch.sum((self.torch_TwoD_gaussian * div_by_one_depth_map)) 
+
+                #Might have to move this calculation to observe to do the item operation together with the other movements from GPU to CPU which happen up there.
+                scaled_reward_pre_clip = reward_collision_avoidance_pre_clip.item()*self.CA_scale #This item operation is costly as moves from GPU to CPU 
+                reward_collision_avoidance = np.clip(scaled_reward_pre_clip, self.min_CA_rew, 0)
+        
+                #OLD naive ish reward function
+                # range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1)
+                # if range_rew > 0: range_rew = 0
+                # old_reward_collision_avoidance = range_rew 
+
+            # print("Collision avoidance reward clipped:", np.round(reward_collision_avoidance,2),                 
+            #         "    Collision avoidance reward unclipped:", np.round(scaled_reward_pre_clip,2),\
+            #         "    old_reward_collision_avoidance:", np.round(old_reward_collision_avoidance,2),\
+            #         "    Distance to closest obstacle:", drone_closest_obs_dist)
+            ####Collision avoidance reward done####
+
 
         #Path progression reward 
         reward_path_progression = 0
         reward_path_progression1 = np.cos(self.chi_error)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
         reward_path_progression2 = np.cos(self.upsilon_error)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
         reward_path_progression = reward_path_progression1/2 + reward_path_progression2/2
-        reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max)
+        if clip_min_PP_rew:
+            reward_path_progression = np.clip(reward_path_progression, 0, self.PP_rew_max) #If there is an obstacle nearby the minimum path prog reward becomes zero
+        else:
+            reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max) #If there is no obstacle nearby the minimum path prog reward is the min value
 
-
-        ####Collision avoidance reward#### (continuous)
-        #Find the closest obstacle
-        reward_collision_avoidance = 0
-        if self.obstacles != []: #If there are no obstacles, no need to calculate the reward
-            inv_abs_min_rew = self.abs_inv_CA_min_rew 
-            danger_range = self.danger_range
-            drone_closest_obs_dist = self.closest_measurement #TODO now we only use the depth map to determine the closest obstacle Can probably use trimesh to determine the closest obstacle in the mesh
-            
-            #Determine lambda reward for path following and path adherence based on the distance to the closest obstacle
-            #This would benefit from using global information about the obstacles
-            #Can let it trickle back to normal based on time assuming that the quadcopter will have moved away from the obstacle
-            #TODO decide if this should affect the path progression reward as well?
-            if (drone_closest_obs_dist < danger_range):
-                lambda_PA = (drone_closest_obs_dist/danger_range)/2
-                if lambda_PA < 0.10 : lambda_PA = 0.10
-                lambda_CA = 1-lambda_PA
-
-            reward_collision_avoidance = 0 #TODO decide if we rather use a 2D gaussian times the depthmap to determine the reward
-            if (drone_closest_obs_dist < danger_range):
-                range_rew = -(((danger_range+inv_abs_min_rew*danger_range)/(drone_closest_obs_dist+inv_abs_min_rew*danger_range)) -1)
-                if range_rew > 0: range_rew = 0
-                reward_collision_avoidance = range_rew 
-            else:
-                reward_collision_avoidance = 0
-            # print("Collision avoidance reward:", reward_collision_avoidance)
-            ####Collision avoidance reward done####
 
         #Collision reward (sparse)
         reward_collision = 0
@@ -653,7 +682,7 @@ class LV_VAE_MESH(gym.Env):
         #Existential reward (penalty for being alive to encourage the quadcopter to reach the end of the path quickly) (continous)
         ex_reward = self.existence_reward 
 
-        tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression + reach_end_reward + ex_reward
+        tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression*lambda_PA + reach_end_reward + ex_reward
 
         self.info['reward'] = tot_reward
         self.info['collision_avoidance_reward'] = reward_collision_avoidance*lambda_CA

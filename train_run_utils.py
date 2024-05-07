@@ -658,6 +658,24 @@ def collision_avoidance_reward_function(obsdists:np.array,
 
     return reward_collision_avoidance
 
+def CA_rew_v2(gauss_peak=1.5, gauss_std=50):
+    TwoD_gaussian = np.zeros((240,320))
+    center_synthetic_depth_map = np.zeros((240,320))
+    corner_synthetic_depth_map = np.zeros((240,320))
+    for i in range(240):
+        for j in range(320):
+            TwoD_gaussian[i,j] = gauss_peak*np.exp(-((i-240/2)**2 + (j-320/2)**2)/(2*gauss_std**2))
+            #Add values between 0 and 10 to the depth map in the center of the depthmap
+            if (i > 80 and i < 160) and (j > 120 and j < 200):
+                center_synthetic_depth_map[i,j] = np.random.uniform(0,5)
+            else:
+                center_synthetic_depth_map[i,j] = 10
+            #Add values to one corner of the depth map
+            if (i > 160) and (j > 200):
+                corner_synthetic_depth_map[i,j] = np.random.uniform(0,5)
+            else:
+                corner_synthetic_depth_map[i,j] = 10
+    return TwoD_gaussian, center_synthetic_depth_map, corner_synthetic_depth_map
 
 if __name__ == "__main__":
 
@@ -696,25 +714,64 @@ if __name__ == "__main__":
     # plt.show()
     
     ###Plotting of the collision avoidance reward### #NEW only using distance
-    datapoints = 50
-    obsdists = np.linspace(0, 50, datapoints)
-    danger_range = 10 #m
-    inv_abs_min_rew = 1/16
-    dist_rew = []
-    for i in range(len(obsdists)):
-        dist_rew.append(rew_from_dist(danger_range, obsdists[i], inv_abs_min_rew))
+    # datapoints = 50
+    # obsdists = np.linspace(0, 50, datapoints)
+    # danger_range = 10 #m
+    # inv_abs_min_rew = 1/16
+    # dist_rew = []
+    # for i in range(len(obsdists)):
+    #     dist_rew.append(rew_from_dist(danger_range, obsdists[i], inv_abs_min_rew))
     
-    set_default_plot_rc()
-    plt.plot(dist_rew,label="Collision avoidance reward")
-    plt.axhline(y=0, color='gray', linewidth=1)
+    # set_default_plot_rc()
+    # plt.plot(dist_rew,label="Collision avoidance reward")
+    # plt.axhline(y=0, color='gray', linewidth=1)
 
-    plt.plot(10, 0, 'co',label="Sensor range")
-    plt.text(10, 0, 10, fontsize=12)
+    # plt.plot(10, 0, 'co',label="Sensor range")
+    # plt.text(10, 0, 10, fontsize=12)
 
-    plt.plot(0, -1/inv_abs_min_rew, 'mo',label="s3")
-    plt.text(0, -1/inv_abs_min_rew, f"{int(-1/inv_abs_min_rew)}", fontsize=12)
+    # plt.plot(0, -1/inv_abs_min_rew, 'mo',label="s3")
+    # plt.text(0, -1/inv_abs_min_rew, f"{int(-1/inv_abs_min_rew)}", fontsize=12)
 
-    plt.xlabel("Distance [m]")
-    plt.ylabel("Reward")
-    plt.legend()
+    # plt.xlabel("Distance [m]")
+    # plt.ylabel("Reward")
+    # plt.legend()
+    # plt.show()
+
+    #Plotting the v2 CA rew:
+    dgaus,ce_synthdm,co_synthdm = CA_rew_v2(gauss_peak=1.5, gauss_std=30)
+    #plot the 2d gaussian in 3d
+    fig = plt.figure(1)
+    ax = fig.add_subplot(111, projection='3d')
+    x = np.linspace(0, 320, 320)
+    y = np.linspace(0, 240, 240)
+    X, Y = np.meshgrid(x, y)
+    ax.plot_surface(X, Y, dgaus, cmap='magma')
+
+    #plot the center synthetic depth map in 3d
+    fig = plt.figure(2)
+    ax = fig.add_subplot(111, projection='3d')
+    x = np.linspace(0, 320, 320)
+    y = np.linspace(0, 240, 240)
+    X, Y = np.meshgrid(x, y)
+    ax.plot_surface(X, Y, ce_synthdm, cmap='magma')
+
+    #plot the corner synthetic depth map in 3d
+    fig = plt.figure(3)
+    ax = fig.add_subplot(111, projection='3d')
+    x = np.linspace(0, 320, 320)
+    y = np.linspace(0, 240, 240)
+    X, Y = np.meshgrid(x, y)
+    ax.plot_surface(X, Y, co_synthdm, cmap='magma')
+
+    #Calculate the reward from the synthetic depth maps
+    non_s_ce_dm = ce_synthdm + 0.0001
+    divby1_non_s_ce_dm = 1/non_s_ce_dm
+    rew = -np.sum(dgaus*divby1_non_s_ce_dm)/1000
+    print("rew when in center", rew)
+
+    non_s_co_dm = co_synthdm + 0.0001
+    divby1_non_s_co_dm = 1/non_s_co_dm
+    rew = -np.sum(dgaus*divby1_non_s_co_dm)/1000
+    print("rew when in corner", rew)
+    
     plt.show()

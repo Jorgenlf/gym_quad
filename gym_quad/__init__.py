@@ -12,17 +12,17 @@ lv_vae_config = {
     "step_size"                 : 0.01,         # Step size of the simulation
     "max_t_steps"               : 30000,        # Maximum number of timesteps in the simulation before it is terminated
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle #TODO idk if this should be here might move it
-    "enclose_scene"             : True,         # Enclose the scene with a box thats scaled to the scene size
+    "enclose_scene"             : False,         # Enclose the scene with a box thats scaled to the scene size
     "padding"                   : 8,            # Padding of the box that encloses the scene [m]
     "drone_radius_for_collision": 0.28,         # Radius of the drone for collision detection [m] #Actual radius is 0.25m
 #Noise parameters #TODO add the noise values here as well?    
-    "perturb_domain"            : True,         # Perturb the domain observation
-    "perturb_IMU"               : True,         # Perturb the IMU data
-    "perturb_depth_map"         : True,         # Perturb the depth map with noise
-    "perturb_camera_pose"       : True,         # Perturb the camera pose
-    "perturb_ctrl_gains"        : True,         # Perturb the control gains
-    "perturb_latency"           : True,         # Perturb the latency of the sensors
-    "perturb_sim"               : False,        # Activates all the noise above. The perturb scenarios inside LV_VAE_MESH.py set this to True
+    "perturb_domain"            : False,         # Perturb the domain observation
+    "perturb_IMU"               : False,         # Perturb the IMU data
+    "perturb_depth_map"         : False,         # Perturb the depth map with noise
+    "perturb_camera_pose"       : False,         # Perturb the camera pose
+    "perturb_ctrl_gains"        : False,         # Perturb the control gains
+    "perturb_latency"           : False,         # Perturb the latency of the sensors
+    "perturb_sim"               : False,         # Activates all the noise above. The perturb scenarios inside LV_VAE_MESH.py set this to True
 #Depth camera parameters    
     "FOV_vertical"              : 75,            # Vertical field of view of the depth camera
     "FOV_horizontal"            : 62,            # Horizontal field of view of the depth camera
@@ -46,22 +46,30 @@ lv_vae_config = {
     "kR"                        : 0.8,           # Attitude gain             Been for long time: 0.8
 #Reward parameters
     "min_reward"                : -1e4,          # Minimum reward before the simulation is terminated
-
+    #Path adherence reward
     'PA_band_edge'              : 10,            # edge of Path adherence band
     'PA_scale'                  : 3,             # scale of Path adherence reward [-PA_scale, PA_scale]
-
-    'PP_vel_scale'              : 1,           # scaling of velocity reward e.g. 1-> make 2.5m/s
+    #Path progression reward
+    'PP_vel_scale'              : 1,             # scaling of velocity reward e.g. 1-> make 2.5m/s
     'PP_rew_max'                : 2.5,           # maximum reward for path progression
     'PP_rew_min'                : -1,            # minimum reward for path progression
-
+    #Collision reward
     'rew_collision'             : -50,           # reward for collision
-
+    #reach end reward
     'rew_reach_end'             : 30,            # reward for reaching the end of the path
-
+    #Existence reward
     'existence_reward'          : -0.005,        # reward for existing
-
+    
+    #Collision avoidance old
     'danger_range'              : 10,            # Range between quadcopter and obstacle within which the quadcopter is in danger
     'abs_inv_CA_min_rew'        : 1/16,          # 1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x 
+    
+    #Collision avoidance new
+    'CA_scale'                  : 1/1000,        # Scaling of the collision avoidance reward Found via tuning
+    'CA_epsilon'                : 0.0001,        # Small number to avoid division by zero
+    'TwoDgauss_sigma'           : 30,            # Sigma of the 2D gaussian for the collision avoidance reward
+    'TwoDgauss_peak'            : 1.5,           # Peak value at the center of the 2D gaussian
+    'min_CA_rew'                : -16,           # Minimum reward for collision avoidance
     #TODO Make it take in 16 instead of 1/16 and invert it in the function also no longer angle involved so remove that
 }
 
