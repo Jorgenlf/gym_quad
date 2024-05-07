@@ -3,6 +3,8 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import gym_quad.objects.depth_camera as dc
+import gym_quad.objects.mesh_obstacles as meshobs
+from gym_quad.objects.QPMI import QPMI
 import torch
 import random
 import numpy as np
@@ -48,13 +50,16 @@ if __name__ == "__main__":
     min_d = 0.5
     max_d = MAX_MEASURABLE_DEPTH
 
+    # nOISE?
+    add_noise = False
+
     # Set the distributions
     min_radius = 0.1
     max_radius = 4.0
     radius_distribution = torch.distributions.uniform.Uniform(min_radius, max_radius)
 
 
-    n_imgs = 50000
+    n_imgs = 50
     lambda_rate = 1.0
 
     alpha = np.deg2rad(FOV/2)
@@ -67,7 +72,7 @@ if __name__ == "__main__":
     for i in tqdm(range(n_imgs), desc="Generating images"):
         n_spheres = np.random.poisson(lam=lambda_rate, size=1)[0]
         
-        spheres = []
+        obstacles = []
         for s_i in range(n_spheres):
             r = radius_distribution.sample().item()
 
@@ -88,16 +93,39 @@ if __name__ == "__main__":
             ys.append(y)
 
 
-            o = dc.SphereMeshObstacle(device=device, path=unit_sphere_path, radius=r, center_position=torch.tensor([x, y, z]))
-            spheres.append(o)
-        
+            o = meshobs.SphereMeshObstacle(device=device, path=unit_sphere_path, radius=r, center_position=torch.tensor([x, y, z]))
+            obstacles.append(o)
+        # Add enclosing cube of scene at random indices
+        if np.random.rand() > 0.5:
+            # Create dummy path from behind the camera to somewhere around max depth in the FOV
+            start = np.array([0, 0, -0.2])
+            mid = np.array([np.random.uniform(-5, 5), np.random.uniform(-5, 5), np.random.uniform(1, 5)])
+            end = np.array([np.random.uniform(-15, 15), np.random.uniform(-15, 15), np.random.uniform(8, MAX_MEASURABLE_DEPTH + 5)])
+            waypoints = np.array([start, mid, end])
+            path = QPMI(waypoints)
+            padding = 0.5
+            bounds, _ = meshobs.get_scene_bounds(obstacles, path, padding=padding)
+            #calculate the size of the room
+            width = bounds[1] - bounds[0] #z in tri and pt3d, x in enu
+            height = bounds[3] - bounds[2] #y in tri and pt3d, z in enu
+            depth = bounds[5] - bounds[4] #x in tri and pt3d y in enu
+            #The room wants the coordinates in the tri/pt3d format
+            room_center = torch.tensor([(bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, (bounds[4] + bounds[5]) / 2])
+            cube = meshobs.CubeMeshObstacle(device=device,width=width, height=height, depth=depth, center_position=room_center)
+            obstacles.append(cube)
+
         if n_spheres > 0:
-            spherescene = dc.SphereScene(device=device, sphere_obstacles=spheres) 
-            renderer = dc.DepthMapRenderer(device=device, camera=camera, scene=spherescene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH)
-            depth_map = renderer.render_depth_map()
+            scene = meshobs.Scene(device=device, obstacles=obstacles) 
+            renderer = dc.DepthMapRenderer(device=device, camera=camera, scene=scene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH)
+            depth_map = renderer.render_depth_map().to(device)
         else:
-            depth_map = torch.ones(IMG_SIZE) * MAX_MEASURABLE_DEPTH
+            depth_map = torch.ones(IMG_SIZE, device=device) * MAX_MEASURABLE_DEPTH
                 
+        if add_noise:
+            sigma = 0.1 #[m]
+            noise = torch.normal(mean=0, std=sigma, size=IMG_SIZE, device=device)
+            depth_map += noise
+        
         # Save depth map as grayscale png with values like the actual depth
         depth_map = depth_map.squeeze().cpu()*1000 # convert to mm
         depth_map = depth_map.to(torch.float32)
@@ -105,7 +133,7 @@ if __name__ == "__main__":
         depth_map = depth_map.astype(np.uint16)
         cv2.imwrite(f"{savepath}depth_{i}.png", depth_map, [cv2.IMWRITE_PNG_COMPRESSION, 0]) # no compression
 
-        if i%50000 == 0:
+        if True:#i%1000 == 0:
             plt.style.use('ggplot')
             plt.rc('font', family='serif')
             plt.rc('xtick', labelsize=12)
@@ -113,11 +141,12 @@ if __name__ == "__main__":
             plt.rc('axes', labelsize=12)
 
             plt.figure(figsize=(8, 6))
+            depth_map = depth_map / 1000 # convert back to meters for viz
             plt.imshow(depth_map, cmap="magma")
             plt.clim(0.0, MAX_MEASURABLE_DEPTH)
             plt.colorbar(label="Depth [m]", aspect=30, orientation="vertical", fraction=0.0235, pad=0.04)
             plt.axis("off")
-            plt.savefig(f'{figures_path}depth_{i}', bbox_inches='tight')
+            plt.savefig(f'{figures_path}depth_{i}_nonoise.pdf', bbox_inches='tight')
             plt.close()
         
 
