@@ -47,6 +47,7 @@ class TensorboardLogger(BaseCallback):
             self.logger.record('time/episodes', self.n_episodes)
             infos = np.array(self.locals["infos"])[done_array]
 
+            # Standard tensorboard plotting
             avg_reward = np.mean([info["reward"] for info in infos])
             avg_length = np.mean([info["env_steps"] for info in infos])
             avg_collision_reward = np.mean([info["collision_reward"] for info in infos])
@@ -56,6 +57,15 @@ class TensorboardLogger(BaseCallback):
             avg_reach_end_reward = np.mean([info['reach_end_reward'] for info in infos])
             avg_existence_reward = np.mean([info['existence_reward'] for info in infos])
 
+            # Metrics for report plotting
+            avg_path_prog = np.mean([info["progression"] for info in infos])
+            avg_time = np.mean([info["time"] for info in infos])
+            avg_collision_rate = np.mean([info["collision_rate"] for info in infos])
+            avg_total_path_deviance = np.mean([info["total_path_deviance"] for info in infos])
+            avg_error_e = np.mean([info["errors"][0] for info in infos])
+            avg_error_h = np.mean([info["errors"][1] for info in infos])
+            
+            # Log into two different folders
             self.logger.record("episodes/avg_ep_reward", avg_reward)
             self.logger.record("episodes/avg_ep_length", avg_length)
             self.logger.record("episodes/avg_ep_collision_reward", avg_collision_reward)
@@ -64,6 +74,14 @@ class TensorboardLogger(BaseCallback):
             self.logger.record("episodes/avg_ep_path_progression_reward", avg_path_progression)
             self.logger.record("episodes/avg_ep_reach_end_reward", avg_reach_end_reward)
             self.logger.record("episodes/avg_ep_existence_reward", avg_existence_reward)
+
+            self.logger.record("metrics/avg_path_progression", avg_path_prog)
+            self.logger.record("metrics/avg_time", avg_time)
+            self.logger.record("metrics/avg_collision_rate", avg_collision_rate)
+            self.logger.record("metrics/avg_total_path_deviance", avg_total_path_deviance)
+            self.logger.record("metrics/avg_error_e", avg_error_e)
+            self.logger.record("metrics/avg_error_h", avg_error_h)
+
         
         
         if self.n_steps % self.log_freq == 0:

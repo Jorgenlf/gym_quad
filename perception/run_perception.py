@@ -9,7 +9,7 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-from utils_perception.data_reader import DataReader, SunRGBD, CustomDepthDataset, RealSenseDataset, RealSenseDataset_v2, DataReaderRealSensev2, DataReaderSynthetic
+from utils_perception.data_reader import CustomDepthDataset, RealSenseDataset, RealSenseDataset_v2, DataReaderRealSensev2, DataReaderSynthetic
 from utils_perception import plotting
 import cv2
 
@@ -95,8 +95,17 @@ def main(args):
                             transforms_train=valid_additional_transform,
                             transforms_validate=valid_additional_transform)
     
+    dataloader_combined = DataReaderRealSensev2(path_img_depth="data/all_imgs",
+                            batch_size=BATCH_SIZE,
+                            train_test_split=0.7,
+                            train_val_split=0.3,
+                            transforms_train=valid_additional_transform,
+                            transforms_validate=valid_additional_transform)
+                            
+    
     train_loader_rs, val_loader_rs, test_loader_rs = dataloader_rs.load_split_data_realsense(seed=None, shuffle=True)
-    train_loader_synthetic, val_loader_synthetic, test_loader_synthetic = dataloader_synthetic.load_split_data_synthetic(seed=None, shuffle=True)
+    #train_loader_synthetic, val_loader_synthetic, test_loader_synthetic = dataloader_synthetic.load_split_data_synthetic(seed=None, shuffle=True)
+    train_loader_combined, val_loader_combined, test_loader_combined = dataloader_combined.load_split_data_realsense(seed=None, shuffle=True)
 
 
 
@@ -129,7 +138,7 @@ def main(args):
                 # Load data with different seed
                 #train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=None, shuffle=True)
                 #train_loader, val_loader, test_loader = dataloader_rs.load_split_data_realsense(seed=None, shuffle=True)
-                train_loader, val_loader, test_loader = dataloader_synthetic.load_split_data_synthetic(seed=None, shuffle=True)
+                train_loader, val_loader, test_loader = dataloader_combined.load_split_data_realsense(seed=None, shuffle=True)
                 print('Data loaded')
                 print(f'Size train: {len(train_loader.dataset)} | Size validation: {len(val_loader.dataset)} | Size test: {len(test_loader.dataset)}\n')
 
@@ -627,7 +636,7 @@ def main(args):
             os.makedirs(savepath_recon, exist_ok=True)
             test_numbers = [96, 74, 72, 45, 27, 26, 22]
             #for i, x in enumerate(test_loader_rs):
-            for i, x in enumerate(test_loader_synthetic):
+            for i, x in enumerate(test_loader_rs):
                 if i == args.num_examples: break
                 #if i in test_numbers:
                 img = x.to(device)

@@ -561,6 +561,8 @@ class LV_VAE_MESH(gym.Env):
         self.info['errors'] = np.array([self.e, self.h])
         self.info['cmd_thrust'] = self.quadcopter.input
         self.info['action'] = action
+        self.info['collision_rate'] = int(self.collided)
+        self.info['total_path_deviance'] = np.sqrt(self.e**2 + self.h**2)
 
         # Calculate reward
         step_reward = self.reward()
