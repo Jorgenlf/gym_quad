@@ -2,6 +2,8 @@
 
 This module contains the code for the perception component of the drone simulation. It includes scripts for running and pre-training the perception model, as well as utilities for data handling, loading and saving models, and plotting.
 
+(Insert fancy pictue of VAE model from the thesis here)
+
 ## Files
 
 - `VAE/...`: Contains the encoders, decoders and VAE arcitechture.
@@ -31,17 +33,7 @@ python run_perception.py -h
 When loading a model for testing with `--model_name <modelname>`, make sure all parameters that affect the architecture of the net (i.e., `--latent_dim`, `--batch_size`, and ofc. `IMG_SIZE` and `NUM_CHANNELS` which are initialized in the VAE object) is set to the same values as during training of the given model. Also, make sure the encoder and decoder objects in the code are identical as during training.
 
 ## Pretraining VAE using SUN RGBD dataset:
-1. Get stripped depth (and possibly rgb) images from [this repo](https://github.com/ankurhanda/sunrgbd-meta-data?tab=readme-ov-file) created by Github user ankurhanda, under "Training and test data for depth" in the readme.
-2. Create directory "data/sunrgbd_stripped" and place the downloaded folders in here.
-3. Run. Images should be renamed, shuffeled and reorganized into train, validate and test folders next to "sunrgbd_stripped". A folder "sunrgbd_images_depth" is also created. This contains all of the depth images from the dataset.
+1. Step 1 get our data from somewhere (get link)
+2. put in folder on this and that format
+3. run this an dthat script
 
-
-Original dataset is obtained from [https://rgbd.cs.princeton.edu/](https://rgbd.cs.princeton.edu/), and is fully described in the following paper by B. Zhou et al.: <br/>
-B. Zhou, A. Lapedriza, J. Xiao, A. Torralba, and A. Oliva. *Learning Deep Features for Scene Recognition using Places Database Advances* in Neural Information Processing Systems 27 (NIPS2014)
-
-
-
-#### References: <br/>
-[1] N. Silberman, D. Hoiem, P. Kohli, R. Fergus. *Indoor segmentation and support inference from rgbd images*. In ECCV, 2012.<br/>
-[2] A. Janoch, S. Karayev, Y. Jia, J. T. Barron, M. Fritz, K. Saenko, and T. Darrell. *A category-level 3-d object dataset: Putting the kinect to work. In ICCV Workshop on Consumer Depth Cameras for Computer Vision*, 2011.<br/>
-[3] J. Xiao, A. Owens, and A. Torralba. *SUN3D: A database of big spaces reconstructed using SfM and object labels*. In ICCV, 2013

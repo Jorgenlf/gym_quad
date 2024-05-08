@@ -15,7 +15,7 @@ VALUE_PATH_NAME = "reward"
 VALUE_TO_PLOT = "Reward"
 SUFFIX = "_tensorboard_PPO_1"
 
-PATH = "./tensorboard_logs_to_plot_EXAMPLE/"
+PATH = "./tensorboard_logs_to_plot/"
 SAVE_NAME = f"{PATH}/plots/{VALUE_PATH_NAME}/{VALUE_PATH_NAME}_{'_'.join(AGENT_PATH_NAMES)}.pdf"
 os.makedirs(f"{PATH}/plots/{VALUE_PATH_NAME}/", exist_ok=True)
 
@@ -140,8 +140,8 @@ if __name__ == "__main__":
         # Ensure colors are the same for the two following plots of the same agent
         current_cycler = plt.rcParams['axes.prop_cycle'].by_key()['color'] # Initialize color cycler
 
-        values_smooth = exponential_moving_average(values, 0.03)
-        #values_smooth = gaussian_filter1d(values, sigma=10)
+        #values_smooth = exponential_moving_average(values, 0.03)
+        values_smooth = gaussian_filter1d(values, sigma=10)
 
         ax.plot(timesteps, values, color=current_cycler[i], alpha=0.3, zorder=5) 
         ax.plot(timesteps, values_smooth, color=current_cycler[i], label=agent_plot_name, zorder=10)
