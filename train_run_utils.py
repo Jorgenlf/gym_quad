@@ -1,11 +1,13 @@
 import argparse
 import os
+import torch
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import proj3d
 import numpy as np
 import pandas as pd
 from cycler import cycler
 from stable_baselines3 import PPO
+
 
 def parse_experiment_info():
     """Parser for the flags that can be passed with the run/train/test scripts."""
@@ -93,7 +95,7 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
         _, _, done, _, info = env.step(action)
         
         if sdm:
-            save_depth_maps(env, test_dir, noisy=True)  #Now this saves depthmaps online per timestep when obstacle is close, might be better to save up all then save all at once
+            save_depth_maps(env, test_dir)  #Now this saves depthmaps online per timestep when obstacle is close, might be better to save up all then save all at once
         
         total_t_steps = info['env_steps']
         progression.append(info['progression'])
@@ -135,33 +137,22 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
     return df, env
 
 #saving depth maps
-def save_depth_maps(env, test_dir, noisy=False):
+def save_depth_maps(env, test_dir):
     path = os.path.join(test_dir, "depth_maps")
     if not os.path.exists(path):
         os.mkdir(path)
 
-    if noisy:
-        try:
-            if env.unwrapped.nearby_obstacles != []: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
-                env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.noisy_depth_map)
-            else:
-                pass
-        except AttributeError:
-            if env.unwrapped.closest_measurement < env.unwrapped.danger_range: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
-                env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.noisy_depth_map)
-            else:
-                pass
+    empty_depth_map = torch.zeros((env.unwrapped.depth_map_size[0], env.unwrapped.depth_map_size[1]), dtype=torch.float32, device=env.unwrapped.device)
+
+    if env.unwrapped.closest_measurement < env.unwrapped.danger_range: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
+        
+        if not torch.equal(env.unwrapped.noisy_depth_map, empty_depth_map):
+            env.unwrapped.renderer.save_depth_map(f"{path}/noisy_depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.noisy_depth_map)
+        if not torch.equal(env.unwrapped.depth_map, empty_depth_map):
+            env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.depth_map)
+
     else:
-        try:
-            if env.unwrapped.nearby_obstacles != []: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
-                env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.depth_map)
-            else:
-                pass
-        except AttributeError:
-            if env.unwrapped.closest_measurement < env.unwrapped.danger_range: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
-                env.unwrapped.renderer.save_depth_map(f"{path}/depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.depth_map)
-            else:
-                pass
+        pass
 
         #Comment/uncomment if you want to save the empty depth maps from envs without obstacles
         # depth=env.depth_map
@@ -741,6 +732,7 @@ if __name__ == "__main__":
     dgaus,ce_synthdm,co_synthdm = CA_rew_v2(gauss_peak=1.5, gauss_std=30)
     #plot the 2d gaussian in 3d
     fig = plt.figure(1)
+    fig.suptitle("2D gauss to multiply with depthmaps", fontsize=16)
     ax = fig.add_subplot(111, projection='3d')
     x = np.linspace(0, 320, 320)
     y = np.linspace(0, 240, 240)
@@ -749,6 +741,7 @@ if __name__ == "__main__":
 
     #plot the center synthetic depth map in 3d
     fig = plt.figure(2)
+    fig.suptitle("Synthetic depthmap object in center", fontsize=16)
     ax = fig.add_subplot(111, projection='3d')
     x = np.linspace(0, 320, 320)
     y = np.linspace(0, 240, 240)
@@ -757,6 +750,7 @@ if __name__ == "__main__":
 
     #plot the corner synthetic depth map in 3d
     fig = plt.figure(3)
+    fig.suptitle("Synthetic depthmap object in corner", fontsize=16)
     ax = fig.add_subplot(111, projection='3d')
     x = np.linspace(0, 320, 320)
     y = np.linspace(0, 240, 240)
@@ -766,12 +760,31 @@ if __name__ == "__main__":
     #Calculate the reward from the synthetic depth maps
     non_s_ce_dm = ce_synthdm + 0.0001
     divby1_non_s_ce_dm = 1/non_s_ce_dm
-    rew = -np.sum(dgaus*divby1_non_s_ce_dm)/1000
+    scaled_center_product = (dgaus*divby1_non_s_ce_dm)/1000
+    rew = -np.sum(scaled_center_product)
     print("rew when in center", rew)
 
     non_s_co_dm = co_synthdm + 0.0001
     divby1_non_s_co_dm = 1/non_s_co_dm
-    rew = -np.sum(dgaus*divby1_non_s_co_dm)/1000
+    scaled_corner_product = (dgaus*divby1_non_s_co_dm)/1000
+    rew = -np.sum(scaled_corner_product)
     print("rew when in corner", rew)
+
+    #Visualizing the reward before it gets summed
+    fig = plt.figure(4)
+    fig.suptitle("Rew for center obj", fontsize=16)
+    ax = fig.add_subplot(111, projection='3d')
+    x = np.linspace(0, 320, 320)
+    y = np.linspace(0, 240, 240)
+    X, Y = np.meshgrid(x, y)
+    ax.plot_surface(X, Y, scaled_center_product, cmap='magma')
+
+    fig = plt.figure(5)
+    fig.suptitle("Rew for corner obj", fontsize=16)
+    ax = fig.add_subplot(111, projection='3d')
+    x = np.linspace(0, 320, 320)
+    y = np.linspace(0, 240, 240)
+    X, Y = np.meshgrid(x, y)
+    ax.plot_surface(X, Y, scaled_corner_product, cmap='magma')
     
     plt.show()
