@@ -47,8 +47,8 @@ if __name__ == "__main__":
 
     #----#----#For running of file without the need of command line arguments#----#----#
 
-    args = Namespace(manual_control=True, env = "LV_VAE_MESH-v0", save_depth_maps=False) 
-    manual_scenario = "line" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash", "easy"
+    # args = Namespace(manual_control=True, env = "LV_VAE_MESH-v0", save_depth_maps=False) 
+    manual_scenario = "crash" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash", "easy"
     
     #Temp variables for debugging
     quad_pos_log = []
