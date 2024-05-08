@@ -43,7 +43,6 @@ class LV_VAE_MESH(gym.Env):
     while the observationspace uses a Varial AutoEncoder "plus more" for observations of environment.'''
 
     def __init__(self, env_config, scenario="line"):
-        # np.random.seed(0) #Uncomment to make the environment deterministic
         # print("ENVIRONMENT: LV_VAE_MESH") #Used to verify that the correct environment is being used
         # Set all the parameters from GYM_QUAD/qym_quad/__init__.py as attributes of the class
         for key in env_config:
@@ -91,33 +90,36 @@ class LV_VAE_MESH(gym.Env):
         self.scenario = scenario
         self.obstacles = [] #Filled in the scenario functions
         self.scenario_switch = {
+            
             # Training scenarios, all functions defined at the bottom of this file
-            "line": self.scenario_line,
-            "line_new": self.scenario_line_new,
-            "horizontal": self.scenario_horizontal,
-            "horizontal_new": self.scenario_horizontal_new,
-            # "3d": self.scenario_3d,
-            "3d_new": self.scenario_3d_new,
-            "easy": self.scenario_easy,
-            "easy_random": self.scenario_random_pos_att_easy,
-            "easy_perturbed":self.scenario_easy_perturbed_sim,
-            "helix": self.scenario_helix,
-            "intermediate": self.scenario_intermediate,
-            "proficient": self.scenario_proficient,
-            "proficient_perturbed": self.scenario_proficient_perturbed_sim,
-            # "advanced": self.scenario_advanced,
-            "expert": self.scenario_expert,
-            "expert_random": self.scenario_expert_random,
-            "expert_perturbed": self.scenario_expert_perturbed_sim,
+            "line"                  : self.scenario_line,
+            "xy_line"               : self.scenario_xy_line,                
+            "squiggly_line_xy_plane": self.scenario_squiggly_line_xy_plane,
+            "3d_new"                : self.scenario_3d_new,
+            
+            "easy"                  : self.scenario_easy,
+            "easy_random"           : self.scenario_random_pos_att_easy,
+            "easy_perturbed"        : self.scenario_easy_perturbed_sim,
+            
+            "intermediate"          : self.scenario_intermediate,
+            
+            "proficient"            : self.scenario_proficient,
+            "proficient_perturbed"  : self.scenario_proficient_perturbed_sim,
+            
+            "expert"                : self.scenario_expert,
+            "expert_random"         : self.scenario_expert_random,
+            "expert_perturbed"      : self.scenario_expert_perturbed_sim,
+            
             # Testing scenarios
-            "test_path": self.scenario_test_path,
-            "test": self.scenario_test,
-            "house": self.scenario_house,
-            "horizontal": self.scenario_horizontal_test,
-            "vertical": self.scenario_vertical_test,
-            "deadend": self.scenario_deadend_test,
-            "crash": self.scenario_dev_test_crash,
-            "crash_cube": self.scenario_dev_test_cube_crash,
+            "helix"         : self.scenario_helix,
+            "test_path"     : self.scenario_test_path,
+            "test"          : self.scenario_test,
+            "house"         : self.scenario_house,
+            "horizontal"    : self.scenario_horizontal_test,
+            "vertical"      : self.scenario_vertical_test,
+            "deadend"       : self.scenario_deadend_test,
+            "crash"         : self.scenario_dev_test_crash,
+            "crash_cube"    : self.scenario_dev_test_cube_crash,
         }
 
         #New init values for sensor using depth camera, mesh and pt3d
@@ -149,10 +151,11 @@ class LV_VAE_MESH(gym.Env):
         """
         seed = kwargs.get('seed', None)
         super().reset(seed=seed)
-        # print("PRINTING SEED WHEN RESETTING:", seed) 
+        print("PRINTING SEED WHEN RESETTING:", seed) 
         
         #Temp debugging variables
         # self.quad_mesh_pos = None
+        # np.random.seed() #ONLY UNCOMMENT THIS IF YOU WANT RANDOMNESS WHEN DOING RUN3D.PY
 
         #General variables being reset
         self.quadcopter = None
@@ -675,7 +678,6 @@ class LV_VAE_MESH(gym.Env):
         #             self.inside_accept_rad_at_timeout = True
 
 
-
         #Reach end reward (sparse)
         reach_end_reward = 0
         if self.success:
@@ -715,7 +717,6 @@ class LV_VAE_MESH(gym.Env):
 
         e3 = np.array([0, 0, 1]) #z-axis basis
 
-        #TODO use IMU meas as state input to the controller
         imu_meas = self.imu.measure(self.quadcopter)
         imu_quad_angvel = np.array([imu_meas[3], imu_meas[4], imu_meas[5]])
         #Pseudo integration of linear velocity and angular rate
@@ -875,22 +876,31 @@ class LV_VAE_MESH(gym.Env):
     #### SCENARIOS #### 
     
     #Utility function for scenarios
-    def check_object_overlap(self, new_obstacle): #TODO Potentially drop if general meshes are used
-        """
-        Checks if a new obstacle is overlapping one that already exists or the target position.
-        """
-        overlaps = False
-        # check if it overlaps target:
-        endpoint_torch = torch.tensor(self.path.get_endpoint(),device=self.device).float()
-        if torch.norm(endpoint_torch - new_obstacle.position) < new_obstacle.radius + 5:
-            return True
-        # check if it overlaps already placed objects
-        for obstacle in self.obstacles:
-            if torch.norm(obstacle.position - new_obstacle.position) < new_obstacle.radius + obstacle.radius + 5:
-                overlaps = True
-        return overlaps
+    def recap_previous_scenario(self,n_prev_scenarios): #TODO needs testing but if it works can remove the if else in the scenario functions
+        
+        chance = np.random.uniform(0,1)
+        if chance < 1/n_prev_scenarios:
+            initial_state = self.scenario_line()
+        elif chance < 2/n_prev_scenarios:
+            initial_state = self.scenario_easy()
+        elif chance < 3/n_prev_scenarios:
+            initial_state = self.scenario_random_pos_att_easy()
+        elif chance < 4/n_prev_scenarios:
+            initial_state = self.scenario_proficient()
+        elif chance < 5/n_prev_scenarios:
+            initial_state = self.scenario_intermediate()
+        elif chance < 6/n_prev_scenarios:
+            initial_state = self.scenario_expert()    
+        elif chance < 7/n_prev_scenarios:
+            initial_state = self.scenario_expert_random()
+        elif chance < 8/n_prev_scenarios:
+            initial_state = self.scenario_easy_perturbed_sim()
+        else:
+            initial_state = self.scenario_proficient_perturbed_sim()
+        
+        return initial_state
     
-    def generate_obstacles(self, n, rmin, rmax , path:QPMI, mean, std, onPath=False): #TODO make into torch?
+    def generate_obstacles(self, n, rmin, rmax , path:QPMI, mean, std, onPath=False, quad_pos = None, safety_margin = 2): #TODO make into torch?
         '''
         Inputs:
         n: number of obstacles
@@ -909,25 +919,43 @@ class LV_VAE_MESH(gym.Env):
             #uniform distribution of length along path
             u_obs = np.random.uniform(0.20*path_lenght,0.90*path_lenght)
             #get path angle at u_obs
-            path_angle = path.get_direction_angles(u_obs)[0]
+            azimuth = path.get_direction_angles(u_obs)[0]
+            elevation = path.get_direction_angles(u_obs)[1]
             #Draw a normal distributed random number for the distance from the path
             dist = np.random.normal(mean, std)
             #get x,y,z coordinates of the obstacle if it were placed on the path
             x,y,z = path.__call__(u_obs)
             obs_on_path_pos = np.array([x,y,z])
-            #offset the obstacle from the path 90 degrees normal on the path
-            obs_pos = obs_on_path_pos + dist*np.array([np.cos(path_angle-np.pi/2),np.sin(path_angle-np.pi/2),0])
+            
+            #offset the obstacle from the path 90 degrees normal on the path in xy plane or zx plane 50/50
+            obs_pos = np.zeros(3)
+            if np.random.uniform(0,1) > 0.5:
+                obs_pos = obs_on_path_pos + dist*np.array([np.cos(azimuth-np.pi/2),np.sin(azimuth-np.pi/2),0])
+            else:
+                obs_pos = obs_on_path_pos + dist*np.array([np.cos(elevation-np.pi/2), 0, np.sin(elevation - np.pi/2)])
 
             obstacle_radius = np.random.uniform(rmin,rmax) #uniform distribution of size
-            if np.linalg.norm(obs_pos - obs_on_path_pos) > obstacle_radius+2 and not onPath: #2 is a safety margin   
+
+            if (not onPath) and \
+               (np.linalg.norm(obs_pos - obs_on_path_pos) > obstacle_radius + safety_margin ) and \
+               (np.linalg.norm(obs_pos - quad_pos) > obstacle_radius + safety_margin):  
+
                 obstacle_coords = torch.tensor(obs_pos,device=self.device).float().squeeze()
                 pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-                self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+                #Do a 50/50 of it being a sphere or a cube
+                if np.random.uniform(0,1) > 0.5:
+                    self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+                else:
+                    self.obstacles.append(CubeMeshObstacle(device=self.device, width=obstacle_radius*1.2, height=obstacle_radius*1.2, depth=obstacle_radius*1.2, center_position=pt3d_obs_coords, inverted=False))
                 num_obstacles += 1
-            elif onPath:   
+
+            elif onPath and (np.linalg.norm(obs_pos - quad_pos) > obstacle_radius + safety_margin):   
                 obstacle_coords = torch.tensor(obs_pos,device=self.device).float().squeeze()
                 pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-                self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+                if np.random.uniform(0,1) > 0.5:
+                    self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+                else:
+                    self.obstacles.append(CubeMeshObstacle(device=self.device, width=obstacle_radius*1.2, height=obstacle_radius*1.2, depth=obstacle_radius*1.2, center_position=pt3d_obs_coords, inverted=False))
                 num_obstacles += 1
             else:
                 continue
@@ -935,61 +963,34 @@ class LV_VAE_MESH(gym.Env):
     #No obstacles
     def scenario_line(self):
         initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(self.n_waypoints,'line')
+        waypoints = generate_random_waypoints(self.n_waypoints,'line',segmentlength=self.segment_length)
         self.path = QPMI(waypoints)
-        # init_pos = [np.random.uniform(0,2)*(-5),0, 0]#np.random.normal(0,1)*5]
-        init_pos = [0, 0, 0]#np.random.normal(0,1)*5]
-        #init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
+        init_pos = [0, 0, 0]
         init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
 
-    def scenario_line_new(self):
+    def scenario_xy_line(self):
         initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(self.n_waypoints,'line_new')
+        waypoints = generate_random_waypoints(self.n_waypoints,'xy_line', segmentlength=self.segment_length)
         self.path = QPMI(waypoints)
-        # init_pos = [np.random.uniform(0,2)*(-5),0, 0]#np.random.normal(0,1)*5]
-        init_pos = [0, 0, 0]#np.random.normal(0,1)*5]
-        #init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
+        init_pos = [0, 0, 0]
         init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
 
-    def scenario_horizontal(self):
+    def scenario_squiggly_line_xy_plane(self):
         initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(self.n_waypoints,'horizontal')
+        waypoints = generate_random_waypoints(self.n_waypoints,'squiggly_line_xy_plane' , segmentlength=self.segment_length)
         self.path = QPMI(waypoints)
-        # init_pos = [np.random.uniform(0,2)*(-5), np.random.normal(0,1)*5, 0]#np.random.normal(0,1)*5]
-        init_pos = [0, 0, 0]#np.random.normal(0,1)*5]
-        #init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
+        init_pos = [0, 0, 0]
         init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
-
-    def scenario_horizontal_new(self):
-        initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(self.n_waypoints,'horizontal_new')
-        self.path = QPMI(waypoints)
-        # init_pos = [np.random.uniform(0,2)*(-5), np.random.normal(0,1)*5, 0]#np.random.normal(0,1)*5]
-        init_pos = [0, 0, 0]#np.random.normal(0,1)*5]
-        #init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
-        init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
-        initial_state = np.hstack([init_pos, init_attitude])
-        return initial_state
-
-    # def scenario_3d(self):
-    #     initial_state = np.zeros(6)
-    #     waypoints = generate_random_waypoints(self.n_waypoints,'3d')
-    #     self.path = QPMI(waypoints)
-    #     init_pos = [np.random.uniform(0,2)*(-5), np.random.normal(0,1)*5, np.random.normal(0,1)*5]
-    #     #init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
-    #     init_attitude=np.array([0, 0, self.path.get_direction_angles(0)[0]])
-    #     initial_state = np.hstack([init_pos, init_attitude])
-    #     return initial_state
 
     def scenario_3d_new(self,random_pos=False,random_attitude=False):
         initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(self.n_waypoints,'3d_new')
+        waypoints = generate_random_waypoints(self.n_waypoints,'3d_new', segmentlength=self.segment_length)
         self.path = QPMI(waypoints)
         
         if random_pos:
@@ -1006,163 +1007,213 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
     #With obstacles
-
     def scenario_easy(self): #Surround the path with 1-4 obstacles But ensure no obstacles on path
         initial_state = self.scenario_3d_new()
         n_obstacles = np.random.randint(1,5)
-        self.generate_obstacles(n = n_obstacles, rmin=2, rmax=6, path = self.path, mean = 0, std = 5, onPath=False)
+        self.generate_obstacles(n = n_obstacles, rmin=0.2, rmax=2, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
+        
+        if np.random.uniform(0,1) < self.recap_chance:
+            initial_state = self.scenario_line()
+
+        #Shrink the acceptance radius by shrink_rate until it reaches minimum_accept_rad
+        if self.accept_rad > self.minimum_accept_rad:
+            self.accept_rad *= (1-self.shrink_rate)  
+
         return initial_state
     
     def scenario_random_pos_att_easy(self):
         initial_state = self.scenario_3d_new(random_pos=True,random_attitude=True)
         n_obstacles = np.random.randint(1,5)
-        self.generate_obstacles(n = n_obstacles, rmin=2, rmax=6, path = self.path, mean = 0, std = 5, onPath=False)
+        self.generate_obstacles(n = n_obstacles, rmin=0.2, rmax=2, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
+
+        n_prev_scenarios = 2
+        if np.random.uniform(0,1) < self.recap_chance:
+            if np.random.uniform(0,1) < 1/n_prev_scenarios:
+                initial_state = self.scenario_line()
+            else:
+                initial_state = self.scenario_easy()
+
+        if self.accept_rad > self.minimum_accept_rad:
+            self.accept_rad *= (1-self.shrink_rate)  
+
         return initial_state
 
+    def scenario_proficient(self): #NOTE THAT PROFICENT IS (USUALLY) RUN BEFORE INTERMEDATE
+        initial_state = self.scenario_3d_new()
+        #One obs near/ on path:
+        self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 0.01, onPath=True, quad_pos=initial_state[0:3])
+        # One away from path
+        self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
+
+        n_prev_scenarios = 3
+        if np.random.uniform(0,1) < self.recap_chance:
+            if np.random.uniform(0,1) < 1/n_prev_scenarios:
+                initial_state = self.scenario_line()
+            elif np.random.uniform(0,1) < 2/n_prev_scenarios:
+                initial_state = self.scenario_random_pos_att_easy()
+            else:
+                initial_state = self.scenario_easy()
+
+        if self.accept_rad > self.minimum_accept_rad:
+            self.accept_rad *= (1-self.shrink_rate)  
+
+        return initial_state
+    
     def scenario_intermediate(self):
         initial_state = self.scenario_3d_new()
-        obstacle_radius = np.random.uniform(low=4,high=10)
-        obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
+        #One obs on path
+        self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos=initial_state[0:3])
         
-        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
-        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-        self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
-        return initial_state
-
-    def scenario_proficient(self):
-        initial_state = self.scenario_3d_new()
-        obstacle_radius = np.random.uniform(low=4,high=10)
-        obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
-        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze() #go from [[x,y,z]] to [x,y,z]
-        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-        self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
-
-        lengths = np.linspace(self.path.length*1/6, self.path.length*5/6, 2)
-        for l in lengths:
-            obstacle_radius = np.random.uniform(low=4,high=10)
-            obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
-            obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze() #TODO apply squeeze to all other obstacle_coords that are [[]] and not []
-            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-            obstacle = SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path)
-            
-            if self.check_object_overlap(obstacle):
-                continue
+        n_prev_scenarios = 4
+        if np.random.uniform(0,1) < self.recap_chance:
+            if np.random.uniform(0,1) < 1/n_prev_scenarios:
+                initial_state = self.scenario_line()
+            elif np.random.uniform(0,1) < 2/n_prev_scenarios:
+                initial_state = self.scenario_random_pos_att_easy()
+            elif np.random.uniform(0,1) < 3/n_prev_scenarios:
+                initial_state = self.scenario_proficient()
             else:
-                self.obstacles.append(obstacle)
+                initial_state = self.scenario_easy()
+
+        if self.accept_rad > self.minimum_accept_rad:
+            self.accept_rad *= (1-self.shrink_rate)  
+
         return initial_state
-
-
-    # def scenario_advanced(self): #IDK WHY COMMENTED OUT
-    #     initial_state = self.scenario_proficient()
-    #     while len(self.obstacles) < self.n_adv_obstacles: # Place the rest of the obstacles randomly
-    #         s = np.random.uniform(self.path.length*1/3, self.path.length*2/3)
-    #         obstacle_radius = np.random.uniform(low=4,high=10)
-    #         obstacle_coords = self.path(s) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
-    #         obstacle = Obstacle(obstacle_radius, obstacle_coords[0])
-    #         if self.check_object_overlap(obstacle):
-    #             continue
-    #         else:
-    #             self.obstacles.append(obstacle)
-    #     return initial_state
 
     def scenario_expert(self):
         initial_state = self.scenario_3d_new()
-        obstacle_radius = np.random.uniform(low=4,high=10)
-        obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
-        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
-        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-        self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+        #One on path
+        self.generate_obstacles(n = 1, rmin=0.4, rmax=5, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos=initial_state[0:3])
+        #Five Near path
+        self.generate_obstacles(n = 5, rmin=0.4, rmax=5, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
 
-        lengths = np.linspace(self.path.length*1.5/6, self.path.length*5/6, 5)
-        for l in lengths:
-            obstacle_radius = np.random.uniform(low=4,high=10)
-            obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
-            obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
-            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)            
-            obstacle = SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path)
-            if self.check_object_overlap(obstacle):
-                continue
+        n_prev_scenarios = 5
+        if np.random.uniform(0,1) < self.recap_chance:
+            if np.random.uniform(0,1) < 1/n_prev_scenarios:
+                initial_state = self.scenario_line()
+            elif np.random.uniform(0,1) < 2/n_prev_scenarios:
+                initial_state = self.scenario_random_pos_att_easy()
+            elif np.random.uniform(0,1) < 3/n_prev_scenarios:
+                initial_state = self.scenario_intermediate()
+            elif np.random.uniform(0,1) < 4/n_prev_scenarios:
+                initial_state = self.scenario_proficient()
             else:
-                self.obstacles.append(obstacle)
+                initial_state = self.scenario_easy()
+
+        if self.accept_rad > self.minimum_accept_rad:
+            self.accept_rad *= (1-self.shrink_rate)  
 
         return initial_state
 
-
-    def scenario_expert_random(self):
+    def scenario_expert_random(self): #Cant call scenario expert as must check obstacle quadcopter overlap
         initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
-        obstacle_radius = np.random.uniform(low=4,high=10)
-        obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
-        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
-        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-        self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
- 
-        lengths = np.linspace(self.path.length*1.5/6, self.path.length*5/6, 5)
-        for l in lengths:
-            obstacle_radius = np.random.uniform(low=4,high=10)
-            obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
-            obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
-            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)            
-            obstacle = SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path)
-            if self.check_object_overlap(obstacle):
-                continue
-            #Check that the quadcopter is not spawned inside an obstacle
-            elif torch.norm(obstacle_coords - torch.tensor(initial_state[0:3],device=self.device).float().squeeze()) < obstacle_radius + 5:
-                continue
+        #One on path
+        self.generate_obstacles(n = 1, rmin=0.4, rmax=5, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos = initial_state[0:3])
+        #Five Near path
+        self.generate_obstacles(n = 5, rmin=0.4, rmax=5, path = self.path, mean = 0, std = 3, onPath=False, quad_pos = initial_state[0:3])
+        
+        n_prev_scenarios = 6
+        if np.random.uniform(0,1) < self.recap_chance:
+            if np.random.uniform(0,1) < 1/n_prev_scenarios:
+                initial_state = self.scenario_line()
+            elif np.random.uniform(0,1) < 2/n_prev_scenarios:
+                initial_state = self.scenario_random_pos_att_easy()
+            elif np.random.uniform(0,1) < 3/n_prev_scenarios:
+                initial_state = self.scenario_intermediate()
+            elif np.random.uniform(0,1) < 4/n_prev_scenarios:
+                initial_state = self.scenario_proficient()
+            elif np.random.uniform(0,1) < 5/n_prev_scenarios:
+                initial_state = self.scenario_expert()    
             else:
-                self.obstacles.append(obstacle)
- 
+                initial_state = self.scenario_easy()
+
+        if self.accept_rad > self.minimum_accept_rad:
+            self.accept_rad *= (1-self.shrink_rate)  
+
         return initial_state  
 
-    def scenario_easy_perturbed_sim(self): #Surround the path with 1-4 obstacles But ensure no obstacles on path
-        initial_state = self.scenario_3d_new()
-        n_obstacles = np.random.randint(1,5)
-        self.generate_obstacles(n = n_obstacles, rmin=2, rmax=6, path = self.path, mean = 0, std = 5, onPath=False)
+    def scenario_easy_perturbed_sim(self):
+        initial_state = self.scenario_easy()
         self.perturb_sim = True
+
+        n_prev_scenarios = 7
+        if np.random.uniform(0,1) < self.recap_chance:
+            if np.random.uniform(0,1) < 1/n_prev_scenarios:
+                initial_state = self.scenario_line()
+            elif np.random.uniform(0,1) < 2/n_prev_scenarios:
+                initial_state = self.scenario_random_pos_att_easy()
+            elif np.random.uniform(0,1) < 3/n_prev_scenarios:
+                initial_state = self.scenario_intermediate()
+            elif np.random.uniform(0,1) < 4/n_prev_scenarios:
+                initial_state = self.scenario_proficient()
+            elif np.random.uniform(0,1) < 5/n_prev_scenarios:
+                initial_state = self.scenario_expert()    
+            elif np.random.uniform(0,1) < 6/n_prev_scenarios:
+                initial_state = self.scenario_expert_random()
+            else:
+                initial_state = self.scenario_easy()
+
+        if self.accept_rad > self.minimum_accept_rad:
+            self.accept_rad *= (1-self.shrink_rate)  
+
         return initial_state
 
     def scenario_proficient_perturbed_sim(self):
-        initial_state = self.scenario_3d_new()
-        obstacle_radius = np.random.uniform(low=4,high=10)
-        obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
-        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze() #go from [[x,y,z]] to [x,y,z]
-        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-        self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
-
-        lengths = np.linspace(self.path.length*1/6, self.path.length*5/6, 2)
-        for l in lengths:
-            obstacle_radius = np.random.uniform(low=4,high=10)
-            obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
-            obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze() #TODO apply squeeze to all other obstacle_coords that are [[]] and not []
-            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-            obstacle = SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path)
-            
-            if self.check_object_overlap(obstacle):
-                continue
-            else:
-                self.obstacles.append(obstacle)
+        initial_state=self.scenario_proficient()
         self.perturb_sim = True
+
+        n_prev_scenarios = 8
+        if np.random.uniform(0,1) < self.recap_chance:
+            if np.random.uniform(0,1) < 1/n_prev_scenarios:
+                initial_state = self.scenario_line()
+            elif np.random.uniform(0,1) < 2/n_prev_scenarios:
+                initial_state = self.scenario_random_pos_att_easy()
+            elif np.random.uniform(0,1) < 3/n_prev_scenarios:
+                initial_state = self.scenario_intermediate()
+            elif np.random.uniform(0,1) < 4/n_prev_scenarios:
+                initial_state = self.scenario_proficient()
+            elif np.random.uniform(0,1) < 5/n_prev_scenarios:
+                initial_state = self.scenario_expert()    
+            elif np.random.uniform(0,1) < 6/n_prev_scenarios:
+                initial_state = self.scenario_expert_random()
+            elif np.random.uniform(0,1) < 7/n_prev_scenarios:
+                initial_state = self.scenario_easy_perturbed_sim()
+            else:
+                initial_state = self.scenario_easy()
+
+        if self.accept_rad > self.minimum_accept_rad:
+            self.accept_rad *= (1-self.shrink_rate)  
+
         return initial_state
     
     def scenario_expert_perturbed_sim(self):
-        initial_state = self.scenario_3d_new()
-        obstacle_radius = np.random.uniform(low=4,high=10)
-        obstacle_coords = self.path(self.path.length/2)# + np.random.uniform(low=-obstacle_radius, high=obstacle_radius, size=(1,3))
-        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
-        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-        self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
-
-        lengths = np.linspace(self.path.length*1.5/6, self.path.length*5/6, 5)
-        for l in lengths:
-            obstacle_radius = np.random.uniform(low=4,high=10)
-            obstacle_coords = self.path(l) + np.random.uniform(low=-(obstacle_radius+10), high=(obstacle_radius+10), size=(1,3))
-            obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
-            pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)            
-            obstacle = SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path)
-            if self.check_object_overlap(obstacle):
-                continue
-            else:
-                self.obstacles.append(obstacle)
+        initial_state = self.scenario_expert()
         self.perturb_sim = True
+
+        n_prev_scenarios = 9
+        if np.random.uniform(0,1) < self.recap_chance:
+            if np.random.uniform(0,1) < 1/n_prev_scenarios:
+                initial_state = self.scenario_line()
+            elif np.random.uniform(0,1) < 2/n_prev_scenarios:
+                initial_state = self.scenario_random_pos_att_easy()
+            elif np.random.uniform(0,1) < 3/n_prev_scenarios:
+                initial_state = self.scenario_intermediate()
+            elif np.random.uniform(0,1) < 4/n_prev_scenarios:
+                initial_state = self.scenario_proficient()
+            elif np.random.uniform(0,1) < 5/n_prev_scenarios:
+                initial_state = self.scenario_expert()    
+            elif np.random.uniform(0,1) < 6/n_prev_scenarios:
+                initial_state = self.scenario_expert_random()
+            elif np.random.uniform(0,1) < 7/n_prev_scenarios:
+                initial_state = self.scenario_easy_perturbed_sim()
+            elif np.random.uniform(0,1) < 8/n_prev_scenarios:
+                initial_state = self.scenario_proficient_perturbed_sim()
+            else:
+                initial_state = self.scenario_easy()
+
+        if self.accept_rad > self.minimum_accept_rad:
+            self.accept_rad *= (1-self.shrink_rate)    
+
         return initial_state
 
 
@@ -1195,38 +1246,38 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
     def scenario_horizontal_test(self):
-        waypoints = [(0,0,0), (50,0.1,0), (100,0,0)]
+        waypoints = [(0,0,0), (5,0.1,0), (10,0,0)]
         self.path = QPMI(waypoints)
         self.obstacles = []
         for i in range(7):
-            y = -30+10*i
-            obstacle_coords = torch.tensor([50,y,0],device=self.device)
+            y = -3+1*i
+            obstacle_coords = torch.tensor([5,y,0],device=self.device)
             pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-            self.obstacles.append(SphereMeshObstacle(radius = 5, center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+            self.obstacles.append(SphereMeshObstacle(radius = 0.5, center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
             
-        init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-5, high=5, size=(1,3))
+        init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-0.5, high=0.5, size=(1,3))
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos[0], init_attitude])
         return initial_state
 
     def scenario_vertical_test(self):
-        waypoints = [(0,0,0), (50,0,1), (100,0,0)]
+        waypoints = [(0,0,0), (5,0,1), (10,0,0)]
         self.path = QPMI(waypoints)
         self.obstacles = []
         for i in range(7):
-            z = -30+10*i
-            obstacle_coords = torch.tensor([50,0,z],device=self.device)
+            z = -3+1*i
+            obstacle_coords = torch.tensor([5,0,z],device=self.device)
             pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-            self.obstacles.append(SphereMeshObstacle(radius = 5,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
-        init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-5, high=5, size=(1,3))
+            self.obstacles.append(SphereMeshObstacle(radius = 0.5,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+        init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-0.5, high=0.5, size=(1,3))
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos[0], init_attitude])
         return initial_state
 
     def scenario_deadend_test(self):
-        waypoints = [(0,0,0), (50,0.5,0), (100,0,0)]
+        waypoints = [(0,0,0), (5,0.5,0), (10,0,0)]
         self.path = QPMI(waypoints)
-        radius = 10
+        radius = 1
         angles = np.linspace(-90, 90, 10)*np.pi/180
         obstacle_radius = (angles[1]-angles[0])*radius/2
         for ang1 in angles:
@@ -1239,22 +1290,22 @@ class LV_VAE_MESH(gym.Env):
                 pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
                 self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
 
-        init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-5, high=5, size=(1,3))
+        init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-0.5, high=0.5, size=(1,3))
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos[0], init_attitude])
         return initial_state
 
     def scenario_helix(self):
         initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(self.n_waypoints,'helix')
+        waypoints = generate_random_waypoints(self.n_waypoints,'helix', segmentlength=self.segment_length)
         self.path = QPMI(waypoints)
         # init_pos = helix_param(0)
-        init_pos = np.array([110, 0, -26]) + np.random.uniform(low=-5, high=5, size=(1,3))
+        init_pos = np.array([11, 0, -2.6]) + np.random.uniform(low=-0.5, high=0.5, size=(1,3))
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos[0], init_attitude])
         obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-        self.obstacles.append(SphereMeshObstacle(radius = 100,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+        self.obstacles.append(SphereMeshObstacle(radius = 10,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
 
         return initial_state
 
@@ -1275,11 +1326,10 @@ class LV_VAE_MESH(gym.Env):
 
 
 
-
 #Development scenarios
     def scenario_dev_test_crash(self):
         initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(3,'line')
+        waypoints = generate_random_waypoints(3,'line',segmentlength=self.segment_length)
         self.path = QPMI(waypoints)
         init_pos = [0, 0, 0]
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
@@ -1287,14 +1337,14 @@ class LV_VAE_MESH(gym.Env):
         #Place one large obstacle at the second waypoint
         obstacle_coords = torch.tensor(self.path.waypoints[1],device=self.device).float().squeeze()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-        self.obstacles.append(SphereMeshObstacle(radius = 20,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+        self.obstacles.append(SphereMeshObstacle(radius = 2,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
         # Decrease the room padding such that a crash is likely
         self.padding = 3
         return initial_state
     
     def scenario_dev_test_cube_crash(self):
         initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(3,'line')
+        waypoints = generate_random_waypoints(3,'line',segmentlength=self.segment_length)
         self.path = QPMI(waypoints)
         init_pos = [0, 0, 0]
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
@@ -1302,6 +1352,6 @@ class LV_VAE_MESH(gym.Env):
         #Place one large obstacle at the second waypoint
         obstacle_coords = torch.tensor(self.path.waypoints[1],device=self.device).float().squeeze()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-        self.obstacles.append(CubeMeshObstacle(width=20, height=20, depth=20, center_position=pt3d_obs_coords, device=self.device, inverted=False))
+        self.obstacles.append(CubeMeshObstacle(width=2, height=2, depth=2, center_position=pt3d_obs_coords, device=self.device, inverted=False))
         self.padding = 3
         return initial_state
