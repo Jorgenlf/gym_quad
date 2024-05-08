@@ -12,10 +12,10 @@ lv_vae_config = {
     "step_size"                 : 0.01,         # Step size of the simulation
     "max_t_steps"               : 30000,        # Maximum number of timesteps in the simulation before it is terminated
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle #TODO idk if this should be here might move it
-    "enclose_scene"             : False,         # Enclose the scene with a box thats scaled to the scene size
-    "padding"                   : 8,            # Padding of the box that encloses the scene [m]
-    "drone_radius_for_collision": 0.28,         # Radius of the drone for collision detection [m] #Actual radius is 0.25m
-    "recap_chance"              : 0.1,          #TODO implement this Chance of recapitulating a previous trainig scenario
+    "enclose_scene"             : True,         # Enclose the scene with a box thats scaled to the scene size
+    "padding"                   : 1.5,          # Padding of the box that encloses the scene [m]
+    "drone_radius_for_collision": 0.3,          # Radius of the drone for collision detection [m] #Actual radius is 0.25m
+    "recap_chance"              : 0.01,          #TODO implement this Chance of recapitulating a previous trainig scenario
 #Noise parameters #TODO add the noise values here as well?    
     "perturb_sim"               : False,         # Activates all the noise below. Also, the perturb scenarios inside LV_VAE_MESH.py sets this to True
     "perturb_domain"            : False,         # Perturb the domain observation
@@ -34,12 +34,14 @@ lv_vae_config = {
     "compressed_depth_map_size" : 224,           # Size of depth map after compression
     "latent_dim"                : 32,            # Dimension of the latent space
 #Path related parameters
-    "la_dist"                   : 20,           # Look ahead distance aka distance to the point on path to be followed. old:20  #TODO must be lowered when running inside house
-    "accept_rad"                : 5,           # Acceptance radius for the quadcopter to consider the end as reached old:5     #TODO must be lowered when running inside house
-    "n_waypoints"               : 4,             # Number of waypoints to be generated
-    "segment_length"            : 50,            # Length of the segments between waypoints #TODO pass this to the scenario fcns
+    "la_dist"                   : 2,             # Look ahead distance aka distance to the point on path to be followed. old:20  #TODO must be lowered when running inside house
+    "accept_rad"                : 4,             # Acceptance radius for the quadcopter to consider the end as reached old:5     #TODO must be lowered when running inside house
+    "minimum_accept_rad"        : 0.5,           # Minimum acceptance radius for the quadcopter to consider the end as reached
+    "shrink_rate"               : 0.1,           # Rate at which the acceptance radius shrinks when switching training scenarios. 0.1 means a 10% reduction in size per scenario 
+    "n_waypoints"               : 6,             # Number of waypoints to be generated
+    "segment_length"            : 5,             # Length of the segments between waypoints #TODO pass this to the scenario fcns
 #Drone controller parameters
-    "s_max"                     : 2,             # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  
+    "s_max"                     : 1.5,           # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  
     "i_max"                     : deg2rad(80/2), # Maximum inclination angle of commanded velocity wrt x-axis #TODO decide this. Per now set it to ish half of vertical sensor span
     "r_max"                     : deg2rad(30),   # Maximum commanded yaw rate rad/s
     "kv"                        : 2.5,           # Velocity gain             All tuned in test_controller.py
@@ -49,11 +51,11 @@ lv_vae_config = {
     "min_reward"                : -1e4,          # Minimum reward before the simulation is terminated
     
     #Path adherence reward
-    'PA_band_edge'              : 10,            # edge of Path adherence band
+    'PA_band_edge'              : 1,            # edge of Path adherence band
     'PA_scale'                  : 3,             # scale of Path adherence reward [-PA_scale, PA_scale]
     
     #Path progression reward
-    'let_lambda_affect_PP'      : False,         # Wether to let lambda affect the path progression reward or not
+    'let_lambda_affect_PP'      : False,         #THINK IT IS WISE TO KEEP THIS FALSE ACTUALLY. Wether to let lambda affect the path progression reward or not
     'PP_vel_scale'              : 1,             # scaling of velocity reward e.g. 1-> make 2.5m/s
     'PP_rew_max'                : 2.5,           # maximum reward for path progression
     'PP_rew_min'                : -1,            # minimum reward for path progression

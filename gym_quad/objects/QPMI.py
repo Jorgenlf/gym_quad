@@ -360,19 +360,8 @@ class QPMI():
         return ax
 
 
-def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentlength=50): #Decide a reasonbale segment length
+def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentlength=5): #Decide a reasonbale segment length
     waypoints = [np.array([0,0,0])]
-
-    # if scen == '3d':
-    #     for i in range(nwaypoints-1):
-    #         distance = segmentlength
-    #         azimuth = np.random.uniform(-np.pi/4, np.pi/4)
-    #         elevation = np.random.uniform(-np.pi/4, np.pi/4)
-    #         x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
-    #         y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
-    #         z = waypoints[i][2] + distance*np.sin(elevation)
-    #         wp = np.array([x, y, z])
-    #         waypoints.append(wp)
 
     if scen == "house": 
         waypoints.pop(0) #remove the initial waypoint
@@ -443,18 +432,7 @@ def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentl
             wp = np.array([x, y, z])
             waypoints.append(wp)
 
-    elif scen =='horizontal':
-        for i in range(nwaypoints-1):
-            distance = segmentlength
-            azimuth = np.random.uniform(-np.pi/4, np.pi/4)
-            elevation = np.random.uniform(-np.pi/4, np.pi/4)
-            x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
-            y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
-            z = 0
-            wp = np.array([x, y, z])
-            waypoints.append(wp)
-
-    elif scen =='horizontal_new':
+    elif scen =='squiggly_line_xy_plane':
         a_start_angle=np.random.uniform(-np.pi,np.pi)
         e_start_angle=np.random.uniform(-np.pi,np.pi) 
         distance = segmentlength
@@ -467,17 +445,24 @@ def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentl
             waypoints.append(wp)
 
     elif scen=='line':
+        #Line in x direction throws error if segmentlength is too small
+        path_length = segmentlength*(nwaypoints-1)
+        
+        new_segmentlength = path_length/2
+        nwaypoints = 3
+
         for i in range(nwaypoints-1):
-            distance = segmentlength
+            distance = new_segmentlength
             azimuth = np.random.uniform(-np.pi/4, np.pi/4)
             elevation = np.random.uniform(-np.pi/4, np.pi/4)
             x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
-            y = 0
-            z = 0
+            y = 0 
+            z = 0 
+            
             wp = np.array([x, y, z])
             waypoints.append(wp)
 
-    elif scen=='line_new':
+    elif scen=='xy_line':
         a_start_angle=np.random.uniform(-np.pi,np.pi)
         azimuth = a_start_angle+np.random.uniform(-np.pi/4, np.pi/4)
         elevation = np.random.uniform(-np.pi/4, np.pi/4)
@@ -493,7 +478,7 @@ def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentl
         waypoints = []
         n_waypoints = 26
         angles = np.linspace(0, 4*np.pi, n_waypoints)
-        radius = 110
+        radius = 11
         for i, angle in enumerate(angles):
             x = radius*np.cos(angle)
             y = radius*np.sin(angle)
