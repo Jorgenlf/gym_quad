@@ -12,18 +12,18 @@ lv_vae_config = {
     "step_size"                 : 0.01,         # Step size of the simulation
     "max_t_steps"               : 30000,        # Maximum number of timesteps in the simulation before it is terminated
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle #TODO idk if this should be here might move it
-    "enclose_scene"             : True,         # Enclose the scene with a box thats scaled to the scene size
+    "enclose_scene"             : False,         # Enclose the scene with a box thats scaled to the scene size
     "padding"                   : 8,            # Padding of the box that encloses the scene [m]
-    "drone_radius_for_collision": 0.28,         # Radius of the drone for collision detection [m] #Actual radius is 0.25m
+    "drone_radius_for_collision": 0.1,         # Radius of the drone for collision detection [m] #Actual radius is 0.25m
     "recap_chance"              : 0.1,          #TODO implement this Chance of recapitulating a previous trainig scenario
 #Noise parameters #TODO add the noise values here as well?    
+    "perturb_sim"               : False,         # Activates all the noise below. Also, the perturb scenarios inside LV_VAE_MESH.py sets this to True
     "perturb_domain"            : False,         # Perturb the domain observation
     "perturb_IMU"               : False,         # Perturb the IMU data
     "perturb_depth_map"         : False,         # Perturb the depth map with noise
     "perturb_camera_pose"       : False,         # Perturb the camera pose
     "perturb_ctrl_gains"        : False,         # Perturb the control gains
     "perturb_latency"           : False,         # Perturb the latency of the sensors
-    "perturb_sim"               : False,         # Activates all the noise above. The perturb scenarios inside LV_VAE_MESH.py set this to True
 #Depth camera parameters    
     "FOV_vertical"              : 75,            # Vertical field of view of the depth camera
     "FOV_horizontal"            : 62,            # Horizontal field of view of the depth camera
@@ -33,14 +33,14 @@ lv_vae_config = {
 #VAE parameters    
     "compressed_depth_map_size" : 224,           # Size of depth map after compression
     "latent_dim"                : 32,            # Dimension of the latent space
-#Path planner parameters
-    "la_dist"                   : 20,            # Look ahead distance aka distance to the point on path to be followed
-    "accept_rad"                : 5,             # Acceptance radius for the quadcopter to consider the end as reached
+#Path related parameters
+    "la_dist"                   : 1.5,           # Look ahead distance aka distance to the point on path to be followed. old:20  #TODO must be lowered when running inside house
+    "accept_rad"                : 0.5,           # Acceptance radius for the quadcopter to consider the end as reached old:5     #TODO must be lowered when running inside house
     "n_waypoints"               : 4,             # Number of waypoints to be generated
     "segment_length"            : 50,            # Length of the segments between waypoints #TODO pass this to the scenario fcns
 #Drone controller parameters
-    "s_max"                     : 2,             # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  
-    "i_max"                     : deg2rad(80/2), # Maximum inclination angle of commanded velocity wrt x-axis #TODO decide this. Per now set it to ish half of vertical sensor span
+    "s_max"                     : 0.75,             # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  
+    "i_max"                     : deg2rad(70/2), # Maximum inclination angle of commanded velocity wrt x-axis #TODO decide this. Per now set it to ish half of vertical sensor span
     "r_max"                     : deg2rad(30),   # Maximum commanded yaw rate rad/s
     "kv"                        : 2.5,           # Velocity gain             All tuned in test_controller.py
     "kangvel"                   : 0.8,           # Angular velocity gain     

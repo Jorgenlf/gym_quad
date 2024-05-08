@@ -139,9 +139,6 @@ class LV_VAE_MESH(gym.Env):
                 TwoD_gaussian[i,j] = peak*np.exp(-((i-self.depth_map_size[0]/2)**2 + (j-self.depth_map_size[1]/2)**2)/(2*std**2))
         self.torch_TwoD_gaussian = torch.tensor(TwoD_gaussian, device=self.device)
 
-        # with np.printoptions(threshold=np.inf):
-        #     print("TwoD_gaussian", self.TwoD_gaussian)
-
         #Reset environment to init state
         self.reset()
 
@@ -185,7 +182,7 @@ class LV_VAE_MESH(gym.Env):
         self.imu = IMU()
         self.imu_measurement = np.zeros((6,), dtype=np.float32) 
 
-
+        #Noise variables
         #If the simulation is not to be perturbed the noise values are set to 0
         #Camera pos orient no noise
         self.camera_look_direction = np.array([1, 0, 0])
@@ -227,6 +224,7 @@ class LV_VAE_MESH(gym.Env):
         # self.inside_accept_rad_at_timeout = False
         # self.begin_countup = False
         # self.count_started = False
+        self.scaled_CA_reward_pre_clip = 0
 
         #Obstacle variables
         self.obstacles = []
@@ -267,7 +265,6 @@ class LV_VAE_MESH(gym.Env):
         raster_settings = None
         scene = None
         if self.obstacles!=[]:
-
             camera = FoVPerspectiveCameras(device = self.device,fov=self.FOV_vertical)
             raster_settings = RasterizationSettings(
                     image_size=self.depth_map_size, 
@@ -351,9 +348,15 @@ class LV_VAE_MESH(gym.Env):
         else:
             temp_depth_map = self.depth_map #Handles the case where there are no obstacles, Is equal to the init of self.depth_map which is all pixels at max_depth
 
+        #These are for the collision avoidance reward but done here to save time as move from GPU to CPU is costly so bunch them together below
         self.closest_measurement = torch.min(temp_depth_map) #TODO this only gives the sensors closest but not globally closests might be troublesome for reward calc?
                                                              #Is not really a problem as the quad is constrained to move in the fov of the camera
-        
+
+        non_singular_depth_map = temp_depth_map + self.CA_epsilon #Adding 0.0001 to avoid singular matrix
+        div_by_one_depth_map = 1 / non_singular_depth_map
+        reward_collision_avoidance_pre_clip = -torch.sum((self.torch_TwoD_gaussian * div_by_one_depth_map)) 
+
+
         # Add Gaussian noise to depth map (naive noise model)
         if self.perturb_sim or self.perturb_depth_map:
             sigma = 0.1 # [m] Standard deviation of the Gaussian noise added to the depth map
@@ -374,10 +377,11 @@ class LV_VAE_MESH(gym.Env):
 
         resized_depth_map = resize_transform(normalized_depth_map_PIL)
         
+        #All moves from GPU to CPU are done here to save time
+        self.scaled_CA_reward_pre_clip = reward_collision_avoidance_pre_clip.item()*self.CA_scale #This item operation is costly as moves from GPU to CPU 
         self.closest_measurement = self.closest_measurement.item()  
         self.sensor_readings = resized_depth_map.detach().cpu().numpy()
         #.item() and .detach.cpu.numpy Moves the data from GPU to CPU so we do it here close to the tensor to numpy conversion as
-        #it is suggested to clump gpu to cpu operations together to save time
         
 
         #Domain observation
@@ -502,10 +506,9 @@ class LV_VAE_MESH(gym.Env):
                 sensor_latency = np.random.uniform(-1, 1)  #When running 15fps camera and 100Hz physics sim the steps are 6.67ms long so with the sensor latency the steps will range from 4.67ms to 8.67ms
             # pass    #                                                     #When running 10fps camera and 100Hz physics sim the steps are 10ms long so with the sensor latency the steps will range from 8ms to 12ms
 
-        #Camera is at 15FPS physics is at 100HZ
-        #Make the quadcopter step until a new depth map is available
-        sim_hz = 1/self.step_size
-        cam_hz = self.camera_FPS
+        #The quadcopter steps until a new depth map is available
+        sim_hz = 1/self.step_size #100 Hz usually
+        cam_hz = self.camera_FPS  #15 Hz usually
         steps_before_new_depth_map = sim_hz//cam_hz + sensor_latency
         for i in range(int(steps_before_new_depth_map)):           
             F = self.geom_ctrlv2(action)
@@ -619,14 +622,8 @@ class LV_VAE_MESH(gym.Env):
                 if lambda_PA < 0.10 : lambda_PA = 0.10
                 lambda_CA = 1-lambda_PA
 
-                #NEW 2D gaussian approach
-                non_singular_depth_map = self.depth_map + self.CA_epsilon #Adding 0.0001 to avoid singular matrix
-                div_by_one_depth_map = 1 / non_singular_depth_map
-                reward_collision_avoidance_pre_clip = -torch.sum((self.torch_TwoD_gaussian * div_by_one_depth_map)) 
-
-                #Might have to move this calculation to observe to do the item operation together with the other movements from GPU to CPU which happen up there.
-                scaled_reward_pre_clip = reward_collision_avoidance_pre_clip.item()*self.CA_scale #This item operation is costly as moves from GPU to CPU 
-                reward_collision_avoidance = np.clip(scaled_reward_pre_clip, self.min_CA_rew, 0)
+                #NEW 2D gaussian approach happens in observe to save time but clip the result here so it only happens when close to an obstacle.
+                reward_collision_avoidance = np.clip(self.scaled_CA_reward_pre_clip, self.min_CA_rew, 0)
         
                 #OLD naive ish reward function
                 # inv_abs_min_rew = self.abs_inv_CA_min_rew 

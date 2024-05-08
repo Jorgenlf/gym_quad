@@ -6,6 +6,22 @@ from mpl_toolkits.mplot3d import Axes3D
 
 from typing import Tuple
 
+
+
+#This is done to make the import below work However should work by itself #TODO low priority
+import sys
+import os
+#Use os and sys to access the modules inside gym_quad (imports below are from gym_quad)
+# Get the directory of the current script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Get the parent and grandparent directory of the current script
+parent_dir = os.path.dirname(script_dir)
+grand_parent_dir = os.path.dirname(parent_dir)
+# Add the parent directory to the Python path
+sys.path.append(grand_parent_dir)
+
+from gym_quad.utils.house_paths import house_paths
+
 """Path generation using Quadratic Piecewise Membership Functions (QPMI)"""
 class QPMI():
     def __init__(self, waypoints):
@@ -344,7 +360,7 @@ class QPMI():
         return ax
 
 
-def generate_random_waypoints(nwaypoints, scen, segmentlength=50): #Decide a reasonbale segment length
+def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentlength=50): #Decide a reasonbale segment length
     waypoints = [np.array([0,0,0])]
 
     # if scen == '3d':
@@ -357,35 +373,63 @@ def generate_random_waypoints(nwaypoints, scen, segmentlength=50): #Decide a rea
     #         z = waypoints[i][2] + distance*np.sin(elevation)
     #         wp = np.array([x, y, z])
     #         waypoints.append(wp)
+
     if scen == "house": 
-        waypoints = [] #reset the waypoints list that we will generate
+        waypoints.pop(0) #remove the initial waypoint
+
+        # Could do some fancy logic where the subpaths are chosen based on
+        # the last name in the previous subpath must match the first in this path while also not being the same as the first of the previous path
+        path_1 = house_paths["bedroom_to_kitchen"]
+
+        path_2_1 = house_paths["leisure_room_to_corridor"]
+        path_2_2 = house_paths["corridor_to_living_room"]
+        path_2_3 = house_paths["living_room_to_entrance_hall"]
+        path_2_4 = house_paths["entrance_hall_to_guest_room"]
+        path_2_2.pop(0) #Removing the first waypoint in path_2_2 as it is the same as the last waypoint in path_2_1
+        path_2_3.pop(0) 
+        path_2_4.pop(0)        
+        path_2 = path_2_1 + path_2_2 + path_2_3 + path_2_4
+
+        path_3_1 = house_paths["living_room_to_bedroom"]
+        path_3_2 = house_paths["bedroom_to_main_bedroom"]
+        path_3_3 = house_paths["main_bedroom_to_home"]
+        path_3_2.pop(0) 
+        path_3_3.pop(0)
+        path_3 = path_3_1 + path_3_2 + path_3_3
+
+        path_4_1 = house_paths["kitchen_to_home"]
+        path_4_2 = house_paths["home_to_leisure_room"]
+        path_4_3 = house_paths["leisure_room_to_corridor"]
+        path_4_2.pop(0) 
+        path_4_3.pop(0)
+        path_4 = path_4_1 + path_4_2 + path_4_3
+
+        path_5_1 = house_paths["entrance_hall_to_corridor"]
+        path_5_2 = house_paths["corridor_to_living_room"]
+        path_5_3 = house_paths["living_room_to_kitchen"]
+        path_5_2.pop(0) 
+        path_5_3.pop(0)
+        path_5 = path_5_1 + path_5_2 + path_5_3
+
+        #randomly choose one of the five paths
+        if np.random.uniform() < 0.2 or select_house_path == 1:
+            for wp in path_1:
+                waypoints.append(np.array(wp))
+        elif np.random.uniform() < 0.4 or select_house_path == 2:
+            for wp in path_2:
+                waypoints.append(np.array(wp))
+        elif np.random.uniform() < 0.6 or select_house_path == 3:
+            for wp in path_3:
+                waypoints.append(np.array(wp))
+        elif np.random.uniform() < 0.8 or select_house_path == 4:
+            for wp in path_4:
+                waypoints.append(np.array(wp))
+        elif np.random.uniform() < 1 or select_house_path == 5:
+            for wp in path_5:
+                waypoints.append(np.array(wp))
         
-        #Assume that we have a list of possible waypoints in the house 
-        #and a data structure that describes the connections between them a graph with edges as dist between waypoints and waypoints as nodes would be nice
-        #Alternatively for ease of implementation we could just have a list of waypoints and a list of connections between them
 
-        #TODO update this to randomly pick from the list of waypoints Håvard sends us :)
-        #NB might have to change them from enu to pt3d???
-        valid_wps = np.array([np.array([0,0,0]), np.array([1,2,2]), np.array([5,10,2]), np.array([10,5,2]), np.array([-10,2,8]), np.array([-8,5,8])])
-        connection_indices = [[1],[0,2,3],[1],[1],[1],[4]] #This is a list of lists where the first list is the connections of the first waypoint and so on
-        #The waypoints are in the form of [x,y,z]
-        stop_path_gen = False
-        while not stop_path_gen:
-            #Select a random starting waypoint
-            start_wp_idx = np.random.randint(0,len(valid_wps))
-            waypoints.append(valid_wps[start_wp_idx])
-            #Select a random number of waypoints to generate
-            n_waypoints = np.random.randint(3,5) #Must minimum be 3
-            for i in range(n_waypoints):
-                #Select a random connection from the current waypoint
-                connections = connection_indices[start_wp_idx]
-                next_wp_idx = np.random.choice(connections)
-                waypoints.append(valid_wps[next_wp_idx])
-                start_wp_idx = next_wp_idx
-            stop_path_gen = True
-
-
-    if scen =='3d_new':
+    elif scen =='3d_new':
         a_start_angle=np.random.uniform(-np.pi,np.pi)
         e_start_angle=np.random.uniform(-np.pi,np.pi) 
         e_start_angle=0
@@ -466,14 +510,14 @@ if __name__ == "__main__":
                     np.array([80,80,60]), np.array([50,80,20]), np.array([20,60,15]), np.array([20,40,10]), np.array([0,0,0])])
     #wps = np.array([np.array([0,0,0]), np.array([20,25,22]), np.array([50,40,30]), np.array([90,55,60]), np.array([130,95,110]), np.array([155,65,86])])
     #wps = generate_random_waypoints(10)
-    wps = generate_random_waypoints(10,scen='house')
+    wps = generate_random_waypoints(10,scen='house',select_house_path=3)
     path = QPMI(wps)
    
-    point = path(20)
-    azi, ele = path.get_direction_angles(20)
-    vec_x = point[0] + 20*np.cos(azi)*np.cos(ele)
-    vec_y = point[1] + 20*np.sin(azi)*np.cos(ele)
-    vec_z = point[2] - 20*np.sin(ele)
+    # point = path(20)
+    # azi, ele = path.get_direction_angles(20)
+    # vec_x = point[0] + 20*np.cos(azi)*np.cos(ele)
+    # vec_y = point[1] + 20*np.sin(azi)*np.cos(ele)
+    # vec_z = point[2] - 20*np.sin(ele)
     
     ax = path.plot_path()
     ax.plot3D(xs=wps[:,0], ys=wps[:,1], zs=wps[:,2], linestyle="dashed", color="#33bb5c")
@@ -483,9 +527,9 @@ if __name__ == "__main__":
         ax.scatter3D(*wp, color="r")
     ax.legend(["QPMI path", "Linear piece-wise path", "Waypoints"], fontsize=14)
     plt.rc('lines', linewidth=3)
-    ax.set_xlabel(xlabel="North [m]", fontsize=14)
-    ax.set_ylabel(ylabel="East [m]", fontsize=14)
-    ax.set_zlabel(zlabel="Down [m]", fontsize=14)
+    ax.set_xlabel(xlabel="East [m]", fontsize=14)
+    ax.set_ylabel(ylabel="North [m]", fontsize=14)
+    ax.set_zlabel(zlabel="Up [m]", fontsize=14)
     ax.xaxis.set_tick_params(labelsize=12)
     ax.yaxis.set_tick_params(labelsize=12)
     ax.zaxis.set_tick_params(labelsize=12)
