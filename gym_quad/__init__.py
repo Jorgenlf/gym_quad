@@ -15,7 +15,7 @@ lv_vae_config = {
     "enclose_scene"             : True,         # Enclose the scene with a box thats scaled to the scene size
     "padding"                   : 1.5,          # Padding of the box that encloses the scene [m]
     "drone_radius_for_collision": 0.3,          # Radius of the drone for collision detection [m] #Actual radius is 0.25m
-    "recap_chance"              : 0.01,          #TODO implement this Chance of recapitulating a previous trainig scenario
+    "recap_chance"              : 0.1,          # Chance of recapitulating a previous trainig scenario
 #Noise parameters #TODO add the noise values here as well?    
     "perturb_sim"               : False,         # Activates all the noise below. Also, the perturb scenarios inside LV_VAE_MESH.py sets this to True
     "perturb_domain"            : False,         # Perturb the domain observation
@@ -34,15 +34,15 @@ lv_vae_config = {
     "compressed_depth_map_size" : 224,           # Size of depth map after compression
     "latent_dim"                : 32,            # Dimension of the latent space
 #Path related parameters
-    "la_dist"                   : 2,             # Look ahead distance aka distance to the point on path to be followed. old:20  #TODO must be lowered when running inside house
-    "accept_rad"                : 4,             # Acceptance radius for the quadcopter to consider the end as reached old:5     #TODO must be lowered when running inside house
+    "la_dist"                   : 2,             # Look ahead distance aka distance to the point on path to be followed. old:20  
+    "accept_rad"                : 4,             # Acceptance radius for the quadcopter to consider the end as reached old:5     
     "minimum_accept_rad"        : 0.5,           # Minimum acceptance radius for the quadcopter to consider the end as reached
-    "shrink_rate"               : 0.1,           # Rate at which the acceptance radius shrinks when switching training scenarios. 0.1 means a 10% reduction in size per scenario 
     "n_waypoints"               : 6,             # Number of waypoints to be generated
-    "segment_length"            : 5,             # Length of the segments between waypoints #TODO pass this to the scenario fcns
+    "segment_length"            : 5,             # Length of the segments between waypoints
+    "relevant_dist_to_path"     : 5,             # Distance to the path where the observation will yield values between -1 and 1
 #Drone controller parameters
     "s_max"                     : 1.5,           # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  
-    "i_max"                     : deg2rad(80/2), # Maximum inclination angle of commanded velocity wrt x-axis #TODO decide this. Per now set it to ish half of vertical sensor span
+    "i_max"                     : deg2rad(80/2), # Maximum inclination angle of commanded velocity wrt x-axis #Approx half of vertical FOV restricts drone to fly where it can see
     "r_max"                     : deg2rad(30),   # Maximum commanded yaw rate rad/s
     "kv"                        : 2.5,           # Velocity gain             All tuned in test_controller.py
     "kangvel"                   : 0.8,           # Angular velocity gain     
@@ -70,7 +70,7 @@ lv_vae_config = {
     'existence_reward'          : -0.005,        # reward for existing
     
     #Collision avoidance
-    'use_old_CA_rew'            : True,         # Wether to use the old or new collision avoidance reward function
+    'use_old_CA_rew'            : True,          # Wether to use the old or new collision avoidance reward function
         #Collision avoidance old
     'danger_range'              : 10,            # Range between quadcopter and obstacle within which the quadcopter is in danger
     'abs_inv_CA_min_rew'        : 1/16,          # 1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x 

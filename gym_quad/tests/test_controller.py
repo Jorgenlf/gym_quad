@@ -57,7 +57,6 @@ class TestController(unittest.TestCase):
         -------
         F : np.array (4,)
         The thrust inputs required to follow path and avoid obstacles according to the action of the DRL agent.
-        #TODO add an additional loop that converts desired thrust per rotor to angular velocity of the rotorblades.
         """
         #Using hyperparam of s_max, i_max, r_max to clip the action to get the commanded velocity and yaw rate
         cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1]*self.i_max)#*self.i_max)
@@ -76,13 +75,11 @@ class TestController(unittest.TestCase):
 
         #Prop, damp and integral gains for the linear velocity
         #OLD gains get fairish tracking of x and z but not y
-        #TODO use e.g. pole placement to get better gains
         #These make the attitude reach angles of 30 deg where i think the small angle assumption begins to fail.
         # K_p = np.diag([6, 0.8, 4])
         # K_d = np.diag([0.5, 0.2, 0.5])
         # K_i = np.diag([4, 0.3, 1.5])
 
-        # #NEW gains to get better tracking of x and z and y #TODO
         K_p = np.diag([1.2, 1.2, 1.2])
         K_d = np.diag([0.1, 0.1, 0.1])
         K_i = np.diag([2, 2, 2])
@@ -91,7 +88,6 @@ class TestController(unittest.TestCase):
         vel_body = self.quadcopter.velocity
         # body velocity available by integrating linear accelerations from IMU
         # attitude available from integrating up the angular rates from the IMU after calibration ofc
-        # Or try to do state estimation with a kalman filter or something as integrating up the IMU data is not very accurate #TODO
 
         # Try vehicle frame velcoity control!
         # euler_angles = self.quadcopter.attitude
@@ -164,7 +160,6 @@ class TestController(unittest.TestCase):
             -------
             F : np.array (4,)
             The thrust inputs required to follow path and avoid obstacles according to the action of the DRL agent.
-            #TODO add an additional loop that converts desired thrust per rotor to angular velocity of the rotorblades.
             """
             #Using hyperparam of s_max, i_max, r_max to clip the action to get the commanded velocity and yaw rate
             cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1]*self.i_max)#*self.i_max)
@@ -396,7 +391,7 @@ class TestController(unittest.TestCase):
         F = np.clip(F, ss.thrust_min, ss.thrust_max)
         return F
 
-    def active_geom_ctrlv2(self, action): #TODO turn into torch operations might speed up the simulation
+    def active_geom_ctrlv2(self, action): 
         #Translate the action to the desired velocity and yaw rate
         cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1]*self.i_max)
         cmd_v_y = 0
@@ -404,7 +399,6 @@ class TestController(unittest.TestCase):
         cmd_r = self.r_max * action[2]
         self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r]) #For plotting
 
-        #Gains, z-axis-basis=e3 and rotation matrix #TODO add stochasticity to make sim2real robust
         kv = 2.5
         kR = 0.8
         kangvel = 0.8
@@ -473,35 +467,6 @@ class TestController(unittest.TestCase):
         F = np.linalg.inv(ss.B()[2:]).dot(u)
         F = np.clip(F, ss.thrust_min, ss.thrust_max)
         return F
-    
-
-#Function that calculates the timeconstant of the step response:
-def timeconstant(timesteps, statelog, ref): #TODO verify that this function works as intended
-    """
-    Function that calculates the timeconstant of the step response.
-    """
-    #Find the time constant of the step response
-    #The time constant is the time it takes for the step response to reach 63.2% of the final value
-    #The time constant is found by fitting an exponential curve to the step response
-    #The exponential curve is of the form y = A(1 - e^(-t/tau))
-    #Where y is the step response, A is the final value of the step response, t is time and tau is the time constant
-    #The time constant is found by fitting the curve to the step response and finding the value of tau
-    #The time constant is found by minimizing the sum of the squared differences between the curve and the step response
-    #The time constant is found by using the scipy.optimize.curve_fit function
-    #The time constant is found by fitting the curve to the step response and finding the value of tau
-    #The time constant is found by minimizing the sum of the squared differences between the curve and the step response
-    #The time constant is found by using the scipy.optimize.curve_fit function
-    from scipy.optimize import curve_fit
-
-    def exponential_curve(t, A, tau):
-        return A*(1 - np.exp(-t/tau))
-
-    #Find the final value of the step response
-    A = np.mean(statelog[-100:])
-    #Find the time constant of the step response
-    tau = curve_fit(exponential_curve, timesteps, statelog, p0=[A, 1])[0][1]
-    # print("Time constant: ", tau)
-    return tau
     
 
 if __name__ == '__main__':
@@ -842,20 +807,6 @@ if __name__ == '__main__':
     plt.ylabel('Attitude (degrees)')
     plt.xlabel('Timesteps[s]')
     plt.legend()
-
-    #This might be faulty
-    # print("Time constant of the step response: ", timeconstant(timesteps, [v[0] for v in actual_vel_world], vel_ref))
-    # print("Time constant of the step response: ", timeconstant(timesteps, [v[1] for v in actual_vel_world], vel_ref))
-    # print("Time constant of the step response: ", timeconstant(timesteps, [v[2] for v in actual_vel_world], vel_ref))
-    # print("Time constant of the step response Velocity body x: ", timeconstant(timesteps, [v[0] for v in actual_vel_body], vel_ref))
-    # print("Time constant of the step response Velocity body y: ", timeconstant(timesteps, [v[1] for v in actual_vel_body], vel_ref))
-    # print("Time constant of the step response Velocity body z", timeconstant(timesteps, [v[2] for v in actual_vel_body], vel_ref))
-    # print("Time constant of the step response Yaw rate: ", timeconstant(timesteps, actual_yaw_rate, yaw_rate_ref))
-    # print("Time constant of the step response Incline: ", timeconstant(timesteps, actual_incl_angle_body, incline_ref))
-    # print("Time constant of the step response AoA: ", timeconstant(timesteps, aoa, incline_ref))
-    # print("Time constant of the step response Roll: ", timeconstant(timesteps, roll, des_roll))
-    # print("Time constant of the step response Pitch: ", timeconstant(timesteps, pitch, des_pitch))
-    # print("Time constant of the step response Yaw: ", timeconstant(timesteps, yaw, des_yaw))
 
     plt.show()
 
