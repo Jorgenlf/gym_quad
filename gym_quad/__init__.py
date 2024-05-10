@@ -35,9 +35,9 @@ lv_vae_config = {
     "latent_dim"                : 32,            # Dimension of the latent space
 #Path related parameters
     "la_dist"                   : 2,             # Look ahead distance aka distance to the point on path to be followed. old:20  #TODO must be lowered when running inside house
-    "accept_rad"                : 4,             # Acceptance radius for the quadcopter to consider the end as reached old:5     #TODO must be lowered when running inside house
+    "accept_rad"                : 3,             # Acceptance radius for the quadcopter to consider the end as reached old:5     #TODO must be lowered when running inside house
     "minimum_accept_rad"        : 0.5,           # Minimum acceptance radius for the quadcopter to consider the end as reached
-    "shrink_rate"               : 0.1,           # Rate at which the acceptance radius shrinks when switching training scenarios. 0.1 means a 10% reduction in size per scenario 
+    "shrink_rate"               : 1.0,           # Rate at which the acceptance radius shrinks when switching training scenarios. 0.1 means a 10% reduction in size per scenario 
     "n_waypoints"               : 6,             # Number of waypoints to be generated
     "segment_length"            : 5,             # Length of the segments between waypoints #TODO pass this to the scenario fcns
 #Drone controller parameters

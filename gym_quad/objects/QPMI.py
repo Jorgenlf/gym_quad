@@ -304,7 +304,7 @@ class QPMI():
         return azimuth, elevation
     
 
-    def get_closest_u(self, position, wp_idx, margin = 10.0):
+    def get_closest_u(self, position, wp_idx, margin = 2.0):
         x1 = self.us[wp_idx] - margin
         x2 = self.us[wp_idx+1] + margin if wp_idx < len(self.us) - 2 else self.length
         output = fminbound(lambda u: np.linalg.norm(self(u) - position), 

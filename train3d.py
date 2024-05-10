@@ -79,14 +79,17 @@ scenarios = {   "line"          :   1e5,
 #              }
 
 #This was used and all noise was active the whole run for expid 8 on "Jøreng PC"
-scenarios = {   "line"                 :  1e5,
-                "easy"                 :  1e6,
-                "proficient"           :  1e6,
-                "intermediate"         :  1e6,
+scenarios = {   #"line"                 :  1e5,
+                #"easy"                 :  1e6,
+                "proficient"           :  0.5e6,
+                "intermediate"         :  0.5e6,
+                "expert"               :  0.5e6,
+                "proficient"           :  0.5e6,
+                "intermediate"         :  0.5e6,
                 "expert"               :  1e6,
-                "easy_perturbed"       :  1e6, #Perturbed by noise
-                "proficient_perturbed" :  1e6,
-                "expert_perturbed"     :  1e6
+                #"easy_perturbed"       :  1e6, #Perturbed by noise
+                "proficient_perturbed" :  2.5e6,
+                "expert_perturbed"     :  5e6
              }
 
 
@@ -125,14 +128,14 @@ PPO_hyperparams = {
 
 #VAE
 # encoder_path = None #If you want to train the encoder from scratch
-encoder_path = None # f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_2000_seed1.json"
-lock_params = False #True if you want to lock the encoder parameters. False to let them be trained
+encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_3000_seed1.json"
+lock_params = True #True if you want to lock the encoder parameters. False to let them be trained
 
 #PPO
 #From Ørjan:    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32])
 #SB3 default:   net_arch = dict(pi=[64, 64], vf=[64, 64])
 #From Kulkarni: net_arch = dict(pi=[512, 256, 64], vf=[512, 256, 64]) #NB: GRU is not included in this probs overkill though
-ppo_pi_vf_arch = dict(pi = [64,64], vf = [64,64]) #The PPO network architecture policy and value function
+ppo_pi_vf_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32]) #The PPO network architecture policy and value function
 
 policy_kwargs = dict(
     features_extractor_class = PerceptionIMUDomainExtractor,
