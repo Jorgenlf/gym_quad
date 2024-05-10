@@ -689,7 +689,7 @@ class LV_VAE_MESH(gym.Env):
         imu_quad_vel = self.quadcopter.velocity + self.imu.lin_noise*0.3 #0.3 is a guess
         imu_quad_att = self.quadcopter.attitude + self.imu.ang_noise*0.3 #0.3 is a guess
 
-        R = j_Rzyx(*imu_quad_att)#*self.quadcopter.attitude)
+        R = j_Rzyx(*imu_quad_att) #*self.quadcopter.attitude)
 
         #Essentially three different velocities that one can choose to track:
         #Think body or world frame velocity control is the best choice
@@ -727,10 +727,10 @@ class LV_VAE_MESH(gym.Env):
 
         des_angvel = np.array([0.0, 0.0, cmd_r])
 
-        s_pitch = np.sin(imu_quad_att[1])#self.quadcopter.attitude[1]) Old "pure measurements"
-        c_pitch = np.cos(imu_quad_att[1])#self.quadcopter.attitude[1]) Old "pure measurements"
-        s_roll = np.sin(imu_quad_att[0])#self.quadcopter.attitude[0])  Old "pure measurements"                 
-        c_roll = np.cos(imu_quad_att[0])#self.quadcopter.attitude[0])  Old "pure measurements"
+        s_pitch = np.sin(imu_quad_att[1]) #self.quadcopter.attitude[1]) Old "pure measurements"
+        c_pitch = np.cos(imu_quad_att[1]) #self.quadcopter.attitude[1]) Old "pure measurements"
+        s_roll = np.sin(imu_quad_att[0]) #self.quadcopter.attitude[0])  Old "pure measurements"                 
+        c_roll = np.cos(imu_quad_att[0]) #self.quadcopter.attitude[0])  Old "pure measurements"
         R_euler_to_body = np.array([[1, 0, -s_pitch],
                                     [0, c_roll, s_roll*c_pitch],
                                     [0, -s_roll, c_roll*c_pitch]]) #Essentially the inverse of Tzyx from geomutils

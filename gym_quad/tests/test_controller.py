@@ -17,6 +17,7 @@ import gym_quad.utils.state_space as ss
 from gym_quad.utils.ODE45JIT import j_Rzyx
 from gym_quad.objects.quad import Quad
 from old.controllers2 import LeeVelocityController
+from gym_quad.objects.IMU import IMU
 
     # "s_max": 0.5, # Maximum speed of the quadcopter
     # "i_max": 0.5, # Maximum inclination angle of commanded velocity wrt x-axis
@@ -34,11 +35,24 @@ class TestController(unittest.TestCase):
     def setUp(self):
         self.quadcopter = Quad(0.01,np.zeros(6))
         self.quadcopter.state[2] = 1 # Set the initial height to 1m
+        
         self.s_max = 2
         self.i_max = deg2rad(80/2) 
         self.r_max = deg2rad(30) 
+        
         self.total_t_steps = 0
         self.step_size = 0.01
+        
+        self.kv = 1.5
+        self.kR = 0.8
+        self.kangvel = 0.5
+        
+        self.kv_noise = 0
+        self.kR_noise = 0
+        self.kangvel_noise = 0
+
+        self.imu = IMU()
+        self.imu.set_std(0.001,0.01)
 
     def PID_PD_Lin_velocity_controller(self, action):
         """
@@ -391,7 +405,8 @@ class TestController(unittest.TestCase):
         F = np.clip(F, ss.thrust_min, ss.thrust_max)
         return F
 
-    def active_geom_ctrlv2(self, action): 
+
+    def noisy_geom_ctrlv2(self, action):
         #Translate the action to the desired velocity and yaw rate
         cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1]*self.i_max)
         cmd_v_y = 0
@@ -399,14 +414,21 @@ class TestController(unittest.TestCase):
         cmd_r = self.r_max * action[2]
         self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r]) #For plotting
 
-        kv = 2.5
-        kR = 0.8
-        kangvel = 0.8
+        #Gains, z-axis-basis=e3 and rotation matrix 
+        kv = self.kv + self.kv_noise
+        kR = self.kR + self.kR_noise
+        kangvel = self.kangvel + self.kangvel_noise
 
         e3 = np.array([0, 0, 1]) #z-axis basis
 
-        # R = geom.Rzyx(*self.quadcopter.attitude) #OLD
-        R = j_Rzyx(*self.quadcopter.attitude)  #NEW using jit version
+        imu_meas = self.imu.measure(self.quadcopter)
+        imu_quad_angvel = np.array([imu_meas[3], imu_meas[4], imu_meas[5]])
+        #Pseudo integration of linear velocity and angular rate
+        #assuming that a filtered version of the integrated rates will result in approx these values
+        imu_quad_vel = self.quadcopter.velocity + self.imu.lin_noise*0.3 #0.3 is a guess
+        imu_quad_att = self.quadcopter.attitude + self.imu.ang_noise*0.3 #0.3 is a guess
+
+        R = j_Rzyx(*imu_quad_att) #*self.quadcopter.attitude)
 
         #Essentially three different velocities that one can choose to track:
         #Think body or world frame velocity control is the best choice
@@ -420,11 +442,11 @@ class TestController(unittest.TestCase):
         # ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.position_dot
 
         #Body frame velocity control
-        ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.velocity
+        ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - imu_quad_vel #self.quadcopter.velocity Old "pure measurements"
         #Which one to use? vehicle_vels or self.quadcopter.velocity
 
         #Thrust command (along body z axis)
-        f = kv*ev + ss.m*ss.g*e3 + ss.d_w*self.quadcopter.heave*e3
+        f = kv*ev + ss.m*ss.g*e3 + ss.d_w*imu_quad_vel[2]*e3 #ss.d_w*self.quadcopter.heave*e3 Old "pure measurements"
         thrust_command = np.dot(f, R[2])
 
         #Rd calculation as in Kulkarni aerial gym (works fairly well)
@@ -434,10 +456,10 @@ class TestController(unittest.TestCase):
 
         pitch_setpoint = np.arctan2(c_phi_s_theta, c_phi_c_theta)
         roll_setpoint = np.arctan2(s_phi, np.sqrt(c_phi_c_theta**2 + c_phi_s_theta**2))
-        yaw_setpoint = self.quadcopter.attitude[2]
-        Rd = j_Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint) #NEW using jit version
+        yaw_setpoint = imu_quad_att[2] #self.quadcopter.attitude[2]
+        Rd = j_Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint)
         self.att_des = np.array([-roll_setpoint, pitch_setpoint, yaw_setpoint]) # Save the desired attitude for plotting during testing
-        #TODO there is something funky about the roll setpoint, it is inverted for some reason
+        #TODO there is something funky about the roll setpoint, its sign is flipped for some reason
 
         eR = 1/2*(Rd.T @ R - R.T @ Rd)
         eatt = geom.vee_map(eR)
@@ -445,28 +467,29 @@ class TestController(unittest.TestCase):
 
         des_angvel = np.array([0.0, 0.0, cmd_r])
 
-        #Kulkarni approach desired angular rate in body frame:
-        s_pitch = np.sin(self.quadcopter.attitude[1])
-        c_pitch = np.cos(self.quadcopter.attitude[1])
-        s_roll = np.sin(self.quadcopter.attitude[0])
-        c_roll = np.cos(self.quadcopter.attitude[0])
+        s_pitch = np.sin(imu_quad_att[1]) #self.quadcopter.attitude[1]) Old "pure measurements"
+        c_pitch = np.cos(imu_quad_att[1]) #self.quadcopter.attitude[1]) Old "pure measurements"
+        s_roll = np.sin(imu_quad_att[0]) #self.quadcopter.attitude[0])  Old "pure measurements"                 
+        c_roll = np.cos(imu_quad_att[0]) #self.quadcopter.attitude[0])  Old "pure measurements"
         R_euler_to_body = np.array([[1, 0, -s_pitch],
                                     [0, c_roll, s_roll*c_pitch],
-                                    [0, -s_roll, c_roll*c_pitch]]) #Uncertain about how this came to be
+                                    [0, -s_roll, c_roll*c_pitch]]) #Essentially the inverse of Tzyx from geomutils
 
         des_angvel_body = R_euler_to_body @ des_angvel
 
-        eangvel = self.quadcopter.angular_velocity - R.T @ (Rd @ des_angvel_body) #Kulkarni approach
+        # eangvel = self.quadcopter.angular_velocity - R.T @ (Rd @ des_angvel_body) Old "pure measurements"
+        eangvel = imu_quad_angvel - R.T @ (Rd @ des_angvel_body) 
 
-        torque = -kR*eatt - kangvel*eangvel + np.cross(self.quadcopter.angular_velocity,ss.Ig@self.quadcopter.angular_velocity)
-
+        # torque = -kR*eatt - kangvel*eangvel + np.cross(self.quadcopter.angular_velocity,ss.Ig@self.quadcopter.angular_velocity) Old "pure measurements"
+        torque = -kR*eatt - kangvel*eangvel + np.cross(imu_quad_angvel,ss.Ig@imu_quad_angvel)
+        
         u = np.zeros(4)
         u[0] = thrust_command
         u[1:] = torque
 
         F = np.linalg.inv(ss.B()[2:]).dot(u)
         F = np.clip(F, ss.thrust_min, ss.thrust_max)
-        return F
+        return F    
     
 
 if __name__ == '__main__':
@@ -487,7 +510,7 @@ if __name__ == '__main__':
     referencetype = "x_velocity"
     referencetype = "manual_input" #Mimics manual input
 
-    save_forces = True #If flipped saves the forces to file so can be used in e.g. IMU
+    save_forces = False #If flipped saves the forces to file so can be used in e.g. IMU
 
     if referencetype == "hover": # Creates reference for hovering at 1m height check initial state of the quadcopter in setUp
         for t in range(tot_time):
@@ -632,7 +655,7 @@ if __name__ == '__main__':
         # F = Test.geometric_velocity_controller(action)
         # F = Test.leectrl(action)
         # F = Test.geom_ctrlv2(action)
-        F = Test.active_geom_ctrlv2(action)
+        F = Test.noisy_geom_ctrlv2(action)
         Test.quadcopter.step(F)
         Test.total_t_steps += 1
 
