@@ -26,7 +26,6 @@ warnings.filterwarnings("ignore", message="No mtl file provided", category=UserW
 
 
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---###
-#TODO add or modify scenario such that orientation is not always pointing along the path such that the agent has to learn how to use the yaw
 # total_timesteps = 10e6 #15e6
 # scenarios = {"line"         :   2.5e5, #Experimental result see Exp 4 on "Jørgen PC"
 #              "3d_new"       :   2.5e5,
@@ -91,7 +90,6 @@ scenarios = {   #"line"                 :  1e5,
                 "proficient_perturbed" :  2.5e6,
                 "expert_perturbed"     :  5e6
              }
-
 
 
 # scenarios = {"vertical"          :   2e5} #For profiling purposes
@@ -175,7 +173,12 @@ if __name__ == '__main__':
                 break
         if done_training:
             break
+        
+        #Changes to the LV_VAE config between different curriculum stages/scenarios:
+        if lv_vae_config["accept_rad"] > lv_vae_config["minimum_accept_rad"]:
+            lv_vae_config["accept_rad"]  -= lv_vae_config["accept_rad"]*0.1 #Decrease acceptance radius by 10% per new stage/scenario until minimum acceptance radius is reached
 
+        #Saving configs
         agents_dir = os.path.join(experiment_dir, scen, "agents")
         tensorboard_dir = os.path.join(experiment_dir, scen, "tensorboard")
         config_dir = os.path.join(experiment_dir, scen,"configs")
@@ -184,7 +187,6 @@ if __name__ == '__main__':
         os.makedirs(agents_dir, exist_ok=True)
         os.makedirs(tensorboard_dir, exist_ok=True)
         os.makedirs(config_dir, exist_ok=True)
-
 
         with open(os.path.join(config_dir, 'lv_vae_config.json'), 'w') as file:
             json.dump(lv_vae_config, file)

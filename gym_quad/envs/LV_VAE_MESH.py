@@ -39,7 +39,7 @@ def invm1to1(value, min, max):
 
 
 class LV_VAE_MESH(gym.Env):
-    '''Creates an environment where the actionspace consists of Linear velocity and yaw rate which will be passed to a PD or PID controller,
+    '''Creates an environment where the actionspace consists of Linear body velocity and yaw rate is passed to a P-PD controller,
     while the observationspace uses a Varial AutoEncoder "plus more" for observations of environment.'''
 
     def __init__(self, env_config, scenario="line"):
@@ -47,6 +47,8 @@ class LV_VAE_MESH(gym.Env):
         # Set all the parameters from GYM_QUAD/qym_quad/__init__.py as attributes of the class
         for key in env_config:
             setattr(self, key, env_config[key])
+
+        print("Checking that accept rad deacreases per currstage:", self.accept_rad)
 
         #Actionspace mapped to speed, inclination of velocity vector wrt x-axis and yaw rate
         self.action_space = gym.spaces.Box(
@@ -57,10 +59,10 @@ class LV_VAE_MESH(gym.Env):
 
         #Observationspace
         #Depth camera observation space
-        self.perception_space = gym.spaces.Box( #TODO 2x check the shape and type as this is a tensor want it to be a nice tensor for quick processing
+        self.perception_space = gym.spaces.Box( 
             low = 0,
             high = 1,
-            shape = (1, self.compressed_depth_map_size, self.compressed_depth_map_size), #TODO verify this size it should may be 224,224 ASK EIRIK
+            shape = (1, self.compressed_depth_map_size, self.compressed_depth_map_size),
             dtype = np.float32
         )
 
@@ -132,14 +134,14 @@ class LV_VAE_MESH(gym.Env):
 
         #The 2D gaussian which is multiplied with the depth map to create the collision avoidance reward
         #Only needs to be inited once so it is done here
-        #TODO if used. make the numbers into hyperparam.
-        peak = self.TwoDgauss_peak
-        std =self.TwoDgauss_sigma  #Small -> sharp peak, Large -> wide peak
-        TwoD_gaussian = np.zeros((self.depth_map_size[0],self.depth_map_size[1]))
-        for i in range(self.depth_map_size[0]):
-            for j in range(self.depth_map_size[1]):
-                TwoD_gaussian[i,j] = peak*np.exp(-((i-self.depth_map_size[0]/2)**2 + (j-self.depth_map_size[1]/2)**2)/(2*std**2))
-        self.torch_TwoD_gaussian = torch.tensor(TwoD_gaussian, device=self.device)
+        if not self.use_old_CA_rew: #Use new collision avoidance reward function
+            peak = self.TwoDgauss_peak
+            std =self.TwoDgauss_sigma  #Small -> sharp peak, Large -> wide peak
+            TwoD_gaussian = np.zeros((self.depth_map_size[0],self.depth_map_size[1]))
+            for i in range(self.depth_map_size[0]):
+                for j in range(self.depth_map_size[1]):
+                    TwoD_gaussian[i,j] = peak*np.exp(-((i-self.depth_map_size[0]/2)**2 + (j-self.depth_map_size[1]/2)**2)/(2*std**2))
+            self.torch_TwoD_gaussian = torch.tensor(TwoD_gaussian, device=self.device)
 
         #Reset environment to init state
         self.reset()
@@ -151,10 +153,9 @@ class LV_VAE_MESH(gym.Env):
         """
         seed = kwargs.get('seed', None)
         super().reset(seed=seed)
-        print("PRINTING SEED WHEN RESETTING:", seed) 
+        # print("PRINTING SEED WHEN RESETTING:", seed) 
         
         #Temp debugging variables
-        # self.quad_mesh_pos = None
         # np.random.seed() #ONLY UNCOMMENT THIS IF YOU WANT RANDOMNESS WHEN DOING RUN3D.PY
 
         #General variables being reset
@@ -184,16 +185,17 @@ class LV_VAE_MESH(gym.Env):
         self.imu = None
         self.imu = IMU()
         self.imu_measurement = np.zeros((6,), dtype=np.float32) 
+        #IMU noise #LET THERE ALWAYS BE SOME NOISE ON THE IMU AS IT IS USED IN THE CONTROLLER (AND ALSO IN THE OBSERVATION)
+        self.imu.set_std(0.001, 0.01) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
 
+        
         #Noise variables
-        #If the simulation is not to be perturbed the noise values are set to 0
+        #If the simulation is not to be perturbed the noise values are set to 0 (except for IMU noise which is always present)
+        
         #Camera pos orient no noise
         self.camera_look_direction = np.array([1, 0, 0])
         self.camera_look_direction_noisy = self.camera_look_direction
         self.camera_pos_noise = np.zeros(3)
-
-        #IMU noise
-        self.imu.set_std(0, 0) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
 
         #Controller gain noise
         self.kv_noise = 0
@@ -201,21 +203,18 @@ class LV_VAE_MESH(gym.Env):
         self.kR_noise = 0
         
         #Perturbing of camera pose
-        if self.perturb_sim or self.perturb_camera_pose: #TODO make these values hyperparam?
-            #Camera pos/orient noise #TODO might remove this noise as it is quite damaging
+        if self.perturb_sim or self.perturb_camera_pose:
             self.camera_look_direction = np.array([1, 0, 0])
             self.camera_look_direction_noisy = self.camera_look_direction + np.random.normal(0, 0.01, 3)
             self.camera_pos_noise = np.random.normal(0, 0.005, 3)
         
-        # IMU
+        # IMU boosted noise
         if self.perturb_sim or self.perturb_IMU:
-            self.imu.set_std(0.001, 0.01) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
+            self.imu.set_std(0.0015, 0.015) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
            # TODO decide on these values and wether it should be set here in reset or in the observation(each step)
         
         #Controller gains
         if self.perturb_sim or self.perturb_ctrl_gains:
-            # Controller gain noise #TODO make it such that the timeconstant of the response is at max +-10% of the original
-            # These values are probalby okish but not scientifically derived in any way
             self.kv_noise = np.random.uniform(-0.2, 0.2) #Velocity gain
             self.kangvel_noise = np.random.uniform(-0.1, 0.1) #Angular velocity gain
             self.kR_noise = np.random.uniform(-0.1, 0.1) #Attitude gain
@@ -223,10 +222,7 @@ class LV_VAE_MESH(gym.Env):
         # TODORandom forces and torques maybe?
 
         
-        #For contiouns reach end reward #TODO decide if it is neccessary to implement
-        # self.inside_accept_rad_at_timeout = False
-        # self.begin_countup = False
-        # self.count_started = False
+        #Reward variables
         self.scaled_CA_reward_pre_clip = 0
 
         #Obstacle variables
@@ -336,7 +332,6 @@ class LV_VAE_MESH(gym.Env):
         self.imu_measurement[3:6] = m1to1(self.imu_measurement[3:6], -self.r_max*2, self.r_max*2)
         self.imu_measurement = self.imu_measurement.astype(np.float32)
 
-
         #Depth camera observation
         temp_depth_map = None
         if self.obstacles!=[]:
@@ -351,10 +346,9 @@ class LV_VAE_MESH(gym.Env):
         else:
             temp_depth_map = self.depth_map #Handles the case where there are no obstacles, Is equal to the init of self.depth_map which is all pixels at max_depth
 
-        #These are for the collision avoidance reward but done here to save time as move from GPU to CPU is costly so bunch them together below
-        self.closest_measurement = torch.min(temp_depth_map) #TODO this only gives the sensors closest but not globally closests might be troublesome for reward calc?
-                                                             #Is not really a problem as the quad is constrained to move in the fov of the camera
-        
+        #These 5 lines are for the collision avoidance reward but done here to save time as we now can bunch GPU to CPU moves together
+        #Use the "pure" depth map for the collision avoidance reward
+        self.closest_measurement = torch.min(temp_depth_map)                                                     
         if not self.use_old_CA_rew: #Use new collision avoidance reward function
             non_singular_depth_map = temp_depth_map + self.CA_epsilon #Adding 0.0001 to avoid singular matrix
             div_by_one_depth_map = 1 / non_singular_depth_map
@@ -367,7 +361,6 @@ class LV_VAE_MESH(gym.Env):
             noise = torch.normal(mean=0, std=sigma, size=temp_depth_map.size(), device=self.device)
             temp_depth_map += noise
             self.noisy_depth_map = temp_depth_map #For saving the noisy depth map for debugging
-            # pass #To quickly check the effect of leaving out the noise on depthmaps
 
         normalized_depth_map = temp_depth_map / self.max_depth
         
@@ -391,7 +384,7 @@ class LV_VAE_MESH(gym.Env):
         
 
         #Domain observation
-        self.update_errors() #Updates the errors chi_error and upsilon_error also crosstrack and vertical track error which is used to calc IAE during run3d.py
+        self.update_errors() #Updates the errors chi_error and upsilon_error (also crosstrack and vertical track error which is used to calc IAE during run3d.py)
 
         chi_error_noise = 0
         upsilon_error_noise = 0
@@ -401,9 +394,8 @@ class LV_VAE_MESH(gym.Env):
             deg_as_rad = deg2rad(3)
             chi_error_noise = np.random.uniform(-deg_as_rad, deg_as_rad)
             upsilon_error_noise = np.random.uniform(-deg_as_rad, deg_as_rad)
-            quad_pos_noise = np.random.normal(0, 0.025, 3) #+-2.5cm noise as std dev #TODO decide if we should integrate the IMU to get the quadpos noise I dont think it is wise as the position may come from smarter sources (eg. KF or SLAM) than integrating IMU.
+            quad_pos_noise = np.random.normal(0, 0.025, 3) #+-2.5cm noise as std dev #Assume IMU accl integrated into pos but filtered somehow
             quad_att_noise = np.random.normal(0, deg2rad(1), 3) #+-1 degree noise as std dev
-            # pass #TO quickly check the effect of leaving out domain noise
         
         quad_pos = self.quadcopter.position + quad_pos_noise #Do this once here and use them in the domain_observation below
         quad_att = self.quadcopter.attitude + quad_att_noise
@@ -418,8 +410,7 @@ class LV_VAE_MESH(gym.Env):
         domain_obs[3] = np.cos(self.upsilon_error+upsilon_error_noise)
          
         # x y z of closest point on path in body frame
-        relevant_distance = 20 #For this value and lower the observation will be changing i.e. giving info if above or below its clipped to -1 or 1 
-        #TODO make this a hypervariable or make it dependent on e.g. the scene
+        relevant_distance = self.relevant_dist_to_path #For this value and lower the observation will be changing i.e. giving info if above or below its clipped to -1 or 1 
 
         closest_point = self.path(self.prog)
 
@@ -465,7 +456,7 @@ class LV_VAE_MESH(gym.Env):
             lookahead_world = self.path.get_endpoint()    
 
         lookahead_body = np.transpose(geom.Rzyx(*quad_att)).dot(lookahead_world - quad_pos)
-        relevant_distance = self.la_dist*2 #TODO decide this value
+        relevant_distance = self.la_dist*2 
         domain_obs[13] = m1to1(lookahead_body[0], -relevant_distance,relevant_distance)
         domain_obs[14] = m1to1(lookahead_body[1], -relevant_distance, relevant_distance)
         domain_obs[15] = m1to1(lookahead_body[2], -relevant_distance,relevant_distance)
@@ -502,15 +493,15 @@ class LV_VAE_MESH(gym.Env):
 
     def step(self, action):
         """
-        Simulates the environment one time-step.
+        Simulates the drl environment one time-step. And the physics environment multiple time-steps. 
+        Such that the drl env is in sync with the occurence of new depth maps.
         """
-
         sensor_latency = 0
         if self.perturb_sim or self.perturb_latency:
             decide_if_latency_hits = np.random.uniform(0, 1)
             if decide_if_latency_hits < 0.1: #10% chance of latency
-                sensor_latency = np.random.uniform(-1, 1)  #When running 15fps camera and 100Hz physics sim the steps are 6.67ms long so with the sensor latency the steps will range from 4.67ms to 8.67ms
-            # pass    #                                                     #When running 10fps camera and 100Hz physics sim the steps are 10ms long so with the sensor latency the steps will range from 8ms to 12ms
+                sensor_latency = np.random.uniform(-1, 1)   #When running 15fps camera and 100Hz physics sim the steps are 6.67ms long so with the sensor latency the steps will range from 4.67ms to 8.67ms
+                                                            #When running 10fps camera and 100Hz physics sim the steps are 10ms long so with the sensor latency the steps will range from 8ms to 12ms
 
         #The quadcopter steps until a new depth map is available
         sim_hz = 1/self.step_size #100 Hz usually
@@ -518,7 +509,7 @@ class LV_VAE_MESH(gym.Env):
         steps_before_new_depth_map = sim_hz//cam_hz + sensor_latency
         for i in range(int(steps_before_new_depth_map)):           
             F = self.geom_ctrlv2(action)
-            #TODO maybe need some translation between input u and thrust F i.e translate u to propeller speed? 
+            #TODO maybe need some translation between input u and thrust F i.e translate u to propeller speed omega? 
             #We currently skip this step for simplicity
             self.quadcopter.step(F)
 
@@ -529,8 +520,6 @@ class LV_VAE_MESH(gym.Env):
             self.tri_quad_mesh.apply_translation(translation)
             self.collided = self.collision_manager.in_collision_single(self.tri_quad_mesh)
         self.prev_quad_pos = self.quadcopter.position   
-        #Temp save mesh pos for plotting and debugging in run3d.py
-        # self.quad_mesh_pos = tri_to_enu(self.tri_quad_mesh.vertices[0])
 
         #Such that the oberservation has access to the previous action
         self.prev_action = action
@@ -543,18 +532,11 @@ class LV_VAE_MESH(gym.Env):
             self.passed_waypoints = np.vstack((self.passed_waypoints, self.path.waypoints[k]))
             self.waypoint_index = k
 
-        #New more continuous endcond1
-        # if np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad and not self.count_started:
-        #     self.begin_countup = True 
-        # end_cond_1 = self.inside_accept_rad_at_timeout #Flag is flipped inside the reward function
 
-        #Old endcond 1 very discrete 
-        end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad # and self.waypoint_index == self.n_waypoints-2 #TODO wwhy this here
-
+        end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad
         # end_cond_2 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
         end_cond_3 = self.total_t_steps >= self.max_t_steps
         end_cond_4 = self.cumulative_reward < self.min_reward
-        # end_cond_4 = False
         if end_cond_1 or end_cond_3 or self.collided or end_cond_4: # or end_cond_2
             if end_cond_1:
                 print("Quadcopter reached target!")
@@ -563,7 +545,7 @@ class LV_VAE_MESH(gym.Env):
             elif self.collided:
                 print("Quadcopter collided!")
                 self.success = False
-            # elif end_cond_2: #I think this Should be removed such that the quadcopter can fly past the endpoint and come back #TODO
+            # elif end_cond_2: #I think this Should be removed such that the quadcopter can fly past the endpoint and come back
             #     print("Passed endpoint without hitting")
                 # print("Endpoint position", self.path.waypoints[-1], "\tquad position:", self.quadcopter.position) #might need the format line?
 
@@ -571,6 +553,7 @@ class LV_VAE_MESH(gym.Env):
                 print("Exceeded time limit")
             elif end_cond_4:
                 print("Acumulated reward less than", self.min_reward)
+
             self.done = True
 
         # Save sim time info
@@ -594,7 +577,6 @@ class LV_VAE_MESH(gym.Env):
         # Make next observation
         self.observation = self.observe()
 
-        #TODO See stack overflow QnA or Sb3 documentation for how to use truncated leaving it as False is ok
         truncated = False
         return self.observation, step_reward, self.done, truncated, self.info
 
@@ -619,12 +601,10 @@ class LV_VAE_MESH(gym.Env):
         reward_collision_avoidance = 0
         if self.obstacles != []: #If there are no obstacles, no need to calculate the reward
             danger_range = self.danger_range
-            drone_closest_obs_dist = self.closest_measurement #TODO now we only use the depth map to determine the closest obstacle Can probably use trimesh to determine the closest obstacle in the mesh
+            drone_closest_obs_dist = self.closest_measurement 
             
-            # scaled_reward_pre_clip = 0
-            # old_reward_collision_avoidance = 0 #For printing and debugging
             if (drone_closest_obs_dist < danger_range):
-                #Determine lambda coefficient for path adherence (and PP?) based on the distance to the closest obstacle
+                #Determine lambda coefficient for path adherence (and PP if use_lambda_PP flag true) based on the distance to the closest obstacle
                 clip_min_PP_rew = True
                 lambda_PA = (drone_closest_obs_dist/danger_range)/2
                 if lambda_PA < 0.10 : lambda_PA = 0.10
@@ -653,7 +633,7 @@ class LV_VAE_MESH(gym.Env):
         reward_path_progression2 = np.cos(self.upsilon_error)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
         reward_path_progression = reward_path_progression1/2 + reward_path_progression2/2
         if clip_min_PP_rew and self.let_lambda_affect_PP:
-            reward_path_progression = np.clip(reward_path_progression, 0, self.PP_rew_max) #If there is an obstacle nearby the minimum path prog reward becomes zero
+            reward_path_progression = np.clip(reward_path_progression, 0, self.PP_rew_max) #If there is an obstacle nearby and we choose to let lambda affect PP the minimum path prog reward becomes zero
         else:
             reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max) #If there is no obstacle nearby the minimum path prog reward is the min value
 
@@ -663,19 +643,6 @@ class LV_VAE_MESH(gym.Env):
         if self.collided:
             reward_collision = self.rew_collision
             print("Collision Reward:", reward_collision)
-
-        # #Continous reach end reward #TODO implement if it is actually a good idea
-        # contionous_reach_end_reward = 0
-        # if self.begin_countup:
-        #     self.count_started = True:
-
-        #     end_time = self.total_t_steps*self.step_size + 10 #10 seconds to reach the end (#TODO make hypervar)
-
-        #     contionous_reach_end_reward = 1
-
-        #     if self.total_t_steps*self.step_size >= end_time:
-        #         if np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad:
-        #             self.inside_accept_rad_at_timeout = True
 
 
         #Reach end reward (sparse)
@@ -702,7 +669,7 @@ class LV_VAE_MESH(gym.Env):
         return tot_reward
 
 
-    def geom_ctrlv2(self, action): #TODO turn into torch operations might speed up the simulation
+    def geom_ctrlv2(self, action):
         #Translate the action to the desired velocity and yaw rate
         cmd_v_x = self.s_max * ((action[0]+1)/2)*np.cos(action[1]*self.i_max)
         cmd_v_y = 0
@@ -710,7 +677,7 @@ class LV_VAE_MESH(gym.Env):
         cmd_r = self.r_max * action[2]
         self.cmd = np.array([cmd_v_x, cmd_v_y, cmd_v_z, cmd_r]) #For plotting
 
-        #Gains, z-axis-basis=e3 and rotation matrix #TODO add stochasticity to make sim2real robust
+        #Gains, z-axis-basis=e3 and rotation matrix 
         kv = self.kv + self.kv_noise
         kR = self.kR + self.kR_noise
         kangvel = self.kangvel + self.kangvel_noise
@@ -724,7 +691,7 @@ class LV_VAE_MESH(gym.Env):
         imu_quad_vel = self.quadcopter.velocity + self.imu.lin_noise*0.3 #0.3 is a guess
         imu_quad_att = self.quadcopter.attitude + self.imu.ang_noise*0.3 #0.3 is a guess
 
-        R = j_Rzyx(*imu_quad_att)#*self.quadcopter.attitude)
+        R = j_Rzyx(*imu_quad_att) #*self.quadcopter.attitude)
 
         #Essentially three different velocities that one can choose to track:
         #Think body or world frame velocity control is the best choice
@@ -762,10 +729,10 @@ class LV_VAE_MESH(gym.Env):
 
         des_angvel = np.array([0.0, 0.0, cmd_r])
 
-        s_pitch = np.sin(imu_quad_att[1])#self.quadcopter.attitude[1]) Old "pure measurements"
-        c_pitch = np.cos(imu_quad_att[1])#self.quadcopter.attitude[1]) Old "pure measurements"
-        s_roll = np.sin(imu_quad_att[0])#self.quadcopter.attitude[0])  Old "pure measurements"                 
-        c_roll = np.cos(imu_quad_att[0])#self.quadcopter.attitude[0])  Old "pure measurements"
+        s_pitch = np.sin(imu_quad_att[1]) #self.quadcopter.attitude[1]) Old "pure measurements"
+        c_pitch = np.cos(imu_quad_att[1]) #self.quadcopter.attitude[1]) Old "pure measurements"
+        s_roll = np.sin(imu_quad_att[0]) #self.quadcopter.attitude[0])  Old "pure measurements"                 
+        c_roll = np.cos(imu_quad_att[0]) #self.quadcopter.attitude[0])  Old "pure measurements"
         R_euler_to_body = np.array([[1, 0, -s_pitch],
                                     [0, c_roll, s_roll*c_pitch],
                                     [0, -s_roll, c_roll*c_pitch]]) #Essentially the inverse of Tzyx from geomutils
@@ -788,7 +755,7 @@ class LV_VAE_MESH(gym.Env):
 
 
     #### UPDATE FUNCTION####
-    def update_errors(self): #TODO could be moved to the observation as this is the only place this function is called
+    def update_errors(self):
         '''Updates the cross track and vertical track errors, as well as the course and elevation errors.'''
         self.e = 0.0 #Cross track error
         self.h = 0.0 #Vertical track error
@@ -845,7 +812,7 @@ class LV_VAE_MESH(gym.Env):
         """
         ax = self.path.plot_path(wps_on, leave_out_first_wp=leave_out_first_wp)
         for obstacle in self.obstacles:
-            if isinstance(obstacle, SphereMeshObstacle): #TODO make this more general
+            if isinstance(obstacle, SphereMeshObstacle):
                 ax.plot_surface(*obstacle.return_plot_variables(), color='r', zorder=1)
                 ax.set_aspect('equal', adjustable='datalim')
         return ax#self.axis_equal3d(ax)
@@ -876,7 +843,16 @@ class LV_VAE_MESH(gym.Env):
     #### SCENARIOS #### 
     
     #Utility function for scenarios
-    def recap_previous_scenario(self,n_prev_scenarios): #TODO needs testing but if it works can remove the if else in the scenario functions
+    def recap_previous_scenario(self,n_prev_scenarios):
+        '''
+        Inputs:
+        n_prev_scenarios: number of previous scenarios
+        Returns:
+        initial_state: initial state of the previous scenario
+
+        This function must match the scenario dictionary from the train3d.py file such that the scenarios are correctly recapitulated.
+        Also change the n_prev_scenarios in the scenario functions to appear in the correct order.
+        '''
         
         chance = np.random.uniform(0,1)
         if chance < 1/n_prev_scenarios:
@@ -900,7 +876,7 @@ class LV_VAE_MESH(gym.Env):
         
         return initial_state
     
-    def generate_obstacles(self, n, rmin, rmax , path:QPMI, mean, std, onPath=False, quad_pos = None, safety_margin = 2): #TODO make into torch?
+    def generate_obstacles(self, n, rmin, rmax , path:QPMI, mean, std, onPath=False, quad_pos = None, safety_margin = 2):
         '''
         Inputs:
         n: number of obstacles
@@ -1009,32 +985,24 @@ class LV_VAE_MESH(gym.Env):
     #With obstacles
     def scenario_easy(self): #Surround the path with 1-4 obstacles But ensure no obstacles on path
         initial_state = self.scenario_3d_new()
+        
         n_obstacles = np.random.randint(1,5)
         self.generate_obstacles(n = n_obstacles, rmin=0.2, rmax=2, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
         
         if np.random.uniform(0,1) < self.recap_chance:
-            initial_state = self.scenario_line()
-
-        #Shrink the acceptance radius by shrink_rate until it reaches minimum_accept_rad
-        if self.accept_rad > self.minimum_accept_rad:
-            self.accept_rad *= (1-self.shrink_rate)  
+            initial_state = self.recap_previous_scenario(n_prev_scenarios=1)
 
         return initial_state
     
     def scenario_random_pos_att_easy(self):
         initial_state = self.scenario_3d_new(random_pos=True,random_attitude=True)
+        
         n_obstacles = np.random.randint(1,5)
         self.generate_obstacles(n = n_obstacles, rmin=0.2, rmax=2, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
 
         n_prev_scenarios = 2
         if np.random.uniform(0,1) < self.recap_chance:
-            if np.random.uniform(0,1) < 1/n_prev_scenarios:
-                initial_state = self.scenario_line()
-            else:
-                initial_state = self.scenario_easy()
-
-        if self.accept_rad > self.minimum_accept_rad:
-            self.accept_rad *= (1-self.shrink_rate)  
+            initial_state = self.recap_previous_scenario(n_prev_scenarios)
 
         return initial_state
 
@@ -1047,15 +1015,7 @@ class LV_VAE_MESH(gym.Env):
 
         n_prev_scenarios = 3
         if np.random.uniform(0,1) < self.recap_chance:
-            if np.random.uniform(0,1) < 1/n_prev_scenarios:
-                initial_state = self.scenario_line()
-            elif np.random.uniform(0,1) < 2/n_prev_scenarios:
-                initial_state = self.scenario_random_pos_att_easy()
-            else:
-                initial_state = self.scenario_easy()
-
-        if self.accept_rad > self.minimum_accept_rad:
-            self.accept_rad *= (1-self.shrink_rate)  
+            initial_state = self.recap_previous_scenario(n_prev_scenarios)
 
         return initial_state
     
@@ -1066,17 +1026,7 @@ class LV_VAE_MESH(gym.Env):
         
         n_prev_scenarios = 4
         if np.random.uniform(0,1) < self.recap_chance:
-            if np.random.uniform(0,1) < 1/n_prev_scenarios:
-                initial_state = self.scenario_line()
-            elif np.random.uniform(0,1) < 2/n_prev_scenarios:
-                initial_state = self.scenario_random_pos_att_easy()
-            elif np.random.uniform(0,1) < 3/n_prev_scenarios:
-                initial_state = self.scenario_proficient()
-            else:
-                initial_state = self.scenario_easy()
-
-        if self.accept_rad > self.minimum_accept_rad:
-            self.accept_rad *= (1-self.shrink_rate)  
+            initial_state = self.recap_previous_scenario(n_prev_scenarios)
 
         return initial_state
 
@@ -1089,19 +1039,7 @@ class LV_VAE_MESH(gym.Env):
 
         n_prev_scenarios = 5
         if np.random.uniform(0,1) < self.recap_chance:
-            if np.random.uniform(0,1) < 1/n_prev_scenarios:
-                initial_state = self.scenario_line()
-            elif np.random.uniform(0,1) < 2/n_prev_scenarios:
-                initial_state = self.scenario_random_pos_att_easy()
-            elif np.random.uniform(0,1) < 3/n_prev_scenarios:
-                initial_state = self.scenario_intermediate()
-            elif np.random.uniform(0,1) < 4/n_prev_scenarios:
-                initial_state = self.scenario_proficient()
-            else:
-                initial_state = self.scenario_easy()
-
-        if self.accept_rad > self.minimum_accept_rad:
-            self.accept_rad *= (1-self.shrink_rate)  
+            initial_state = self.recap_previous_scenario(n_prev_scenarios)
 
         return initial_state
 
@@ -1114,21 +1052,7 @@ class LV_VAE_MESH(gym.Env):
         
         n_prev_scenarios = 6
         if np.random.uniform(0,1) < self.recap_chance:
-            if np.random.uniform(0,1) < 1/n_prev_scenarios:
-                initial_state = self.scenario_line()
-            elif np.random.uniform(0,1) < 2/n_prev_scenarios:
-                initial_state = self.scenario_random_pos_att_easy()
-            elif np.random.uniform(0,1) < 3/n_prev_scenarios:
-                initial_state = self.scenario_intermediate()
-            elif np.random.uniform(0,1) < 4/n_prev_scenarios:
-                initial_state = self.scenario_proficient()
-            elif np.random.uniform(0,1) < 5/n_prev_scenarios:
-                initial_state = self.scenario_expert()    
-            else:
-                initial_state = self.scenario_easy()
-
-        if self.accept_rad > self.minimum_accept_rad:
-            self.accept_rad *= (1-self.shrink_rate)  
+            initial_state = self.recap_previous_scenario(n_prev_scenarios)
 
         return initial_state  
 
@@ -1138,23 +1062,7 @@ class LV_VAE_MESH(gym.Env):
 
         n_prev_scenarios = 7
         if np.random.uniform(0,1) < self.recap_chance:
-            if np.random.uniform(0,1) < 1/n_prev_scenarios:
-                initial_state = self.scenario_line()
-            elif np.random.uniform(0,1) < 2/n_prev_scenarios:
-                initial_state = self.scenario_random_pos_att_easy()
-            elif np.random.uniform(0,1) < 3/n_prev_scenarios:
-                initial_state = self.scenario_intermediate()
-            elif np.random.uniform(0,1) < 4/n_prev_scenarios:
-                initial_state = self.scenario_proficient()
-            elif np.random.uniform(0,1) < 5/n_prev_scenarios:
-                initial_state = self.scenario_expert()    
-            elif np.random.uniform(0,1) < 6/n_prev_scenarios:
-                initial_state = self.scenario_expert_random()
-            else:
-                initial_state = self.scenario_easy()
-
-        if self.accept_rad > self.minimum_accept_rad:
-            self.accept_rad *= (1-self.shrink_rate)  
+            initial_state = self.recap_previous_scenario(n_prev_scenarios)
 
         return initial_state
 
@@ -1164,25 +1072,7 @@ class LV_VAE_MESH(gym.Env):
 
         n_prev_scenarios = 8
         if np.random.uniform(0,1) < self.recap_chance:
-            if np.random.uniform(0,1) < 1/n_prev_scenarios:
-                initial_state = self.scenario_line()
-            elif np.random.uniform(0,1) < 2/n_prev_scenarios:
-                initial_state = self.scenario_random_pos_att_easy()
-            elif np.random.uniform(0,1) < 3/n_prev_scenarios:
-                initial_state = self.scenario_intermediate()
-            elif np.random.uniform(0,1) < 4/n_prev_scenarios:
-                initial_state = self.scenario_proficient()
-            elif np.random.uniform(0,1) < 5/n_prev_scenarios:
-                initial_state = self.scenario_expert()    
-            elif np.random.uniform(0,1) < 6/n_prev_scenarios:
-                initial_state = self.scenario_expert_random()
-            elif np.random.uniform(0,1) < 7/n_prev_scenarios:
-                initial_state = self.scenario_easy_perturbed_sim()
-            else:
-                initial_state = self.scenario_easy()
-
-        if self.accept_rad > self.minimum_accept_rad:
-            self.accept_rad *= (1-self.shrink_rate)  
+            initial_state = self.recap_previous_scenario(n_prev_scenarios) 
 
         return initial_state
     
@@ -1192,36 +1082,14 @@ class LV_VAE_MESH(gym.Env):
 
         n_prev_scenarios = 9
         if np.random.uniform(0,1) < self.recap_chance:
-            if np.random.uniform(0,1) < 1/n_prev_scenarios:
-                initial_state = self.scenario_line()
-            elif np.random.uniform(0,1) < 2/n_prev_scenarios:
-                initial_state = self.scenario_random_pos_att_easy()
-            elif np.random.uniform(0,1) < 3/n_prev_scenarios:
-                initial_state = self.scenario_intermediate()
-            elif np.random.uniform(0,1) < 4/n_prev_scenarios:
-                initial_state = self.scenario_proficient()
-            elif np.random.uniform(0,1) < 5/n_prev_scenarios:
-                initial_state = self.scenario_expert()    
-            elif np.random.uniform(0,1) < 6/n_prev_scenarios:
-                initial_state = self.scenario_expert_random()
-            elif np.random.uniform(0,1) < 7/n_prev_scenarios:
-                initial_state = self.scenario_easy_perturbed_sim()
-            elif np.random.uniform(0,1) < 8/n_prev_scenarios:
-                initial_state = self.scenario_proficient_perturbed_sim()
-            else:
-                initial_state = self.scenario_easy()
-
-        if self.accept_rad > self.minimum_accept_rad:
-            self.accept_rad *= (1-self.shrink_rate)    
+            initial_state = self.recap_previous_scenario(n_prev_scenarios)  
 
         return initial_state
 
 
 
-#Testing scenarios
+#Testing scenarios #TODO veriy scale update
     def scenario_test_path(self):
-        # test_waypoints = np.array([np.array([0,0,0]), np.array([1,1,0]), np.array([9,9,0]), np.array([10,10,0])])
-        # test_waypoints = np.array([np.array([0,0,0]), np.array([5,0,0]), np.array([10,0,0]), np.array([15,0,0])])
         test_waypoints = np.array([np.array([0,0,0]), np.array([10,1,0]), np.array([20,0,0]), np.array([70,0,0])])
         self.n_waypoints = len(test_waypoints)
         self.path = QPMI(test_waypoints)
@@ -1314,7 +1182,7 @@ class LV_VAE_MESH(gym.Env):
         waypoints = generate_random_waypoints(self.n_waypoints,'house')
         self.path = QPMI(waypoints)
 
-        init_pos = waypoints[0]# + np.random.uniform(low=-5, high=5, size=(1,3))
+        init_pos = waypoints[0]# + np.random.uniform(low=-0.25, high=0.25, size=(1,3))
 
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([np.array(init_pos), init_attitude])
@@ -1325,8 +1193,7 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
 
-
-#Development scenarios
+#Development scenarios #TODO update to scale
     def scenario_dev_test_crash(self):
         initial_state = np.zeros(6)
         waypoints = generate_random_waypoints(3,'line',segmentlength=self.segment_length)

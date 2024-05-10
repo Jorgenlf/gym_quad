@@ -78,7 +78,7 @@ if __name__ == "__main__":
             for episode in range(args.episodes):
                 try:
                     episode_df, env = simulate_environment(episode, env, agent, test_dir, args.save_depth_maps)
-                    sim_df = pd.concat([sim_df, episode_df], ignore_index=True)
+                    sim_df = pd.concat([sim_df, episode_df], ignore_index=True) #TODO make it work with several episodes
                 except NameError:
                     sim_df = episode_df
                 
