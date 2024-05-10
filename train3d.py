@@ -78,21 +78,13 @@ scenarios = {   "line"          :   1e5,
 #              }
 
 #This was used and all noise was active the whole run for expid 8 on "Jøreng PC"
-scenarios = {   "line"                 :  1e5,
-                "easy"                 :  0.5e6,
-                "easy_random"          :  0.5e6, #Randomized pos and att of quad in easy scenario
+scenarios = {   "line"                 :  0.33e5,
+                "easy"                 :  0.33e5,
+                "easy_random"          :  0.33e5, #Randomized pos and att of quad in easy scenario
                 "proficient"           :  1e6,
                 "intermediate"         :  1e6,
                 "expert"               :  1e6,
-                "expert_random"        :  1e6, #Randomized pos and att of quad in expert scenario
-                "easy_perturbed"       :  1e6, #Perturbed by noise
-                "proficient_perturbed" :  1e6,
-                "expert_perturbed"     :  1e6
              }
-
-
-# scenarios = {"vertical"          :   2e5} #For profiling purposes
-
 
 
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
@@ -173,9 +165,9 @@ if __name__ == '__main__':
         if done_training:
             break
         
-        #Changes to the LV_VAE config between different curriculum stages/scenarios:
-        if lv_vae_config["accept_rad"] > lv_vae_config["minimum_accept_rad"]:
-            lv_vae_config["accept_rad"]  -= lv_vae_config["accept_rad"]*0.1 #Decrease acceptance radius by 10% per new stage/scenario until minimum acceptance radius is reached
+        #Changes to the LV_VAE config between different curriculum stages/scenarios: THIS DOES NOT APPLY/WORK
+        # if lv_vae_config["accept_rad"] > lv_vae_config["minimum_accept_rad"]:
+        #     lv_vae_config["accept_rad"]  -= lv_vae_config["accept_rad"]*0.1 #Decrease acceptance radius by 10% per new stage/scenario until minimum acceptance radius is reached
 
         #Saving configs
         agents_dir = os.path.join(experiment_dir, scen, "agents")
