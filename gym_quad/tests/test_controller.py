@@ -430,36 +430,48 @@ class TestController(unittest.TestCase):
 
         R = j_Rzyx(*imu_quad_att) #*self.quadcopter.attitude)
 
-        #Essentially three different velocities that one can choose to track:
-        #Think body or world frame velocity control is the best choice
-        ###---###
-        ##Vehicle frame velocity control i.e. intermediary frame between body and world frame
-        # vehicleR = geom.Rzyx(0, 0, self.quadcopter.attitude[2])
-        # vehicle_vels = vehicleR.T @ self.quadcopter.velocity
+        #Essentially three different velocities that one can choose to track: body- or world- or vehicle-frame:
+
+        #Choice of three different velocities that one can choose to track: body- or world- or vehicle-frame:
+        #Vehicle frame velocity control i.e. intermediary frame between body and world frame
+        #DONT DO THIS AS IT GIVES THE SAME BEHAVIOUR AS WORLD FRAME VELOCITY CONTROL
+        # vehicleR = geom.Rzyx(0, 0, imu_quad_att[2])
+        # vehicle_vels = vehicleR.T @ imu_quad_vel
         # ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - vehicle_vels
-        ###---###
-        #World frame velocity control
+        # drag_force_body = np.array([ss.d_u*imu_quad_vel[0], ss.d_v*imu_quad_vel[1], ss.d_w*imu_quad_vel[2]])
+        # drag_force_world = R @ drag_force_body
+        # #Thrust command
+        # f = kv*ev + ss.m*ss.g*e3 + drag_force_world
+        # thrust_command = np.dot(f, R[2])                                   
+
+        #World frame velocity control DONT DO THIS
+        #AS THEN CMD_V_Y WHICH IS 0 WOULD DENY THE DRONE TO MOVE IN Y WORLD DIRECTION
         # ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.position_dot
+        # drag_force_body = np.array([ss.d_u*imu_quad_vel[0], ss.d_v*imu_quad_vel[1], ss.d_w*imu_quad_vel[2]])
+        # drag_force_world = R @ drag_force_body
+        # #Thrust command
+        # f = kv*ev + ss.m*ss.g*e3 + drag_force_world
+        # thrust_command = np.dot(f, R[2])                                    
 
         #Body frame velocity control
         ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - imu_quad_vel #self.quadcopter.velocity Old "pure measurements"
-        #Which one to use? vehicle_vels or self.quadcopter.velocity
+        drag_force_body = np.array([ss.d_u*imu_quad_vel[0], ss.d_v*imu_quad_vel[1], ss.d_w*imu_quad_vel[2]])
+        gravity_in_body = np.array([-ss.m*ss.g*np.sin(imu_quad_att[1]), 
+                                    ss.m*ss.g*np.cos(imu_quad_att[1])*np.sin(imu_quad_att[0]), 
+                                    ss.m*ss.g*np.cos(imu_quad_att[1])*np.cos(imu_quad_att[0])])
+        #Thrust command
+        f = kv*ev + drag_force_body + gravity_in_body
+        thrust_command = f[2] #WE LOOSE THE DOT PRODUCT HERE WHICH HELPS BOUND THE THRUST COMMAND STABILITY MIGHT BE HURT
 
-        #Thrust command (along body z axis)
-        f = kv*ev + ss.m*ss.g*e3 + ss.d_w*imu_quad_vel[2]*e3 #ss.d_w*self.quadcopter.heave*e3 Old "pure measurements"
-        thrust_command = np.dot(f, R[2])
-
-        #Rd calculation as in Kulkarni aerial gym (works fairly well)
         c_phi_s_theta = f[0]
         s_phi = -f[1]
         c_phi_c_theta = f[2]
 
-        pitch_setpoint = np.arctan2(c_phi_s_theta, c_phi_c_theta)
         roll_setpoint = np.arctan2(s_phi, np.sqrt(c_phi_c_theta**2 + c_phi_s_theta**2))
-        yaw_setpoint = imu_quad_att[2] #self.quadcopter.attitude[2]
+        pitch_setpoint = np.arctan2(c_phi_s_theta, c_phi_c_theta)
+        yaw_setpoint = imu_quad_att[2] 
         Rd = j_Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint)
-        self.att_des = np.array([-roll_setpoint, pitch_setpoint, yaw_setpoint]) # Save the desired attitude for plotting during testing
-        #TODO there is something funky about the roll setpoint, its sign is flipped for some reason
+        self.att_des = np.array([roll_setpoint, pitch_setpoint, yaw_setpoint]) # Save the desired attitude for plotting during testing
 
         eR = 1/2*(Rd.T @ R - R.T @ Rd)
         eatt = geom.vee_map(eR)
@@ -467,20 +479,18 @@ class TestController(unittest.TestCase):
 
         des_angvel = np.array([0.0, 0.0, cmd_r])
 
-        s_pitch = np.sin(imu_quad_att[1]) #self.quadcopter.attitude[1]) Old "pure measurements"
-        c_pitch = np.cos(imu_quad_att[1]) #self.quadcopter.attitude[1]) Old "pure measurements"
-        s_roll = np.sin(imu_quad_att[0]) #self.quadcopter.attitude[0])  Old "pure measurements"                 
-        c_roll = np.cos(imu_quad_att[0]) #self.quadcopter.attitude[0])  Old "pure measurements"
+        s_pitch = np.sin(imu_quad_att[1]) 
+        c_pitch = np.cos(imu_quad_att[1])
+        s_roll = np.sin(imu_quad_att[0])                  
+        c_roll = np.cos(imu_quad_att[0]) 
         R_euler_to_body = np.array([[1, 0, -s_pitch],
                                     [0, c_roll, s_roll*c_pitch],
                                     [0, -s_roll, c_roll*c_pitch]]) #Essentially the inverse of Tzyx from geomutils
 
         des_angvel_body = R_euler_to_body @ des_angvel
 
-        # eangvel = self.quadcopter.angular_velocity - R.T @ (Rd @ des_angvel_body) Old "pure measurements"
         eangvel = imu_quad_angvel - R.T @ (Rd @ des_angvel_body) 
 
-        # torque = -kR*eatt - kangvel*eangvel + np.cross(self.quadcopter.angular_velocity,ss.Ig@self.quadcopter.angular_velocity) Old "pure measurements"
         torque = -kR*eatt - kangvel*eangvel + np.cross(imu_quad_angvel,ss.Ig@imu_quad_angvel)
         
         u = np.zeros(4)
@@ -502,12 +512,13 @@ if __name__ == '__main__':
     vel_ref = []
     incline_ref = []
     yaw_rate_ref = []
-    tot_time = 1500 # 1500*0.01 = 150 seconds
+    tot_time = 800 # 1500*0.01 = 150 seconds
     # referencetype = "z_velocity" # "hover", "x_velocity", "z_velocity", "yaw_rate", "yaw_rate_xvel", "velocity_step", "incline_step", "velx_yaw_rate_velx"
-    # referencetype = "yaw_rate_xvel"
-    # referencetype = "velx_yaw_rate_velx"
-    # referencetype = "complex"
+    referencetype = "hover"
+    referencetype = "velx_yaw_rate_velx"
+    referencetype = "complex"
     referencetype = "x_velocity"
+    referencetype = "yaw_rate_xvel"
     referencetype = "manual_input" #Mimics manual input
 
     save_forces = False #If flipped saves the forces to file so can be used in e.g. IMU
@@ -519,7 +530,11 @@ if __name__ == '__main__':
             incline_ref.append(0)
     elif referencetype == "x_velocity": # Creates reference for moving in the x direction then stopping
         for t in range(tot_time):
-            if t>0 and t<500:
+            if t<50: #hover
+                vel_ref.append(-1)
+                yaw_rate_ref.append(0)
+                incline_ref.append(0)
+            elif t<500:
                 vel_ref.append(0.2)
             else:
                 vel_ref.append(-1)
@@ -527,28 +542,50 @@ if __name__ == '__main__':
             incline_ref.append(0)
     elif  referencetype == "z_velocity": #Creates reference for moving in the z direction
         for t in range(tot_time):
-            vel_ref.append(1)
-            incline_ref.append(np.pi/2)
-            yaw_rate_ref.append(0)        
+            if t<50: #hover
+                vel_ref.append(-1)
+                yaw_rate_ref.append(0)
+                incline_ref.append(0)
+            else:
+                vel_ref.append(1)
+                incline_ref.append(np.pi/2)
+                yaw_rate_ref.append(0)        
     elif referencetype == "yaw_rate": #Creates reference for a step in yaw rate
         for t in range(tot_time):
-            vel_ref.append(-1)
-            incline_ref.append(0)
+            if t<50: #hover
+                vel_ref.append(-1)
+                yaw_rate_ref.append(0)
+                incline_ref.append(0)
             if t > 200 and t < 400:
                 yaw_rate_ref.append(np.pi/12) #15 degrees per second
+                vel_ref.append(-1)
+                incline_ref.append(0)
             else:
+                vel_ref.append(-1)
+                incline_ref.append(0)
                 yaw_rate_ref.append(0)
+
     elif referencetype == "yaw_rate_xvel": #Creates reference for moving in the x direction with a yaw rate
         for t in range(tot_time):
-            vel_ref.append(0.5)
-            incline_ref.append(0)
-            if t > 200 and t < 220:
+            if t<50: #hover
+                vel_ref.append(-1)
+                yaw_rate_ref.append(0)
+                incline_ref.append(0)
+            elif t > 200 and t < 220:
+                vel_ref.append(0.5)
+                incline_ref.append(0)
                 yaw_rate_ref.append(np.pi/6) #30 degrees per second
             else:
+                vel_ref.append(0.5)
+                incline_ref.append(0)
                 yaw_rate_ref.append(0)
     elif referencetype == "velocity_step": #Creates reference for moving in the x and z direction with a step in velocity
         for t in range(tot_time):
-            if t < 200:
+            if t<50: #hover
+                vel_ref.append(-1)
+                yaw_rate_ref.append(0)
+                incline_ref.append(0)
+            elif t < 200:
                 vel_ref.append(0.25)
                 incline_ref.append(np.pi/4)
                 yaw_rate_ref.append(0)
@@ -558,7 +595,11 @@ if __name__ == '__main__':
                 yaw_rate_ref.append(0)
     elif referencetype == "incline_step": #Creates reference for moving in the x and z direction with a step in incline
         for t in range(tot_time):
-            if t < 200:
+            if t<50: #hover
+                vel_ref.append(-1)
+                yaw_rate_ref.append(0)
+                incline_ref.append(0)
+            elif t < 200:
                 vel_ref.append(0.5)
                 incline_ref.append(np.pi/8)
                 yaw_rate_ref.append(0)
@@ -568,7 +609,11 @@ if __name__ == '__main__':
                 yaw_rate_ref.append(0)  
     elif referencetype == "velx_yaw_rate_velx": #Creates reference for moving in the x direction then stop to yaw then move in the x direction
         for t in range(tot_time):
-            if t < 200:
+            if t<50: #hover
+                vel_ref.append(-1)
+                yaw_rate_ref.append(0)
+                incline_ref.append(0)
+            elif t < 200:
                 vel_ref.append(0.5)
                 incline_ref.append(0)
                 yaw_rate_ref.append(0)
@@ -582,18 +627,32 @@ if __name__ == '__main__':
                 yaw_rate_ref.append(0)
     elif referencetype == "sin_xvel_sin_zvel":
         for t in range(tot_time):
-            vel_ref.append(0.1*np.sin(0.1*t))
-            incline_ref.append(0)
-            yaw_rate_ref.append(0)
+            if t<50: #hover
+                vel_ref.append(-1)
+                yaw_rate_ref.append(0)
+                incline_ref.append(0)
+            else:
+                vel_ref.append(0.1*np.sin(0.1*t))
+                incline_ref.append(0)
+                yaw_rate_ref.append(0)
     elif referencetype == "complex":
         for t in range(tot_time):
-            vel_ref.append(0.1*np.sin(0.1*t))
-            incline_ref.append(0.1*np.sin(0.1*t))
-            yaw_rate_ref.append(0.1*np.sin(0.1*t))
+            if t < 50: #Hover
+                vel_ref.append(-1)
+                incline_ref.append(0)
+                yaw_rate_ref.append(0)
+            else:
+                vel_ref.append(0.1*np.sin(0.1*t))
+                incline_ref.append(0.1*np.sin(0.1*t))
+                yaw_rate_ref.append(0.1*np.sin(0.1*t))
     
     elif referencetype == "manual_input":
         for t in range(tot_time):
-            if t < 100:
+            if t<50: #hover
+                vel_ref.append(-1)
+                yaw_rate_ref.append(0)
+                incline_ref.append(0)
+            elif t < 100:
                 #Move forward along xaxis
                 vel_ref.append(1)
                 incline_ref.append(0.3)
@@ -813,20 +872,20 @@ if __name__ == '__main__':
     plt.figure(5)
     plt.suptitle(referencetype)
     plt.subplot(2, 2, 1)
-    plt.plot(timesteps, roll, label='roll actual')
     plt.plot(timesteps, des_roll, label='roll desired')
+    plt.plot(timesteps, roll, label='roll actual')
     plt.ylabel('Attitude (degrees)')
     plt.xlabel('Timesteps[s]')
     plt.legend()
     plt.subplot(2, 2, 2)
-    plt.plot(timesteps, pitch, label='pitch actual')
     plt.plot(timesteps, des_pitch, label='pitch desired')
+    plt.plot(timesteps, pitch, label='pitch actual')
     plt.ylabel('Attitude (degrees)')
     plt.xlabel('Timesteps[s]')
     plt.legend()
     plt.subplot(2, 2, 3)
-    plt.plot(timesteps, yaw, label='yaw actual')
     plt.plot(timesteps, des_yaw, label='yaw desired')
+    plt.plot(timesteps, yaw, label='yaw actual')
     plt.ylabel('Attitude (degrees)')
     plt.xlabel('Timesteps[s]')
     plt.legend()
