@@ -51,7 +51,7 @@ lv_vae_config = {
     "min_reward"                : -1e4,          # Minimum reward before the simulation is terminated
     
     #Path adherence reward
-    'PA_band_edge'              : 1,            # edge of Path adherence band
+    'PA_band_edge'              : 3,            # edge of Path adherence band
     'PA_scale'                  : 3,             # scale of Path adherence reward [-PA_scale, PA_scale]
     
     #Path progression reward

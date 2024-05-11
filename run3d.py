@@ -10,7 +10,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.patches import Rectangle
 from PIL import Image
 from RTvisualizer import *
-from pv_plotting_3d import Plotter3D
+from pv_plotting_3d import Plotter3D, Plotter3DMultiTraj
 
 from mpl_toolkits.mplot3d import Axes3D
 from stable_baselines3 import PPO
@@ -75,28 +75,80 @@ if __name__ == "__main__":
         # print("Feature extractor:\n", agent.policy.features_extractor) # Uncomment to see the feature extractor being used
 
         if args.RT_vis == False:
+            cum_rewards = {}
+            all_drone_trajs = {} # Maps episode number to a trajectory
+            all_init_pos = {} # Maps episode number to initial position
             for episode in range(args.episodes):
                 try:
                     episode_df, env = simulate_environment(episode, env, agent, test_dir, args.save_depth_maps)
                     sim_df = pd.concat([sim_df, episode_df], ignore_index=True) #TODO make it work with several episodes
                 except NameError:
                     sim_df = episode_df
-                
+
                 #Creates folders for plots
                 create_plot_folders(test_dir)
-                #NEW PLOTTING
+                
                 path = env.unwrapped.path
-                sim_df[sim_df['Episode']==episode]
-                drone_traj = np.stack((sim_df[r"$X$"], sim_df[r"$Y$"], sim_df[r"$Z$"]), axis=-1)
+
+                #sim_df[sim_df['Episode']==episode]
+                all_drone_trajs[episode] = np.stack((episode_df[r"$X$"], episode_df[r"$Y$"], episode_df[r"$Z$"]), axis=-1)
+                all_init_pos[episode] = all_drone_trajs[episode][0]
+                cum_rewards[episode] = episode_df['Reward'].sum()
+                
+                
+                # Per episide stuff
+                drone_traj = np.stack((episode_df[r"$X$"], episode_df[r"$Y$"], episode_df[r"$Z$"]), axis=-1)
                 init_pos = drone_traj[0]
                 obstacles = env.unwrapped.obstacles
-                # change obstacles to tri frame before plotting Todod
+            
                 plotter = Plotter3D(obstacles=obstacles, 
                                     path=path, 
                                     drone_traj=drone_traj,
                                     initial_position=init_pos,
-                                    nosave=True) #TODO make it both save and display interactive plot
-                plotter.plot_scene_and_trajs(os.path.join(test_dir, "plots", f"episode{int(sim_df['Episode'].iloc[0])}.png"))
+                                    nosave=False) #TODO make it both save and display interactive plot, needs to fix resolution thing
+                plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
+                                            azimuth=90, # 90 or 0 is best angle for the 3D plot 
+                                            elevation=None,
+                                            see_from_plane=None)
+                del plotter
+            
+            multiplotter = Plotter3DMultiTraj(obstacles=obstacles,
+                                            path=path,
+                                            drone_trajectories=all_drone_trajs,
+                                            cum_rewards=cum_rewards,
+                                            nosave=False)
+            multiplotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"multiplot.png"),
+                                            azimuth=90,
+                                            elevation=None,
+                                            see_from_plane=None)
+                
+                 # This loop plots the from all four azimuths and all three planes # TODO This is buggy for some view angles. Axis labels dissapear (i think this is bc. they are essentially meshes and are view from behind or something)
+                # azis = [0, 90, 180, 270]
+                # planes = ["xy", "xz", "yz"]
+                # for azi in azis:
+                #     plotter = Plotter3D(obstacles=obstacles, 
+                #                     path=path, 
+                #                     drone_traj=drone_traj,
+                #                     initial_position=init_pos,
+                #                     nosave=False)
+                #     plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{int(sim_df['Episode'].iloc[0])}_azi{azi}.png"),
+                #                                 azimuth=azi, 
+                #                                 elevation=None,
+                #                                 see_from_plane=None)
+                #     del plotter
+                # for plane in planes:
+                #     plotter = Plotter3D(obstacles=obstacles, 
+                #                     path=path, 
+                #                     drone_traj=drone_traj,
+                #                     initial_position=init_pos,
+                #                     nosave=False)
+                #     plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{int(sim_df['Episode'].iloc[0])}_{plane}.png"),
+                #                                 see_from_plane=plane)
+                #     del plotter
+                
+                # Multiplot!
+                
+                
 
 
                 #Path and quadcopter travel
@@ -105,24 +157,24 @@ if __name__ == "__main__":
 
                 # Observations
                 #normalized
-                plot_all_normed_domain_observations(sim_df,test_dir)
-                #original (pure)
-                plot_observation_body_accl(sim_df,test_dir)
-                plot_observation_body_angvel(sim_df,test_dir)
-                plot_observation_cpp(sim_df,test_dir)
-                plot_observation_cpp_azi_ele(sim_df,test_dir)
-                plot_observation_e_azi_ele(sim_df,test_dir)
-                plot_observation_dists(sim_df,test_dir)
-                plot_observation_LA(sim_df,test_dir)
+                # plot_all_normed_domain_observations(sim_df,test_dir)
+                # #original (pure)
+                # plot_observation_body_accl(sim_df,test_dir)
+                # plot_observation_body_angvel(sim_df,test_dir)
+                # plot_observation_cpp(sim_df,test_dir)
+                # plot_observation_cpp_azi_ele(sim_df,test_dir)
+                # plot_observation_e_azi_ele(sim_df,test_dir)
+                # plot_observation_dists(sim_df,test_dir)
+                # plot_observation_LA(sim_df,test_dir)
                 
-                # States
-                plot_angular_velocity(sim_df,test_dir)
-                plot_attitude(sim_df,test_dir)
-                plot_velocity(sim_df,test_dir)
+                # # States
+                # plot_angular_velocity(sim_df,test_dir)
+                # plot_attitude(sim_df,test_dir)
+                # plot_velocity(sim_df,test_dir)
                 
-                plt.close('all')
+                # plt.close('all')
 
-                write_report(test_dir, sim_df, env, episode)
+                #write_report(test_dir, sim_df, env, episode)
 
 
 

@@ -970,7 +970,7 @@ class LV_VAE_MESH(gym.Env):
         self.path = QPMI(waypoints)
         
         if random_pos:
-            init_pos = [np.random.uniform(-self.padding-2,self.padding-2), np.random.uniform(-self.padding-2,self.padding-2), np.random.uniform(-self.padding-2,self.padding-2)]
+            init_pos = [np.random.uniform(-self.padding+2,self.padding-2), np.random.uniform(-self.padding+2,self.padding-2), np.random.uniform(-self.padding+2,self.padding-2)]
         else:    
             init_pos=[0, 0, 0]
         
