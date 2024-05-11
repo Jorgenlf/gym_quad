@@ -48,7 +48,7 @@ if __name__ == "__main__":
     #----#----#For running of file without the need of command line arguments#----#----#
 
     # args = Namespace(manual_control=True, env = "LV_VAE_MESH-v0", save_depth_maps=False) 
-    manual_scenario = "crash" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash", "easy"
+    manual_scenario = "proficient" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash", "easy"
     
     #Temp variables for debugging
     quad_pos_log = []
@@ -264,65 +264,69 @@ if __name__ == "__main__":
                 obs, rew, done, _, info = env.step(action=input)
                 quad_pos = env.unwrapped.quadcopter.position
                 quad_att = env.unwrapped.quadcopter.attitude
-                visualizer.update_quad_visual(quad_pos, quad_att)
-
-                world_LApoint = env.unwrapped.path.get_lookahead_point(quad_pos, 5, env.unwrapped.waypoint_index)
-                closest_path_point = env.unwrapped.path.get_closest_position(quad_pos,env.unwrapped.waypoint_index)
-                velocity_world = env.unwrapped.quadcopter.position_dot
-                # vel_world_from_transform = geom.Rzyx(*quad_att) @ env.quadcopter.velocity  #equivalent to the pos_dot :)
-                b1 = geom.Rzyx(*quad_att) @ np.array([1,0,0])
-                b2 = geom.Rzyx(*quad_att) @ np.array([0,1,0])
-                b3 = geom.Rzyx(*quad_att) @ np.array([0,0,1])
-
-                #Body axis vectors
-                visualizer.update_vector(quad_pos,quad_pos+b1, [1, 0, 0],"b1")
-                visualizer.update_vector(quad_pos,quad_pos+b2, [0, 1, 0],"b2")
-                visualizer.update_vector(quad_pos,quad_pos+b3, [0, 0, 1],"b3")
-
-                #orange world velocity vector
-                visualizer.update_vector(quad_pos,quad_pos+velocity_world, [1, 0.5, 0],"world_velocity")
-                # visualizer.update_vector(quad_pos,quad_pos+vel_world_from_transform*3, [1, 0, 0],"transd_world_velocity")
-
-                #purple LA point and vector
-                visualizer.update_vector(quad_pos,world_LApoint, [160/255, 32/255, 240/255],"LA_vec") 
-                visualizer.update_point(world_LApoint, [160/255, 32/255, 240/255],"LA_point")
-
-                #green closest point on path
-                visualizer.update_point(closest_path_point, [0, 1, 0],"Closest_p_point")
-
-                #For plotting the mesh and quad pos after
-                # quad_pos_log.append(quad_pos)
-                # quad_mesh_pos_log.append(env.quad_mesh_pos)
-
-                #blue point for realtime plotting of the quadcopter mesh 
-                # visualizer.update_point(env.unwrapped.quad_mesh_pos, color=[0,0,1], id="Quad_mesh")
 
                 #Saving of depthmaps:
                 if args.save_depth_maps:
                     save_depth_maps(env,"debug_manual_depthmaps")
 
-                if update_text: #Relate values to the added text above
-                    print("Updating values of text")  
-                    rad2deg = 180/np.pi
-                    normalized_dist_to_end = info['domain_obs'][19]
-                    x_y_z_closepath = info['domain_obs'][8:11] 
-                    headingangleerr = np.arcsin(info['domain_obs'][0])*rad2deg
-                    elevationangleerr = np.arcsin(info['domain_obs'][1])*rad2deg
-                    anglesclosestppath_phi = np.arcsin(info['domain_obs'][11])*rad2deg
-                    agnleclosestppath_psi = np.arcsin(info['domain_obs'][13])*rad2deg
-                    values_related_to_text = [normalized_dist_to_end,
-                                                x_y_z_closepath,
-                                                headingangleerr,
-                                                elevationangleerr,
-                                                anglesclosestppath_phi,
-                                                agnleclosestppath_psi]
-                    visualizer.update_text(values_related_to_text)
-                    update_text = False
+                #Update quadcopter visual every third step
+                if env.unwrapped.total_t_steps % 3 == 0:
+                    visualizer.update_quad_visual(quad_pos, quad_att)
+                    world_LApoint = env.unwrapped.path.get_lookahead_point(quad_pos, 5, env.unwrapped.waypoint_index)
+                    closest_path_point = env.unwrapped.path.get_closest_position(quad_pos,env.unwrapped.waypoint_index)
+                    velocity_world = env.unwrapped.quadcopter.position_dot
+                    # vel_world_from_transform = geom.Rzyx(*quad_att) @ env.quadcopter.velocity  #equivalent to the pos_dot :)
+                    b1 = geom.Rzyx(*quad_att) @ np.array([1,0,0])
+                    b2 = geom.Rzyx(*quad_att) @ np.array([0,1,0])
+                    b3 = geom.Rzyx(*quad_att) @ np.array([0,0,1])
 
-                app.process_events()
+                    #Body axis vectors
+                    visualizer.update_vector(quad_pos,quad_pos+b1, [1, 0, 0],"b1")
+                    visualizer.update_vector(quad_pos,quad_pos+b2, [0, 1, 0],"b2")
+                    visualizer.update_vector(quad_pos,quad_pos+b3, [0, 0, 1],"b3")
+
+                    #orange world velocity vector
+                    visualizer.update_vector(quad_pos,quad_pos+velocity_world, [1, 0.5, 0],"world_velocity")
+                    # visualizer.update_vector(quad_pos,quad_pos+vel_world_from_transform*3, [1, 0, 0],"transd_world_velocity")
+
+                    #purple LA point and vector
+                    visualizer.update_vector(quad_pos,world_LApoint, [160/255, 32/255, 240/255],"LA_vec") 
+                    visualizer.update_point(world_LApoint, [160/255, 32/255, 240/255],"LA_point")
+
+                    #green closest point on path
+                    visualizer.update_point(closest_path_point, [0, 1, 0],"Closest_p_point")
+
+                    #For plotting the mesh and quad pos after
+                    # quad_pos_log.append(quad_pos)
+                    # quad_mesh_pos_log.append(env.quad_mesh_pos)
+
+                    #blue point for realtime plotting of the quadcopter mesh 
+                    # visualizer.update_point(env.unwrapped.quad_mesh_pos, color=[0,0,1], id="Quad_mesh")
+
+                    if update_text: #Relate values to the added text above
+                        print("Updating values of text")  
+                        rad2deg = 180/np.pi
+                        normalized_dist_to_end = info['domain_obs'][19]
+                        x_y_z_closepath = info['domain_obs'][8:11] 
+                        headingangleerr = np.arcsin(info['domain_obs'][0])*rad2deg
+                        elevationangleerr = np.arcsin(info['domain_obs'][1])*rad2deg
+                        anglesclosestppath_phi = np.arcsin(info['domain_obs'][11])*rad2deg
+                        agnleclosestppath_psi = np.arcsin(info['domain_obs'][13])*rad2deg
+                        values_related_to_text = [normalized_dist_to_end,
+                                                    x_y_z_closepath,
+                                                    headingangleerr,
+                                                    elevationangleerr,
+                                                    anglesclosestppath_phi,
+                                                    agnleclosestppath_psi]
+                        visualizer.update_text(values_related_to_text)
+                        update_text = False
+
+                    app.process_events()
                 if done:
                     done = False
                     env.reset()
+                    env.close()
+                    visualizer.close()
 
         env = gym.make(id=args.env, scenario=manual_scenario)
         _manual_control(env)

@@ -48,8 +48,6 @@ class LV_VAE_MESH(gym.Env):
         for key in env_config:
             setattr(self, key, env_config[key])
 
-        print("Checking that accept rad deacreases per currstage:", self.accept_rad)
-
         #Actionspace mapped to speed, inclination of velocity vector wrt x-axis and yaw rate
         self.action_space = gym.spaces.Box(
             low = np.array([-1,-1,-1], dtype=np.float32),
@@ -113,15 +111,20 @@ class LV_VAE_MESH(gym.Env):
             "expert_perturbed"      : self.scenario_expert_perturbed_sim,
             
             # Testing scenarios
-            "helix"         : self.scenario_helix,
-            "test_path"     : self.scenario_test_path,
-            "test"          : self.scenario_test,
-            "house"         : self.scenario_house,
-            "horizontal"    : self.scenario_horizontal_test,
-            "vertical"      : self.scenario_vertical_test,
-            "deadend"       : self.scenario_deadend_test,
-            "crash"         : self.scenario_dev_test_crash,
-            "crash_cube"    : self.scenario_dev_test_cube_crash,
+            #Agent testing
+            "helix"             : self.scenario_helix,
+            "test_path"         : self.scenario_test_path,
+            "test"              : self.scenario_test,
+            "house"             : self.scenario_house,
+            "horizontal"        : self.scenario_horizontal_test,
+            "vertical"          : self.scenario_vertical_test,
+            "deadend"           : self.scenario_deadend_test,
+            #Dev testing
+            "crash"             : self.scenario_dev_test_crash,
+            "crash_cube"        : self.scenario_dev_test_cube_crash,
+            "obs_at_end"        : self.scenario_dev_test_obs_at_end,
+            "outskirt"          : self.scenario_dev_test_obs_in_outskirt,
+            "outskirt_and_end"  : self.scenario_dev_test_outskirt_and_end,
         }
 
         #New init values for sensor using depth camera, mesh and pt3d
@@ -155,8 +158,9 @@ class LV_VAE_MESH(gym.Env):
         super().reset(seed=seed)
         # print("PRINTING SEED WHEN RESETTING:", seed) 
         
-        #Temp debugging variables
-        # np.random.seed() #ONLY UNCOMMENT THIS IF YOU WANT RANDOMNESS WHEN DOING RUN3D.PY
+        #ONLY UNCOMMENT THIS RANDOM SEEDING IF YOU WANT RANDOMNESS WHEN DOING RUN3D.PY
+        #IF YOU WANT TO REPRODUCE THE SAME RESULTS EVERY TIME ADD A NUMBER INTO THE NP.RANDOM.SEED() FUNCTION
+        # np.random.seed() 
 
         #General variables being reset
         self.quadcopter = None
@@ -191,11 +195,15 @@ class LV_VAE_MESH(gym.Env):
         
         #Noise variables
         #If the simulation is not to be perturbed the noise values are set to 0 (except for IMU noise which is always present)
-        
         #Camera pos orient no noise
-        self.camera_look_direction = np.array([1, 0, 0])
-        self.camera_look_direction_noisy = self.camera_look_direction
-        self.camera_pos_noise = np.zeros(3)
+        camera_look_direction = np.array([1, 0, 0]) #TODO turn these two into hypervariables
+        camera_position_body = np.array([-0.3, 0, 0])
+        #When sim got scaled down, drone got scaled down 
+        #and camera now enters obstacles before collision is detected. 
+        #We therefore move the camera back a bit
+
+        self.camera_look_direction_noisy = camera_look_direction
+        self.camera_pos_noise = camera_position_body
 
         #Controller gain noise
         self.kv_noise = 0
@@ -204,9 +212,8 @@ class LV_VAE_MESH(gym.Env):
         
         #Perturbing of camera pose
         if self.perturb_sim or self.perturb_camera_pose:
-            self.camera_look_direction = np.array([1, 0, 0])
-            self.camera_look_direction_noisy = self.camera_look_direction + np.random.normal(0, 0.01, 3)
-            self.camera_pos_noise = np.random.normal(0, 0.005, 3)
+            self.camera_look_direction_noisy = camera_look_direction + np.random.normal(0, 0.01, 3)
+            self.camera_pos_noise = camera_position_body + np.random.normal(0, 0.005, 3)
         
         # IMU boosted noise
         if self.perturb_sim or self.perturb_IMU:
@@ -240,7 +247,24 @@ class LV_VAE_MESH(gym.Env):
         init_state = scenario() #Called such that the obstacles are generated and the init state of the quadcopter is set
         #The function called above sets self.path and self.obstacles(if obstacles are to be generated) and returns the init state of the quadcopter
 
-        ## 2. Generate room
+        #2. Find the obstacles that are close/on the path for the more sophisticated lambda interpolation before the room is generated
+        self.obs_near_path_CPPs = [] #Closest points on path for obstacles near path
+        if self.obstacles!=[]:
+            for obstacle in self.obstacles:
+                if obstacle.isDummy:
+                    continue
+                else:
+                    obs_pos_np = obstacle.position.cpu().numpy() #Costly so do it here per reset and save important info
+                    for wp_index in range(len(self.path.waypoints)-1):
+                        obs_cpp = self.path.get_closest_position(obs_pos_np, wp_index)
+                        distance = np.linalg.norm(obs_pos_np - obs_cpp) - obstacle.radius #This requires that all obstacles has some form of radius (I made sure the cubes have a "radius")
+                        if distance < self.drone_radius_for_collision:
+                            self.obs_near_path_CPPs.append(obs_cpp)
+        self.obs_near_path_CPPs = [np.round(obs_cpp, 0) for obs_cpp in self.obs_near_path_CPPs]
+        self.obs_near_path_CPPs = np.array(self.obs_near_path_CPPs)
+        self.obs_near_path_CPPs = np.unique(self.obs_near_path_CPPs, axis=0)
+
+        ## 3. Generate room
         if self.enclose_scene:
             #For some reason the collison manager detects immeadiate collision if only the room is present
             #Hacky workaround is checking if there are no obstacles and adding a far away dummy obstacle
@@ -259,7 +283,7 @@ class LV_VAE_MESH(gym.Env):
             cube = CubeMeshObstacle(device=self.device,width=width, height=height, depth=depth, center_position=room_center)
             self.obstacles.append(cube)
 
-        ## 3. Generate camera, scene and renderer
+        ## 4. Generate camera, scene and renderer
         camera = None
         raster_settings = None
         scene = None
@@ -270,7 +294,7 @@ class LV_VAE_MESH(gym.Env):
                     blur_radius=0.0, 
                     faces_per_pixel=1, # Keep at 1, dont change
                     perspective_correct=True, # Doesn't do anything(??), but seems to improve speed
-                    cull_backfaces=True # Do not render backfaces. MAKE SURE THIS IS OK WITH THE GIVEN MESH.
+                    cull_backfaces=False #TODO Temp fix for the camera going inside obstacles before collision is detected Find a better less runtimeconsuming solution
                 )
             if self.obstacles[0].isDummy: #Means theres just the room and the path
                 scene = Scene(device = self.device, obstacles=[self.obstacles[1]])
@@ -288,7 +312,7 @@ class LV_VAE_MESH(gym.Env):
                                                     # Aditionally we dont need the rasterizer and renderer if there are no obstacles
 
 
-        ## 4. Init the trimesh meshes for collision detection 
+        ## 5. Init the trimesh meshes for collision detection 
         #IMPORTANT TO DO THIS AFTER THE CAMERA INIT AS CAMERA NEEDS INVERTED CUBES COLLISION DETECTION NEEDS NORMAL CUBES
         obs_meshes = None
         tri_obs_meshes = None
@@ -411,9 +435,7 @@ class LV_VAE_MESH(gym.Env):
          
         # x y z of closest point on path in body frame
         relevant_distance = self.relevant_dist_to_path #For this value and lower the observation will be changing i.e. giving info if above or below its clipped to -1 or 1 
-
         closest_point = self.path(self.prog)
-
         closest_point_body = np.transpose(geom.Rzyx(*quad_att)).dot(closest_point - quad_pos)
         domain_obs[4] = m1to1(closest_point_body[0], -relevant_distance,relevant_distance) 
         domain_obs[5] = m1to1(closest_point_body[1], -relevant_distance, relevant_distance) 
@@ -506,23 +528,27 @@ class LV_VAE_MESH(gym.Env):
         #The quadcopter steps until a new depth map is available
         sim_hz = 1/self.step_size #100 Hz usually
         cam_hz = self.camera_FPS  #15 Hz usually
-        steps_before_new_depth_map = sim_hz//cam_hz + sensor_latency
+        steps_before_new_depth_map = (sim_hz//cam_hz) + sensor_latency
         for i in range(int(steps_before_new_depth_map)):           
             F = self.geom_ctrlv2(action)
             #TODO maybe need some translation between input u and thrust F i.e translate u to propeller speed omega? 
             #We currently skip this step for simplicity
             self.quadcopter.step(F)
 
-        # Check collision 
-        #Do it out here and not inside the loop above to save time and not check every physics sim time step, but every drl time step. Seems to be often enough.
-        if self.obstacles != []:
+
+        #Check for collisions Done in drl sim to save time not in physics sim
+        if self.obstacles != []: #Only check collision if there are obstacles
             translation = enu_to_tri(self.quadcopter.position - self.prev_quad_pos)
             self.tri_quad_mesh.apply_translation(translation)
-            self.collided = self.collision_manager.in_collision_single(self.tri_quad_mesh)
-        self.prev_quad_pos = self.quadcopter.position   
+            collision_manager_detect = self.collision_manager.in_collision_single(self.tri_quad_mesh)
+            if collision_manager_detect or self.closest_measurement < 0.05: #Adding check if drone 5cm away obs it basically collided 
+                                                                            #to avoid the drone going inside obstacles before collision is detected
+                                                                            #Also works as a safety radius for the drone. The collision manager will stil catch nonvisible collisions (rare/should not occur)
+                                                                            #TODO for this to work the pixels in the depthmap must be updated correctly i.e. adjust for FOV and resolution
+                self.collided = True
+        
+        self.prev_quad_pos = self.quadcopter.position #For translation of the tri_quad_mesh in the next step
 
-        #Such that the oberservation has access to the previous action
-        self.prev_action = action
 
         # Check if a waypoint is passed
         self.prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
@@ -534,10 +560,9 @@ class LV_VAE_MESH(gym.Env):
 
 
         end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad
-        # end_cond_2 = abs(self.prog - self.path.length) <= self.accept_rad/2.0
-        end_cond_3 = self.total_t_steps >= self.max_t_steps
-        end_cond_4 = self.cumulative_reward < self.min_reward
-        if end_cond_1 or end_cond_3 or self.collided or end_cond_4: # or end_cond_2
+        end_cond_2 = self.total_t_steps >= self.max_t_steps
+        end_cond_3 = self.cumulative_reward < self.min_reward
+        if end_cond_1 or end_cond_2 or self.collided or end_cond_3:
             if end_cond_1:
                 print("Quadcopter reached target!")
                 print("Endpoint position", self.path.waypoints[-1], "\tquad position:", self.quadcopter.position) #might need the format line?
@@ -545,13 +570,9 @@ class LV_VAE_MESH(gym.Env):
             elif self.collided:
                 print("Quadcopter collided!")
                 self.success = False
-            # elif end_cond_2: #I think this Should be removed such that the quadcopter can fly past the endpoint and come back
-            #     print("Passed endpoint without hitting")
-                # print("Endpoint position", self.path.waypoints[-1], "\tquad position:", self.quadcopter.position) #might need the format line?
-
-            elif end_cond_3:
+            elif end_cond_2:
                 print("Exceeded time limit")
-            elif end_cond_4:
+            elif end_cond_3:
                 print("Acumulated reward less than", self.min_reward)
 
             self.done = True
@@ -575,6 +596,8 @@ class LV_VAE_MESH(gym.Env):
         self.cumulative_reward += step_reward
 
         # Make next observation
+        #Such that the oberservation has access to the previous action
+        self.prev_action = action
         self.observation = self.observe()
 
         truncated = False
@@ -602,14 +625,34 @@ class LV_VAE_MESH(gym.Env):
         if self.obstacles != []: #If there are no obstacles, no need to calculate the reward
             danger_range = self.danger_range
             drone_closest_obs_dist = self.closest_measurement 
-            
-            if (drone_closest_obs_dist < danger_range):
-                #Determine lambda coefficient for path adherence (and PP if use_lambda_PP flag true) based on the distance to the closest obstacle
-                clip_min_PP_rew = True
-                lambda_PA = (drone_closest_obs_dist/danger_range)/2
-                if lambda_PA < 0.10 : lambda_PA = 0.10
-                lambda_CA = 1-lambda_PA
 
+            quad_cpp = self.path(self.prog) #The point in xyz ENU that is closest to the quadcopter and on path
+            #This does not take into account the FOV of the camera -> #naive fast check is simply checking if the obstacle position is along the positive x body axis of the quadcopter
+            #As the actual obstacle coords are max droneradius away from the path using the obs_cpp for the check above should be fine could potentially add the actual obs pos to the list or make dict with obs_cpp as key
+            #Can find the volume of the FOV of the camera and check if the obstacle is in that volume #TODO volume approach needs more work/testing
+            # y1 = np.tan(self.FOV_horizontal/2)*self.max_depth #These could be calculated once and saved as a variable
+            # y2 = -y1
+            # z1 = np.tan(self.FOV_vertical/2)*self.max_depth
+            # z2 = -z1
+            #This should work to check if point inside volume: if 0 < obs_cpp_in_body[0] <= self.max_depth and y2 < obs_cpp_in_body[1] < y1 and z2 < obs_cpp_in_body[2] < z1:
+            for obs_cpp in self.obs_near_path_CPPs:
+                obs_cpp_in_body = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(obs_cpp - self.quadcopter.position)
+                if np.linalg.norm(obs_cpp - quad_cpp) < self.max_depth and obs_cpp_in_body[0] > 0:
+                    clip_min_PP_rew = True
+                    lambda_PA = (drone_closest_obs_dist/danger_range)/2
+                    if lambda_PA < 0.10 : lambda_PA = 0.10
+                    lambda_CA = 1-lambda_PA
+            
+            if clip_min_PP_rew: #Debugging print
+                if self.total_t_steps % 10 == 0:
+                    print("Changing lambda for path adherence and collision avoidance due to obstacle near path") 
+            else:
+                if self.total_t_steps % 10 == 0:
+                    print("No obstacles near path and in FOV of camera, using normal lambda values for path adherence and collision avoidance")
+
+
+            if (drone_closest_obs_dist < danger_range):
+                #Previously this was the check for lambda interpolation but now it is done above only caring for obstacles near/on the path
                 #OLD naive ish reward function
                 if self.use_old_CA_rew:
                     inv_abs_min_rew = self.abs_inv_CA_min_rew 
@@ -682,8 +725,6 @@ class LV_VAE_MESH(gym.Env):
         kR = self.kR + self.kR_noise
         kangvel = self.kangvel + self.kangvel_noise
 
-        e3 = np.array([0, 0, 1]) #z-axis basis
-
         imu_meas = self.imu.measure(self.quadcopter)
         imu_quad_angvel = np.array([imu_meas[3], imu_meas[4], imu_meas[5]])
         #Pseudo integration of linear velocity and angular rate
@@ -691,37 +732,27 @@ class LV_VAE_MESH(gym.Env):
         imu_quad_vel = self.quadcopter.velocity + self.imu.lin_noise*0.3 #0.3 is a guess
         imu_quad_att = self.quadcopter.attitude + self.imu.ang_noise*0.3 #0.3 is a guess
 
-        R = j_Rzyx(*imu_quad_att) #*self.quadcopter.attitude)
+        R = j_Rzyx(*imu_quad_att) # Rotation matrix from body to world frame
 
-        #Essentially three different velocities that one can choose to track:
-        #Think body or world frame velocity control is the best choice
-        ###---###
-        ##Vehicle frame velocity control i.e. intermediary frame between body and world frame
-        # vehicleR = geom.Rzyx(0, 0, self.quadcopter.attitude[2])
-        # vehicle_vels = vehicleR.T @ self.quadcopter.velocity
-        # ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - vehicle_vels
-        ###---###
-        #World frame velocity control
-        # ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - self.quadcopter.position_dot
-
-        #Body frame velocity control
+        #Body frame velocity control #THIS GIVES THE BEHAVIOUR WE WANT
         ev = np.array([cmd_v_x, cmd_v_y, cmd_v_z]) - imu_quad_vel #self.quadcopter.velocity Old "pure measurements"
-        #Which one to use? vehicle_vels or self.quadcopter.velocity
+        drag_force_body = np.array([ss.d_u*imu_quad_vel[0], ss.d_v*imu_quad_vel[1], ss.d_w*imu_quad_vel[2]])
+        gravity_in_body = np.array([-ss.m*ss.g*np.sin(imu_quad_att[1]), 
+                                    ss.m*ss.g*np.cos(imu_quad_att[1])*np.sin(imu_quad_att[0]), 
+                                    ss.m*ss.g*np.cos(imu_quad_att[1])*np.cos(imu_quad_att[0])])
+        #Thrust command
+        f = kv*ev + drag_force_body + gravity_in_body
+        f_world = R @ f
+        thrust_command = np.dot(f_world,R[2]) #Projection of f in world on z-axis of body frame to avoid large f if quadcopter very is tilted
 
-        #Thrust command (along body z axis)
-        f = kv*ev + ss.m*ss.g*e3 + ss.d_w*imu_quad_vel[2]*e3 #ss.d_w*self.quadcopter.heave*e3 Old "pure measurements"
-        thrust_command = np.dot(f, R[2])
-
-        #Rd calculation as in Kulkarni aerial gym (works fairly well)
-        c_phi_s_theta = f[0]
-        s_phi = -f[1]
-        c_phi_c_theta = f[2]
-
-        pitch_setpoint = np.arctan2(c_phi_s_theta, c_phi_c_theta)
-        roll_setpoint = np.arctan2(s_phi, np.sqrt(c_phi_c_theta**2 + c_phi_s_theta**2))
-        yaw_setpoint = imu_quad_att[2] #self.quadcopter.attitude[2]        # Rd = geom.Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint) #OLD
-        Rd = j_Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint) #NEW using jit version
-
+        #Rd 
+        f_x = f[0]
+        f_y = -f[1]
+        f_z = f[2]
+        pitch_setpoint = np.arctan2(f_x, f_z)
+        roll_setpoint = np.arctan2(f_y, np.sqrt(f_z**2 + f_x**2))
+        yaw_setpoint = imu_quad_att[2] #self.quadcopter.attitude[2]       
+        Rd = j_Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint) 
 
         eR = 1/2*(Rd.T @ R - R.T @ Rd)
         eatt = geom.vee_map(eR)
@@ -729,20 +760,18 @@ class LV_VAE_MESH(gym.Env):
 
         des_angvel = np.array([0.0, 0.0, cmd_r])
 
-        s_pitch = np.sin(imu_quad_att[1]) #self.quadcopter.attitude[1]) Old "pure measurements"
-        c_pitch = np.cos(imu_quad_att[1]) #self.quadcopter.attitude[1]) Old "pure measurements"
-        s_roll = np.sin(imu_quad_att[0]) #self.quadcopter.attitude[0])  Old "pure measurements"                 
-        c_roll = np.cos(imu_quad_att[0]) #self.quadcopter.attitude[0])  Old "pure measurements"
+        s_pitch = np.sin(imu_quad_att[1])
+        c_pitch = np.cos(imu_quad_att[1])
+        s_roll = np.sin(imu_quad_att[0])                  
+        c_roll = np.cos(imu_quad_att[0]) 
         R_euler_to_body = np.array([[1, 0, -s_pitch],
                                     [0, c_roll, s_roll*c_pitch],
                                     [0, -s_roll, c_roll*c_pitch]]) #Essentially the inverse of Tzyx from geomutils
 
         des_angvel_body = R_euler_to_body @ des_angvel
 
-        # eangvel = self.quadcopter.angular_velocity - R.T @ (Rd @ des_angvel_body) Old "pure measurements"
         eangvel = imu_quad_angvel - R.T @ (Rd @ des_angvel_body) 
 
-        # torque = -kR*eatt - kangvel*eangvel + np.cross(self.quadcopter.angular_velocity,ss.Ig@self.quadcopter.angular_velocity) Old "pure measurements"
         torque = -kR*eatt - kangvel*eangvel + np.cross(imu_quad_angvel,ss.Ig@imu_quad_angvel)
         
         u = np.zeros(4)
@@ -874,6 +903,8 @@ class LV_VAE_MESH(gym.Env):
         else:
             initial_state = self.scenario_proficient_perturbed_sim()
         
+        print("RECAPPING A PREVIOUS SCENARIO")
+
         return initial_state
     
     def generate_obstacles(self, n, rmin, rmax , path:QPMI, mean, std, onPath=False, quad_pos = None, safety_margin = 2):
@@ -922,7 +953,7 @@ class LV_VAE_MESH(gym.Env):
                 if np.random.uniform(0,1) > 0.5:
                     self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
                 else:
-                    self.obstacles.append(CubeMeshObstacle(device=self.device, width=obstacle_radius*1.2, height=obstacle_radius*1.2, depth=obstacle_radius*1.2, center_position=pt3d_obs_coords, inverted=False))
+                    self.obstacles.append(CubeMeshObstacle(device=self.device, width=obstacle_radius*1.15, height=obstacle_radius*1.15, depth=obstacle_radius*1.15, center_position=pt3d_obs_coords, inverted=False))
                 num_obstacles += 1
 
             elif onPath and (np.linalg.norm(obs_pos - quad_pos) > obstacle_radius + safety_margin):   
@@ -1114,7 +1145,7 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
     def scenario_horizontal_test(self):
-        waypoints = [(0,0,0), (5,0.1,0), (10,0,0)]
+        waypoints = [(0,0,0), (5,0,0), (10,0,0)]
         self.path = QPMI(waypoints)
         self.obstacles = []
         for i in range(7):
@@ -1143,14 +1174,14 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
     def scenario_deadend_test(self):
-        waypoints = [(0,0,0), (5,0.5,0), (10,0,0)]
+        waypoints = [(0,0,0), (5,0,0), (10,0,0)]
         self.path = QPMI(waypoints)
         radius = 1
         angles = np.linspace(-90, 90, 10)*np.pi/180
         obstacle_radius = (angles[1]-angles[0])*radius/2
         for ang1 in angles:
             for ang2 in angles:
-                x = 45 + radius*np.cos(ang1)*np.cos(ang2)
+                x = 4.5 + radius*np.cos(ang1)*np.cos(ang2)
                 y = radius*np.cos(ang1)*np.sin(ang2)
                 z = -radius*np.sin(ang1)
                 
@@ -1167,8 +1198,7 @@ class LV_VAE_MESH(gym.Env):
         initial_state = np.zeros(6)
         waypoints = generate_random_waypoints(self.n_waypoints,'helix', segmentlength=self.segment_length)
         self.path = QPMI(waypoints)
-        # init_pos = helix_param(0)
-        init_pos = np.array([11, 0, -2.6]) + np.random.uniform(low=-0.5, high=0.5, size=(1,3))
+        init_pos = np.array([11, 0, -26/2]) + np.random.uniform(low=-0.5, high=0.5, size=(1,3))
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos[0], init_attitude])
         obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
@@ -1222,3 +1252,27 @@ class LV_VAE_MESH(gym.Env):
         self.obstacles.append(CubeMeshObstacle(width=2, height=2, depth=2, center_position=pt3d_obs_coords, device=self.device, inverted=False))
         self.padding = 3
         return initial_state
+    
+    def scenario_dev_test_obs_at_end(self):
+        init_state = self.scenario_line()
+        #Place an obstacle at the end of the path
+        obstacle_coords = torch.tensor(self.path.waypoints[-1],device=self.device).float().squeeze()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(SphereMeshObstacle(radius = 1, center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+        return init_state
+    
+    def scenario_dev_test_obs_in_outskirt(self):
+        init_state = self.scenario_line()
+        #Place an obstacle at the outskirt of the fov at the center of the path
+        obstacle_coords = torch.tensor([6,6,0],device=self.device).float()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(SphereMeshObstacle(radius = 1, center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+        return init_state
+    
+    def scenario_dev_test_outskirt_and_end(self):
+        init_state = self.scenario_dev_test_obs_in_outskirt()
+        #Place an obstacle at the end of the path
+        obstacle_coords = torch.tensor(self.path.waypoints[-1],device=self.device).float().squeeze()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(CubeMeshObstacle(width=1, height=1, depth=1, inverted=False, center_position=pt3d_obs_coords,device=self.device))
+        return init_state

@@ -482,7 +482,7 @@ def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentl
         for i, angle in enumerate(angles):
             x = radius*np.cos(angle)
             y = radius*np.sin(angle)
-            z = 2*i - n_waypoints
+            z = (i - n_waypoints) + n_waypoints/2
             wp = np.array([x, y, z])
             waypoints.append(wp)
 

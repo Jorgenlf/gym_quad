@@ -77,5 +77,17 @@ OR
 
 run the script from the terminal and set the two arguments --RT_vis True and ----manual_control True.
 
+This is an overview of how keyboardinputs map to moving the quadcopter:
+
+| Key Press | Action Description | Input Mapping | Notes |
+|-----------|--------------------|---------------|-------|
+| `w`       | Forward            | `[1, 0.3, 0]` | Moves the drone forward |
+| `a`       | Rotate left        | `[-1, 0, 1]`  | Applies maximum positive yaw, rotating the drone to the left. |
+| `d`       | Rotate right       | `[-1, 0, -1]` | Applies maximum negative yaw, essentially rotating the drone to the right. |
+| `s`       | Down               | `[1, -1, 0]`  | Directs the drone downwards, using a negative pitch. This is less usual as geometric control typically aims to maintain hovering. |
+| `Space`   | Up                 | `[1, 1, 0]`   | Directs the drone upwards; the most positive pitch is used to achieve this. |
+| `escape`  | Exit environment   | N/A           | Closes the simulation or control environment. |
+
+
 
 

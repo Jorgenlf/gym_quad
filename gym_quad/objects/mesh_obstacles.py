@@ -225,10 +225,11 @@ class CylinderMeshObstacle:
 class CubeMeshObstacle:
     def __init__(self,
                  device: torch.device,
-                 width: float,
-                 height: float,
-                 depth: float,
                  center_position: torch.Tensor,
+                 width: float = None,
+                 height: float = None,
+                 depth: float = None,
+                #  radius: float= None,
                  inverted: bool = True,
                  isDummy: bool = False):
 
@@ -240,6 +241,17 @@ class CubeMeshObstacle:
         self.width = width
         self.height = height
         self.depth = depth
+        self.radius = self.width #TODO update to stuff below if time. This works for now
+
+        # if self.radius != None:
+        #     self.width = (2/np.sqrt(3))*radius #"Sphere encompasses cube"
+        #     self.height = (2/np.sqrt(3))*radius
+        #     self.depth = (2/np.sqrt(3))*radius
+        #     self.radius = radius
+        #     print("CubeMeshObstacle: Using radius to set width, height and depth")
+        
+        # if width==None and height==None and depth==None and radius==None:
+        #     raise ValueError("Either width, height and depth or radius must be specified")
 
         self.mesh = self.create_cube(width, height, depth, inverted)
         self.mesh.offset_verts_(vert_offsets_packed=self.center_position)
