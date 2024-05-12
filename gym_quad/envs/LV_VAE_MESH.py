@@ -253,6 +253,8 @@ class LV_VAE_MESH(gym.Env):
             for obstacle in self.obstacles:
                 if obstacle.isDummy:
                     continue
+                elif isinstance(obstacle, ImportedMeshObstacle): #Do not add special meshes like the house to the obs_near_path_CPPs
+                    continue
                 else:
                     obs_pos_np = obstacle.position.cpu().numpy() #Costly so do it here per reset and save important info
                     for wp_index in range(len(self.path.waypoints)-1):
@@ -467,6 +469,7 @@ class LV_VAE_MESH(gym.Env):
         #euclidean norm of the distance from drone to the final waypoint
         distance_to_end = np.linalg.norm(self.path.get_endpoint() - quad_pos)
         domain_obs[12] = m1to1(distance_to_end, -self.path.length*2, self.path.length*2)
+        # print("DISTANCE TO END:", distance_to_end)
 
         #body coordinates of the look ahead point
         lookahead_world = self.path.get_lookahead_point(quad_pos, self.la_dist, self.waypoint_index)
@@ -482,6 +485,7 @@ class LV_VAE_MESH(gym.Env):
         domain_obs[13] = m1to1(lookahead_body[0], -relevant_distance,relevant_distance)
         domain_obs[14] = m1to1(lookahead_body[1], -relevant_distance, relevant_distance)
         domain_obs[15] = m1to1(lookahead_body[2], -relevant_distance,relevant_distance)
+        # print("LOOKAHEAD BODY:", np.round(lookahead_body))
 
         #Give the previous action as an observation
         domain_obs[16] = self.prev_action[0]    
@@ -624,7 +628,7 @@ class LV_VAE_MESH(gym.Env):
             danger_range = self.danger_range
             drone_closest_obs_dist = self.closest_measurement 
 
-            quad_cpp = self.path(self.prog) #The point in xyz ENU that is closest to the quadcopter and on path
+            #quad_cpp = self.path(self.prog) #The point in xyz ENU that is closest to the quadcopter and on path
             #This does not take into account the FOV of the camera -> #naive fast check is simply checking if the obstacle position is along the positive x body axis of the quadcopter
             #As the actual obstacle coords are max droneradius away from the path using the obs_cpp for the check above should be fine could potentially add the actual obs pos to the list or make dict with obs_cpp as key
             #Can find the volume of the FOV of the camera and check if the obstacle is in that volume #TODO volume approach needs more work/testing
@@ -635,18 +639,18 @@ class LV_VAE_MESH(gym.Env):
             #This should work to check if point inside volume: if 0 < obs_cpp_in_body[0] <= self.max_depth and y2 < obs_cpp_in_body[1] < y1 and z2 < obs_cpp_in_body[2] < z1:
             for obs_cpp in self.obs_near_path_CPPs:
                 obs_cpp_in_body = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(obs_cpp - self.quadcopter.position)
-                if np.linalg.norm(obs_cpp - quad_cpp) < self.max_depth and obs_cpp_in_body[0] > 0:
+                if np.linalg.norm(obs_cpp - self.quadcopter.position) < self.max_depth and obs_cpp_in_body[0] > 0:
                     clip_min_PP_rew = True
                     lambda_PA = (drone_closest_obs_dist/danger_range)/2
                     if lambda_PA < 0.10 : lambda_PA = 0.10
                     lambda_CA = 1-lambda_PA
             
-            if clip_min_PP_rew: #Debugging print
-                if self.total_t_steps % 10 == 0:
-                    print("Changing lambda for path adherence and collision avoidance due to obstacle near path") 
-            else:
-                if self.total_t_steps % 10 == 0:
-                    print("No obstacles near path and in FOV of camera, using normal lambda values for path adherence and collision avoidance")
+            # if clip_min_PP_rew: #Debugging print
+            #     if self.total_t_steps % 10 == 0:
+            #         print("Changing lambda for path adherence and collision avoidance due to obstacle near path") 
+            # else:
+            #     if self.total_t_steps % 10 == 0:
+            #         print("No obstacles near path and in FOV of camera, using normal lambda values for path adherence and collision avoidance")
 
 
             if (drone_closest_obs_dist < danger_range):
@@ -670,8 +674,8 @@ class LV_VAE_MESH(gym.Env):
 
         #Path progression reward 
         reward_path_progression = 0
-        reward_path_progression1 = np.cos(self.chi_error)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
-        reward_path_progression2 = np.cos(self.upsilon_error)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
+        reward_path_progression1 = np.cos(self.chi_error)*self.PP_rew_max#*np.linalg.norm(self.quadcopter.velocity)
+        reward_path_progression2 = np.cos(self.upsilon_error)*self.PP_rew_max#*np.linalg.norm(self.quadcopter.velocity)
         reward_path_progression = reward_path_progression1/2 + reward_path_progression2/2
         if clip_min_PP_rew and self.let_lambda_affect_PP:
             reward_path_progression = np.clip(reward_path_progression, 0, self.PP_rew_max) #If there is an obstacle nearby and we choose to let lambda affect PP the minimum path prog reward becomes zero
@@ -679,11 +683,22 @@ class LV_VAE_MESH(gym.Env):
             reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max) #If there is no obstacle nearby the minimum path prog reward is the min value
 
 
+        #Approach end reward 
+        approach_end_reward = 0
+        if self.waypoint_index == len(self.path.waypoints)-2:
+            dist_to_end = np.linalg.norm(self.quadcopter.position - self.path.get_endpoint())
+            approach_end_reward = np.exp(-((dist_to_end**2)/(2*self.approach_end_sigma**2)))*self.max_approach_end_rew
+            # print("Approach end reward:", approach_end_reward)
+            # print("\nAt the next to last waypoint index")
+            # print("At waypoint index:", self.waypoint_index,\
+            #     "   Final waypoint index:", len(self.path.waypoints)-1)
+
+
         #Collision reward (sparse)
         reward_collision = 0
         if self.collided:
             reward_collision = self.rew_collision
-            print("Collision Reward:", reward_collision)
+            # print("Collision Reward:", reward_collision)
 
 
         #Reach end reward (sparse)
@@ -691,13 +706,14 @@ class LV_VAE_MESH(gym.Env):
         if self.success:
             reach_end_reward = self.rew_reach_end
 
+
         #Existential reward (penalty for being alive to encourage the quadcopter to reach the end of the path quickly) (continous)
         ex_reward = self.existence_reward 
 
         if self.let_lambda_affect_PP:
-            tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression*lambda_PA + reach_end_reward + ex_reward
+            tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression*lambda_PA + reach_end_reward + ex_reward + approach_end_reward
         else:
-            tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression + reach_end_reward + ex_reward
+            tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression + reach_end_reward + ex_reward + approach_end_reward
 
         self.info['reward'] = tot_reward
         self.info['collision_avoidance_reward'] = reward_collision_avoidance*lambda_CA
@@ -706,6 +722,7 @@ class LV_VAE_MESH(gym.Env):
         self.info['collision_reward'] = reward_collision
         self.info['reach_end_reward'] = reach_end_reward
         self.info['existence_reward'] = ex_reward
+        self.info['approach_end_reward'] = approach_end_reward
         
         return tot_reward
 

@@ -3,7 +3,6 @@ import numpy as np
 import os
 
 
-
 class TensorboardLogger(BaseCallback):
     '''
     A custom callback for tensorboard logging.
@@ -55,6 +54,7 @@ class TensorboardLogger(BaseCallback):
             avg_path_progression = np.mean([info["path_progression"] for info in infos])
             avg_reach_end_reward = np.mean([info['reach_end_reward'] for info in infos])
             avg_existence_reward = np.mean([info['existence_reward'] for info in infos])
+            avg_approach_end_reward = np.mean([info['approach_end_reward'] for info in infos])
 
             self.logger.record("episodes/avg_ep_reward", avg_reward)
             self.logger.record("episodes/avg_ep_length", avg_length)
@@ -64,6 +64,7 @@ class TensorboardLogger(BaseCallback):
             self.logger.record("episodes/avg_ep_path_progression_reward", avg_path_progression)
             self.logger.record("episodes/avg_ep_reach_end_reward", avg_reach_end_reward)
             self.logger.record("episodes/avg_ep_existence_reward", avg_existence_reward)
+            self.logger.record("episodes/avg_ep_approach_end_reward", avg_approach_end_reward)
         
         
         if self.n_steps % self.log_freq == 0:
@@ -76,6 +77,7 @@ class TensorboardLogger(BaseCallback):
             path_progression = np.mean([info["path_progression"] for info in infos])
             reach_end_reward = np.mean([info["reach_end_reward"] for info in infos])
             existence_reward = np.mean([info["existence_reward"] for info in infos])
+            approach_end_reward = np.mean([info["approach_end_reward"] for info in infos])
 
             self.logger.record("iter/reward", reward)
             self.logger.record("iter/length", length)
@@ -85,6 +87,7 @@ class TensorboardLogger(BaseCallback):
             self.logger.record("iter/path_progression", path_progression)
             self.logger.record("iter/reach_end_reward", reach_end_reward)
             self.logger.record("iter/existence_reward", existence_reward)
+            self.logger.record("iter/approach_end_reward", approach_end_reward)
     
 
         # Check for model saving frequency

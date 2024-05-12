@@ -77,14 +77,27 @@ scenarios = {   "line"          :   1e5,
 #                 "expert"        :   1e6
 #              }
 
-#This was used and all noise was active the whole run for expid 8 on "Jøreng PC"
-scenarios = {   "line"                 :  0.33e5,
-                "easy"                 :  0.33e5,
-                "easy_random"          :  0.33e5, #Randomized pos and att of quad in easy scenario
-                "proficient"           :  1e6,
-                "intermediate"         :  1e6,
-                "expert"               :  1e6,
-             }
+
+# scenarios = {   "line"                 :  0.33e6,
+#                 "easy"                 :  0.33e6,
+#                 "easy_random"          :  0.33e6, #Randomized pos and att of quad in easy scenario
+#                 "easy_perturbed"       :  0.33e6, #Perturbed path in easy scenario
+#                 "proficient"           :  1.5e6,
+#                 "proficient_perturbed" :  1.5e6, #Perturbed path in proficient scenario
+#                 "intermediate"         :  1.5e6,
+#                 "expert"               :  1.5e6,
+#                 "expert_random"        :  3e6, #Randomized pos and att of quad in expert scenario
+#                 "expert_perturbed"     :  3e6 #Perturbed path in expert scenario
+#              }
+
+#It aced line after 70-100k timesteps so cancelled and started anew (renamed 30 000 agent to last_model.zip manually :):
+scenarios = {   "line"                 :  0.33e6,
+             #SHOULD MAYBE TRAIN IN 3D_NEW AFTER LINE BEFORE EASY TO GET A MORE EXPERIENCE WITH CURVY PATHS
+             #ALTERNATIVELY ADD ONE OR TWO OBSTACLES NOT ON PATH TO MAKE A PRE-EASY SCENARIO
+                "easy"                 :  0.33e6,
+                "easy_random"          :  0.33e6, #Randomized pos and att of quad in easy scenario
+                "house"                :  2e6
+                }
 
 
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
@@ -97,11 +110,11 @@ We train this policy for approximately 26 × 10^6 environment steps aggregated o
 '''
 #TODO implement the above hyperparameters????
 PPO_hyperparams = {
-    'n_steps': 1024, 
+    'n_steps': 2048, 
     'batch_size': 64,
     'gae_lambda': 0.95,
-    'gamma': 0.99, #old:0.99,
-    'n_epochs': 4,
+    'gamma': 0.98, #old:0.99,
+    'n_epochs': 10,
     'ent_coef': 0.001, 
     'verbose': 2,
     'device':'cuda', #Will be used for both feature extractor and PPO
@@ -124,7 +137,7 @@ lock_params = False #True if you want to lock the encoder parameters. False to l
 #From Ørjan:    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32])
 #SB3 default:   net_arch = dict(pi=[64, 64], vf=[64, 64])
 #From Kulkarni: net_arch = dict(pi=[512, 256, 64], vf=[512, 256, 64]) #NB: GRU is not included in this probs overkill though
-ppo_pi_vf_arch = dict(pi = [64,64], vf = [64,64]) #The PPO network architecture policy and value function
+ppo_pi_vf_arch = dict(pi = [128,64,32], vf = [128,64,32]) #The PPO network architecture policy and value function
 
 policy_kwargs = dict(
     features_extractor_class = PerceptionIMUDomainExtractor,
