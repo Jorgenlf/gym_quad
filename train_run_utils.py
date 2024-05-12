@@ -83,6 +83,7 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
     total_t_steps = 0
     time = []
     progression = []
+    reward = []
 
     past_states = []
     past_actions = []
@@ -93,14 +94,14 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
     while not done: 
         action = agent.predict(env.unwrapped.observation, deterministic=True)[0]
         _, _, done, _, info = env.step(action)
-        
+
         if sdm:
             save_depth_maps(env, test_dir)  #Now this saves depthmaps online per timestep when obstacle is close, might be better to save up all then save all at once
         
         total_t_steps = info['env_steps']
         progression.append(info['progression'])
         time.append(info['time'])
-
+        reward.append(info['reward'])
         past_states.append(info['state'])
         errors.append(info['errors'])
         past_actions.append(action)
@@ -110,14 +111,14 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
     episode = np.full(((total_t_steps,1)), episode)
     time = np.array(time).reshape((total_t_steps,1))
     progression = np.array(progression).reshape((total_t_steps,1))
-
+    reward = np.array(reward).reshape((total_t_steps,1))
     past_actions = np.array(past_actions).reshape((total_t_steps,3))
     errors = np.array(errors).reshape((total_t_steps,2))
     pure_observations = np.array(pure_observations)
     normed_domain_observations = np.array(normed_domain_observations)
 
-    labels = np.hstack(["Episode", "Time", "Progression", state_labels, error_labels, action_labels, observation_labels])
-    sim_data = np.hstack([episode, time, progression,     past_states,  errors,       past_actions,  pure_observations, normed_domain_observations])
+    labels = np.hstack(["Episode",  "Reward", "Time", "Progression", state_labels, error_labels, action_labels, observation_labels])
+    sim_data = np.hstack([episode, reward, time, progression,     past_states,  errors,       past_actions,  pure_observations, normed_domain_observations])
     
     #make labels of obs to be obs0 obs1 depending on how many obs are in normed_domain_observations
     #Consult the env to correlate what obs0 obs1 means

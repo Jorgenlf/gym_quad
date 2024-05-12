@@ -152,6 +152,74 @@ class SphereMeshObstacle: #TODO can make the mesh here as done in cubemehsobstac
         z = self.position[2].item() + self.radius * np.outer(np.ones(np.size(u)), np.cos(v))
 
         return [x,y,z]
+    
+
+class CylinderMeshObstacle:
+    def __init__(self,
+                 device: torch.device,
+                 radius: float,
+                 height: float,
+                 center_position: torch.Tensor,
+                 inverted: bool = True,
+                 isDummy: bool = False):
+
+        self.isDummy = isDummy
+        self.device = device
+        self.center_position = center_position.to(device=self.device).float() # Centre of the cylinder in camera world frame
+        self.position = pytorch3d_to_enu(center_position,device=self.device).float() # Centre of the cylinder in ENU frame
+
+        self.radius = radius
+        self.height = height
+
+        self.mesh = self.create_cylinder(radius, height, inverted)
+        self.mesh.offset_verts_(vert_offsets_packed=self.center_position)
+    
+    def set_device(self, new_device: torch.device):
+        self.device = new_device
+        self.mesh.to(new_device)
+        self.center_position.to(new_device)
+
+    def move(self, new_center_position):
+        # Check if new_center_position is a list and convert to tensor if necessary
+        if isinstance(new_center_position, list):
+            new_center_position = torch.tensor(new_center_position, device=self.device, dtype=torch.float32)
+        elif isinstance(new_center_position, torch.Tensor) and new_center_position.device != self.device:
+            new_center_position = new_center_position.to(self.device)
+        
+        # Ensure the tensor is of dtype float32
+        new_center_position = new_center_position.float()
+
+        # Calculate displacement and update mesh position and center_position attribute
+        displacement = new_center_position - self.center_position
+        self.mesh.offset_verts_(vert_offsets_packed=displacement)
+        self.center_position = new_center_position
+
+    def resize(self, new_radius: float, new_height: float):
+        scale_factor = new_radius / self.radius
+        self.mesh.scale_verts_(scale=scale_factor)
+        self.radius = new_radius
+        self.height = new_height
+
+    def get_bounding_box(self):
+        # Compute the bounding box by taking the min and max of vertices
+        vertices = self.mesh.verts_packed()  # This will return all vertices in the mesh
+        min_vals, _ = torch.min(vertices, dim=0)
+        max_vals, _ = torch.max(vertices, dim=0)
+        return min_vals, max_vals
+
+    def create_cylinder(self, radius=1, height=1, inverted=False):
+        cylinder = trimesh.creation.cylinder(radius=radius, height=height, sections=8)
+        if inverted:
+            cylinder.invert()
+        else:
+            cylinder.fix_normals()
+        #Converting from trimesh to pytorch3d mesh
+        verts = torch.tensor(cylinder.vertices, dtype=torch.float32, device=self.device)
+        faces = torch.tensor(cylinder.faces, dtype=torch.long, device=self.device)
+
+        return Meshes(verts=[verts], faces=[faces])
+    
+
 
 
 class CubeMeshObstacle:

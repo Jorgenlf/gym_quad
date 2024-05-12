@@ -77,27 +77,20 @@ scenarios = {   "line"          :   1e5,
 #                 "expert"        :   1e6
 #              }
 
-
-# scenarios = {   "line"                 :  0.33e6,
-#                 "easy"                 :  0.33e6,
-#                 "easy_random"          :  0.33e6, #Randomized pos and att of quad in easy scenario
-#                 "easy_perturbed"       :  0.33e6, #Perturbed path in easy scenario
-#                 "proficient"           :  1.5e6,
-#                 "proficient_perturbed" :  1.5e6, #Perturbed path in proficient scenario
-#                 "intermediate"         :  1.5e6,
-#                 "expert"               :  1.5e6,
-#                 "expert_random"        :  3e6, #Randomized pos and att of quad in expert scenario
-#                 "expert_perturbed"     :  3e6 #Perturbed path in expert scenario
-#              }
-
-#It aced line after 70-100k timesteps so cancelled and started anew (renamed 30 000 agent to last_model.zip manually :):
+#This was used and all noise was active the whole run for expid 8 on "Jøreng PC"
 scenarios = {   "line"                 :  0.33e6,
-             #SHOULD MAYBE TRAIN IN 3D_NEW AFTER LINE BEFORE EASY TO GET A MORE EXPERIENCE WITH CURVY PATHS
-             #ALTERNATIVELY ADD ONE OR TWO OBSTACLES NOT ON PATH TO MAKE A PRE-EASY SCENARIO
                 "easy"                 :  0.33e6,
                 "easy_random"          :  0.33e6, #Randomized pos and att of quad in easy scenario
-                "house"                :  2e6
-                }
+                "proficient"           :  1e6,
+                "intermediate"         :  1e6,
+                "expert"               :  1e6,
+                "expert_random"       :  1e6 ,
+                "easy_perturbed"       :  0.5e6, #Perturbed by noise
+                "proficient_perturbed" :  1e6,
+                "expert_perturbed"     :  1e6
+             }
+
+#scenarios = {'house': 5e6} # Wont work....?
 
 
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
@@ -130,7 +123,7 @@ PPO_hyperparams = {
 
 #VAE
 # encoder_path = None #If you want to train the encoder from scratch
-encoder_path = None # f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_2000_seed1.json"
+encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_3000_seed1.json"
 lock_params = False #True if you want to lock the encoder parameters. False to let them be trained
 
 #PPO

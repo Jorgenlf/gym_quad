@@ -25,8 +25,8 @@ lv_vae_config = {
     "perturb_ctrl_gains"        : False,         # Perturb the control gains
     "perturb_latency"           : False,         # Perturb the latency of the sensors
 #Depth camera parameters    
-    "FOV_vertical"              : 75,            # Vertical field of view of the depth camera
-    "FOV_horizontal"            : 62,            # Horizontal field of view of the depth camera
+    "FOV_vertical"              : 87,            # Vertical field of view of the depth camera
+    "FOV_horizontal"            : 65,            # Horizontal field of view of the depth camera
     "depth_map_size"            : (240, 320),    # Size of the depth map Earlier sensor suite
     "max_depth"                 : 10,            # Maximum depth of the depth camera
     "camera_FPS"                : 15,            # Frequency of the sensors
@@ -50,7 +50,7 @@ lv_vae_config = {
     "min_reward"                : -1e4,          # Minimum reward before the simulation is terminated
     
     #Path adherence reward
-    'PA_band_edge'              : 3,             # edge of Path adherence band
+    'PA_band_edge'              : 2,             # edge of Path adherence band
     'PA_scale'                  : 2.8,           # scale of Path adherence reward [-PA_scale, PA_scale]
     
     #Path progression reward

@@ -12,7 +12,7 @@ from gym_quad.utils.geomutils import enu_to_pytorch3d, enu_to_tri
 from gym_quad.objects.quad import Quad
 from gym_quad.objects.IMU import IMU
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
-from gym_quad.objects.depth_camera import DepthMapRenderer, FoVPerspectiveCameras, RasterizationSettings
+from gym_quad.objects.depth_camera import DepthMapRenderer, FoVPerspectiveCameras, RasterizationSettings, PerspectiveCameras
 from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle, get_scene_bounds, ImportedMeshObstacle
 
 #Helper functions
@@ -290,7 +290,11 @@ class LV_VAE_MESH(gym.Env):
         raster_settings = None
         scene = None
         if self.obstacles!=[]:
-            camera = FoVPerspectiveCameras(device = self.device,fov=self.FOV_vertical)
+            focal_length = (0.5*self.depth_map_size[1]/np.tan(self.FOV_vertical/2), )
+            principal_point = ((self.depth_map_size[1] / 2, self.depth_map_size[0] / 2), ) # Assuming perfect cam TODO: get K from real cam for exact values(?)
+            img_size = (self.depth_map_size,)
+            camera = PerspectiveCameras(focal_length=focal_length, principal_point=principal_point, image_size=img_size, device=self.device, in_ndc=False)
+
             raster_settings = RasterizationSettings(
                     image_size=self.depth_map_size, 
                     blur_radius=0.0, 
@@ -592,6 +596,8 @@ class LV_VAE_MESH(gym.Env):
         self.info['errors'] = np.array([self.e, self.h])
         self.info['cmd_thrust'] = self.quadcopter.input
         self.info['action'] = action
+        self.info['collision_rate'] = int(self.collided)
+        self.info['total_path_deviance'] = np.sqrt(self.e**2 + self.h**2)
 
         # Calculate reward
         step_reward = self.reward()
