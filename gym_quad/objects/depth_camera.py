@@ -10,6 +10,7 @@ from pytorch3d.structures import join_meshes_as_scene, Meshes
 from pytorch3d.renderer.mesh.textures import Textures
 from pytorch3d.renderer import (
     FoVPerspectiveCameras, look_at_rotation,
+    PerspectiveCameras,
     PointLights,
     MeshRenderer,
     MeshRasterizer,
@@ -19,6 +20,7 @@ from pytorch3d.renderer import (
 
 import sys
 import os
+
 #Use os and sys to access the modules inside gym_quad (imports below are from gym_quad)
 # Get the directory of the current script
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -29,7 +31,7 @@ grand_parent_dir = os.path.dirname(parent_dir)
 sys.path.append(grand_parent_dir)
 
 from gym_quad.utils.geomutils import enu_to_pytorch3d, Rzyx, enu_to_tri
-from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle, get_scene_bounds
+from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle, ImportedMeshObstacle, get_scene_bounds
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 
 
@@ -38,7 +40,8 @@ class DepthMapRenderer:
     def __init__(self,
                  device: torch.device,
                  scene:  Scene,
-                 camera: FoVPerspectiveCameras,
+                 #camera: FoVPerspectiveCameras,
+                 camera: PerspectiveCameras,
                  raster_settings: RasterizationSettings,
                  MAX_MEASURABLE_DEPTH: float = 10.0,
                  img_size: tuple = (240, 320)):
@@ -51,19 +54,22 @@ class DepthMapRenderer:
             cameras=camera,
             raster_settings=raster_settings
         )
+        self.img_size = img_size
+        
+        # OLD:
         # k is a scaling factor for the distortion correction and is a function of FOV, sensor size, and focal length, etc.
         # Initilized to 62.5 for the default FoVPerspectiveCamera settings with a 60 degree FOV and image size of 240x320
         # Initilized to 46.6 for the default FoVPerspectiveCamera settings with a 75 degree FOV and image size of 240x320
 
         #Computation of how to rescale the depth map to correct for perspective distortion
-        self.k = 46.6
-        self.img_size = img_size
-        self.x_grid, self.y_grid = torch.meshgrid(torch.arange(self.img_size[0], device=self.device), torch.arange(self.img_size[1], device=self.device), indexing='ij')
+        #self.k = 46.6
+        
+        #self.x_grid, self.y_grid = torch.meshgrid(torch.arange(self.img_size[0], device=self.device), torch.arange(self.img_size[1], device=self.device), indexing='ij')
         # Compute distance from center for each pixel
-        self.center = torch.tensor(self.img_size, device=self.device)/2
-        self.dist_from_center = torch.norm(torch.stack([self.x_grid, self.y_grid], dim=-1) - self.center, dim=-1)
+        #self.center = torch.tensor(self.img_size, device=self.device)/2
+        #self.dist_from_center = torch.norm(torch.stack([self.x_grid, self.y_grid], dim=-1) - self.center, dim=-1)
         # Amplify dist tensor by 1/k
-        self.dist_from_center = self.dist_from_center / self.k
+        #self.dist_from_center = self.dist_from_center / self.k
 
     def render_depth_map(self):
         """
@@ -82,18 +88,18 @@ class DepthMapRenderer:
         depth.clamp_(max=self.max_measurable_depth)
 
         # Correct for perspective distortion
-        depth = self.correct_distorion(depth)
+        #depth = self.correct_distorion(depth)
         return depth
 
-    def correct_distorion(self, depth: torch.Tensor):
-        """
-        Corrects for perspective distortion in the depth map by calculating the depth values to the camera center
-        instead of to the image plane for each pixel in the image.
-        """
+    # def correct_distorion(self, depth: torch.Tensor):
+    #     """
+    #     Corrects for perspective distortion in the depth map by calculating the depth values to the camera center
+    #     instead of to the image plane for each pixel in the image.
+    #     """
 
-        # Correct for perspective distortion at indices where depth is not infinite
-        depth = torch.where(depth < self.max_measurable_depth, torch.sqrt(torch.pow(depth,2) + torch.pow(self.dist_from_center,2)), self.max_measurable_depth).to(self.device)
-        return depth
+    #     # Correct for perspective distortion at indices where depth is not infinite
+    #     depth = torch.where(depth < self.max_measurable_depth, torch.sqrt(torch.pow(depth,2) + torch.pow(self.dist_from_center,2)), self.max_measurable_depth).to(self.device)
+    #     return depth
 
     def render_scene(self, light_location=(5, 5, 0)):
         """
@@ -203,23 +209,30 @@ if __name__ == "__main__":
     # Camera globals
     IMG_SIZE = (240, 320)           # (H, W) of physical depth cam images AFTER the preprocessing pipeline
     FOV = 60                        # Field of view in degrees, init to correct value later
-    MAX_MEASURABLE_DEPTH = 15.0      # Maximum measurable depth, initialized to k here but is 10 IRL
+    MAX_MEASURABLE_DEPTH = 10.0      # Maximum measurable depth, initialized to k here but is 10 IRL
 
     #init device to use gpu if available
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     #init camera
-    camera = FoVPerspectiveCameras(device=device, fov=FOV)
+    #camera = FoVPerspectiveCameras(device=device, fov=FOV)
+    focal_length = (0.5*IMG_SIZE[1]/np.tan(FOV/2), )
+    principal_point = ((IMG_SIZE[1] / 2, IMG_SIZE[0] / 2),) # Assuming a perfect camera # TODO: Get intrinsics of physicl cam 
+    img_size = (IMG_SIZE,)
+    is_ndc = False
+    camera = PerspectiveCameras(focal_length=focal_length, principal_point=principal_point, image_size=img_size, device=device, in_ndc=is_ndc)
+
+    print(camera.get_projection_transform())
 
     #obstacle creation
-    unit_sphere_path = "gym_quad/meshes/sphere.obj"
+    unit_sphere_path = "../meshes/sphere.obj"
     obs1 = SphereMeshObstacle(device, unit_sphere_path, 2.0, torch.tensor([4, 0, 8]))
     obs2 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=4.0, center_position=torch.tensor([2, 4, 5]))
     obs3 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.3, center_position=torch.tensor([-4, 0, 12]))
     obs4 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.1, center_position=torch.tensor([3, 0, 15]))
     obs5 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=3.2, center_position=torch.tensor([0, -4, 17]))
     obs6 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=2.3, center_position=torch.tensor([-2.7, 0, 18]))
-    obs7 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=1.0, center_position=torch.tensor([-0, 0, 26]))
+    obs7 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=1.0, center_position=torch.tensor([-0, 0, 20 ]))
 
     #Test of returning plot variables
     x,y,z = obs1.return_plot_variables()
@@ -229,7 +242,7 @@ if __name__ == "__main__":
 
     #Init rasterizer
     raster_settings = RasterizationSettings(
-    image_size=IMG_SIZE,
+    image_size=IMG_SIZE, 
     blur_radius=0.0,
     faces_per_pixel=1, # Keep at 1, dont change
     perspective_correct=True, # Doesn't do anything(??), but seems to improve speed
@@ -246,7 +259,8 @@ if __name__ == "__main__":
 
 
     ####Change this to visualize different scenes and movement of the camera
-    referencetype = 'enclosed_spin'
+    referencetype = 'line'
+    referencetype = 'spin_in_house'
     # 'line' - Camera moves in a line along the x-axis
     # 'circle' - Camera moves in a circle around the origin
     # 'spin' - Camera spins about its z axis (ENU) with position equal to the the origin
@@ -267,6 +281,9 @@ if __name__ == "__main__":
         elif referencetype == 'spin':
             positions[i] = np.array([0.01, 0, 0]) #OFFSET HERE WHEN CUBE USED TO AVOID SEEING THROUGH THE CORNER OF THE CUBE
             orientations[i] = np.array([0, 0, i/param*np.pi])
+        elif referencetype == 'spin_in_house':
+            positions[i] = np.array([(-1.96102, 0.695626,  2.45523)])
+            orientations[i] = np.array([0, 0, i/param*np.pi])
         elif referencetype == 'enclosed_spin':
             positions[i] = np.array([0.01, 0, 0])
             orientations[i] = np.array([0, 0, i/param*np.pi])
@@ -276,7 +293,7 @@ if __name__ == "__main__":
 
     circle_renderer = None
     spin_renderer = None
-    unit_cube_path = "gym_quad/meshes/cube.obj"
+    unit_cube_path = "../meshes/cube.obj"
 
     #Create the scene for the different reference types
     if referencetype == 'circle':
@@ -298,7 +315,6 @@ if __name__ == "__main__":
         obs5 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=0.2, center_position=torch.tensor([0, 3, 0]))
         obs6 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=0.2, center_position=torch.tensor([0, -3, 0]))
         obs_list = [obs1, obs2, obs3, obs4, obs5, obs6]
-        obs_list = []
 
         #path gen
         n_waypoints = generate_random_waypoints(3,"line")
@@ -320,6 +336,12 @@ if __name__ == "__main__":
         obs_list.append(cube)
         enclosed_scene = Scene(device=device, obstacles=obs_list)
         enclosed_renderer = DepthMapRenderer(device=device,camera=camera, scene=enclosed_scene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE)
+    
+    elif referencetype == "spin_in_house":
+        obs = ImportedMeshObstacle(device, "../meshes/house_TRI.obj", torch.tensor([0, 0, 0]))
+        spin_house_scene = Scene(device=device, obstacles=[obs])
+        spin_house_renderer = DepthMapRenderer(device=device,camera=camera, scene=spin_house_scene, raster_settings=raster_settings, MAX_MEASURABLE_DEPTH=MAX_MEASURABLE_DEPTH, img_size=IMG_SIZE)
+
     elif referencetype == "enclosed_circle":
         #obs gen
         obs1 = SphereMeshObstacle(device=device, path=unit_sphere_path, radius=1.3, center_position=torch.tensor([-2, 0, 0]))
@@ -352,7 +374,9 @@ if __name__ == "__main__":
 
 
     #NB SAVES THE DEPTHMAPS TO THE TEST_IMG FOLDER IN THE TESTS FOLDER
-    path_to_save_depth_maps = os.path.join(grand_parent_dir, "gym_quad/tests/test_img/depth_maps/")
+    #path_to_save_depth_maps = os.path.join(grand_parent_dir, "../tests/test_img/depth_maps/")
+    path_to_save_depth_maps = "tests/test_img/depth_maps/"
+    os.makedirs(path_to_save_depth_maps, exist_ok=True)
 
     for i in tqdm(range(n_steps)):
         position = positions[i]
@@ -363,6 +387,7 @@ if __name__ == "__main__":
             sphere_renderer.update_R(R)
             sphere_renderer.update_T(T)
             depth_map = sphere_renderer.render_depth_map()
+            print("min depth: ", torch.min(depth_map).item(), "max depth: ", torch.max(depth_map).item())  
             sphere_renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)
 
         elif referencetype == 'circle':
@@ -385,6 +410,13 @@ if __name__ == "__main__":
             enclosed_renderer.update_T(T)
             depth_map = enclosed_renderer.render_depth_map()
             enclosed_renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)
+
+        elif referencetype == 'spin_in_house':
+            R, T = spin_house_renderer.camera_R_T_from_quad_pos_orient(position, orientation)
+            spin_house_renderer.update_R(R)
+            spin_house_renderer.update_T(T)
+            depth_map = spin_house_renderer.render_depth_map()
+            spin_house_renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)
 
         elif referencetype == 'enclosed_circle':
             R, T = sphere_renderer.camera_R_T_from_quad_pos_orient(position, orientation)
