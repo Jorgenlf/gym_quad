@@ -27,12 +27,30 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
         self.initial_position = initial_position
         self.nosave = nosave
 
-        self.meshes = self.obstacles_to_pyvista_meshes(obstacles)
+        self.meshes, self.room_mesh = self.obstacles_to_pyvista_meshes(obstacles)
         self.quadratic_path = self.dash_path(self.get_path_as_arr(path))
         self.bounds, self.scaled_bounds = self.get_scene_bounds(obstacles, path, drone_traj, padding=0)
 
         
-        self.plotter = pv.Plotter(window_size=[4000, 4000], off_screen=not nosave)
+        # Plotting parameters
+        self.clim = [self.min_rew, self.max_rew]
+        self.drone_path_color = '#00BA38' #TODO find suitable color
+        self.path_color = '#4780ff' # blueish
+        self.obstacles_color = '#ff3400' # redish
+        self.room_color = '#f3f0ec' # deserty
+        self.initial_pos_color = 'black'
+        self.grid_kw_args = {
+            'color': 'gray',
+            'xtitle': 'x [m]',
+            'ytitle': 'y [m]',
+            'ztitle': 'z [m]',
+            'font_size': 40,
+            'padding': 0.0, #maybe change later
+            'font_family': 'times',
+            'fmt':'%.0f',
+            'ticks': 'outside',
+            # axes_ranges just changes values on the axes, not the actual scene, do not use
+        }
     
     def dash_path(self, path: np.ndarray, n=100):
         """Makes the path equal zeros except for evety nth element"""
@@ -102,55 +120,52 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
     def obstacles_to_pyvista_meshes(self, obstacles: list):
         obs_meshes = [o.mesh for o in obstacles]
         tri_obs_meshes = [trimesh.Trimesh(vertices=tri_to_enu(o.verts_packed().cpu().numpy().T).T, faces=tri_to_enu(o.faces_packed().cpu().numpy().T).T) for o in obs_meshes]
-        meshes = []    
-        for mesh in tri_obs_meshes:
+        meshes = []
+        room = None    
+        for i, mesh in enumerate(tri_obs_meshes):
+            # If last mesh, it is the room, do not include in meshes
+            if i == len(tri_obs_meshes) - 1:
+                room = pv.wrap(mesh)
+                continue
             pv_mesh = pv.wrap(mesh)
             meshes.append(pv_mesh)
-        return meshes
+        return meshes, room
     
     def plot_scene_and_trajs(self, save_path=None, azimuth=90, elevation=None, see_from_plane=None): # TODO fix
         """Azimuth is the angle of the camera around the scene, + is anti-clockwise rotation about scene center, 0, 90, 180, 270 are the best angles (from each corner)
            elevation is the angle of the camera above the scene, + makes you see the scene from higher above, default is fine for corner angles so need not change
            see_from_plane is the plane to see the scene from (only if no azimuth is given), can be "xy", "xz" or "yz"
         """
-        grid_kw_args = {
-            'color': 'gray',
-            'xtitle': 'x [m]',
-            'ytitle': 'y [m]',
-            'ztitle': 'z [m]',
-            'font_size': 40,
-            'padding': 0.5, #maybe change later
-            'font_family': 'times',
-            'fmt':'%.0f',
-            'ticks': 'outside',
-            # axes_ranges just changes values on the axes, not the actual scene, do not use
-        }
         self.plotter.add_mesh(pv.Cube(bounds=self.scaled_bounds), opacity=0.0)
         backface_params = dict(opacity=0.0) #  To see through outer walls of enclosing room 
+
+        # Add all obstacles
         for i, mesh in enumerate(self.meshes):
             if i == 0:
-                self.plotter.add_mesh(mesh, color="red", show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params)
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params)
             else:
-                self.plotter.add_mesh(mesh, color="red", show_edges=False, smooth_shading=False, backface_params=backface_params)
-        self.plotter.add_points(self.quadratic_path, color="#619CFF", point_size=8, label="Path")
-        self.plotter.add_points(self.drone_traj, color="#00BA38", point_size=8, label="Drone Trajectory ")
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params)
+        
+        # Add the room (needs different coloring)
+        self.plotter.add_mesh(self.room_mesh, color=self.room_color, show_edges=False, backface_params=backface_params)
+
+        # Add drone traj and path
+        spline = pv.Spline(self.drone_traj, 1000)
+        self.plotter.add_mesh(spline, line_width=8, label="Drone Trajectory", scalars='cumulative_reward', color=self.drone_path_color)
+        self.plotter.add_points(self.quadratic_path, color=self.path_color, point_size=10, label="Path", render_points_as_spheres=True)
         self.plotter.add_points(self.initial_position, color="black", point_size=30, label="Initial Position", render_points_as_spheres=True)
-        self.plotter.show_grid(**grid_kw_args)
-        #self.plotter.add_legend(border=False, bcolor='w', face=None, size=(0.12,0.12)) #bcolor="#eaeae8"
+        self.plotter.show_grid(**self.grid_kw_args)
 
         # Custom legend
-        offset_x = 900
-        offset_y = 500
+        offset_x = 800
+        offset_y = 700
         offset_between = 100
         legend_pos = [self.plotter.window_size[0] - offset_x, self.plotter.window_size[1] - offset_y]
-        drone_color = '#00BA38'
-        path_color = '#00B6EB'
-        obs_color = 'red'
-        initial_pos_color = 'black'
-        self.plotter.add_text("Obstacles", position=legend_pos, font_size=40, color=obs_color, font='times')
-        self.plotter.add_text("Path", position=[legend_pos[0], legend_pos[1] - offset_between], font_size=40, color=path_color, font='times')
-        self.plotter.add_text("Drone Trajectory", position=[legend_pos[0], legend_pos[1] - 2*offset_between], font_size=40, color=drone_color, font='times')
-        self.plotter.add_text("Initial Position", position=[legend_pos[0], legend_pos[1] - 3*offset_between], font_size=40, color=initial_pos_color, font='times')
+
+        self.plotter.add_text("Obstacles", position=legend_pos, font_size=40, color=self.obstacles_color, font='times')
+        self.plotter.add_text("Path", position=[legend_pos[0], legend_pos[1] - offset_between], font_size=40, color=self.path_color, font='times')
+        self.plotter.add_text("Drone Trajectory", position=[legend_pos[0], legend_pos[1] - 2*offset_between], font_size=40, color=self.drone_path_color, font='times')
+        self.plotter.add_text("Initial Position", position=[legend_pos[0], legend_pos[1] - 3*offset_between], font_size=40, color=self.initial_pos_color, font='times')
 
         # Camera stuff
         self.plotter.camera.zoom(0.9) # Zoom a bit out to include axes from corner views

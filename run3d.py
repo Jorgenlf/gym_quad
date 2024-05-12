@@ -105,24 +105,25 @@ if __name__ == "__main__":
                                     path=path, 
                                     drone_traj=drone_traj,
                                     initial_position=init_pos,
-                                    nosave=False) #TODO make it both save and display interactive plot, needs to fix resolution thing
+                                    nosave=True) #TODO make it both save and display interactive plot, needs to fix resolution thing
                 plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
                                             azimuth=90, # 90 or 0 is best angle for the 3D plot 
                                             elevation=None,
                                             see_from_plane=None)
                 del plotter
             
-            multiplotter = Plotter3DMultiTraj(obstacles=obstacles,
-                                            path=path,
-                                            drone_trajectories=all_drone_trajs,
-                                            cum_rewards=cum_rewards,
-                                            nosave=False)
-            multiplotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"multiplot.png"),
-                                            azimuth=90,
-                                            elevation=None,
-                                            see_from_plane=None)
+            if args.episodes > 1:
+                multiplotter = Plotter3DMultiTraj(obstacles=obstacles,
+                                                path=path,
+                                                drone_trajectories=all_drone_trajs,
+                                                cum_rewards=cum_rewards,
+                                                nosave=False)
+                multiplotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"multiplot.png"),
+                                                azimuth=90,
+                                                elevation=None,
+                                                see_from_plane=None)
                 
-                 # This loop plots the from all four azimuths and all three planes # TODO This is buggy for some view angles. Axis labels dissapear (i think this is bc. they are essentially meshes and are view from behind or something)
+                # This loop plots the from all four azimuths and all three planes # TODO This is buggy for some view angles. Axis labels dissapear (i think this is bc. they are essentially meshes and are view from behind or something)
                 # azis = [0, 90, 180, 270]
                 # planes = ["xy", "xz", "yz"]
                 # for azi in azis:
@@ -145,8 +146,6 @@ if __name__ == "__main__":
                 #     plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{int(sim_df['Episode'].iloc[0])}_{plane}.png"),
                 #                                 see_from_plane=plane)
                 #     del plotter
-                
-                # Multiplot!
                 
                 
 

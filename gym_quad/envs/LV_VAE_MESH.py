@@ -12,7 +12,7 @@ from gym_quad.utils.geomutils import enu_to_pytorch3d, enu_to_tri
 from gym_quad.objects.quad import Quad
 from gym_quad.objects.IMU import IMU
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
-from gym_quad.objects.depth_camera import DepthMapRenderer, FoVPerspectiveCameras, RasterizationSettings
+from gym_quad.objects.depth_camera import DepthMapRenderer, FoVPerspectiveCameras, RasterizationSettings, PerspectiveCameras
 from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle, get_scene_bounds, ImportedMeshObstacle
 
 #Helper functions
@@ -253,6 +253,8 @@ class LV_VAE_MESH(gym.Env):
             for obstacle in self.obstacles:
                 if obstacle.isDummy:
                     continue
+                elif isinstance(obstacle, ImportedMeshObstacle):
+                    continue
                 else:
                     obs_pos_np = obstacle.position.cpu().numpy() #Costly so do it here per reset and save important info
                     for wp_index in range(len(self.path.waypoints)-1):
@@ -288,7 +290,11 @@ class LV_VAE_MESH(gym.Env):
         raster_settings = None
         scene = None
         if self.obstacles!=[]:
-            camera = FoVPerspectiveCameras(device = self.device,fov=self.FOV_vertical)
+            focal_length = (0.5*self.depth_map_size[1]/np.tan(self.FOV_vertical/2), )
+            principal_point = ((self.depth_map_size[1] / 2, self.depth_map_size[0] / 2), ) # Assuming perfect cam TODO: get K from real cam for exact values(?)
+            img_size = (self.depth_map_size,)
+            camera = PerspectiveCameras(focal_length=focal_length, principal_point=principal_point, image_size=img_size, device=self.device, in_ndc=False)
+
             raster_settings = RasterizationSettings(
                     image_size=self.depth_map_size, 
                     blur_radius=0.0, 
@@ -637,18 +643,18 @@ class LV_VAE_MESH(gym.Env):
             #This should work to check if point inside volume: if 0 < obs_cpp_in_body[0] <= self.max_depth and y2 < obs_cpp_in_body[1] < y1 and z2 < obs_cpp_in_body[2] < z1:
             for obs_cpp in self.obs_near_path_CPPs:
                 obs_cpp_in_body = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(obs_cpp - self.quadcopter.position)
-                if np.linalg.norm(obs_cpp - quad_cpp) < self.max_depth and obs_cpp_in_body[0] > 0:
+                if np.linalg.norm(obs_cpp - self.quadcopter.position) < self.max_depth and obs_cpp_in_body[0] > 0:
                     clip_min_PP_rew = True
                     lambda_PA = (drone_closest_obs_dist/danger_range)/2
                     if lambda_PA < 0.10 : lambda_PA = 0.10
                     lambda_CA = 1-lambda_PA
             
-            if clip_min_PP_rew: #Debugging print
-                if self.total_t_steps % 10 == 0:
-                    print("Changing lambda for path adherence and collision avoidance due to obstacle near path") 
-            else:
-                if self.total_t_steps % 10 == 0:
-                    print("No obstacles near path and in FOV of camera, using normal lambda values for path adherence and collision avoidance")
+            # if clip_min_PP_rew: #Debugging print
+            #     if self.total_t_steps % 10 == 0:
+            #         print("Changing lambda for path adherence and collision avoidance due to obstacle near path") 
+            # else:
+            #     if self.total_t_steps % 10 == 0:
+            #         print("No obstacles near path and in FOV of camera, using normal lambda values for path adherence and collision avoidance")
 
 
             if (drone_closest_obs_dist < danger_range):
@@ -672,8 +678,8 @@ class LV_VAE_MESH(gym.Env):
 
         #Path progression reward 
         reward_path_progression = 0
-        reward_path_progression1 = np.cos(self.chi_error)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
-        reward_path_progression2 = np.cos(self.upsilon_error)*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
+        reward_path_progression1 = np.cos(self.chi_error)#*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
+        reward_path_progression2 = np.cos(self.upsilon_error)#*np.linalg.norm(self.quadcopter.velocity)*self.PP_vel_scale
         reward_path_progression = reward_path_progression1/2 + reward_path_progression2/2
         if clip_min_PP_rew and self.let_lambda_affect_PP:
             reward_path_progression = np.clip(reward_path_progression, 0, self.PP_rew_max) #If there is an obstacle nearby and we choose to let lambda affect PP the minimum path prog reward becomes zero

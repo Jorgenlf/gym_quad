@@ -25,8 +25,8 @@ lv_vae_config = {
     "perturb_ctrl_gains"        : False,         # Perturb the control gains
     "perturb_latency"           : False,         # Perturb the latency of the sensors
 #Depth camera parameters    
-    "FOV_vertical"              : 75,            # Vertical field of view of the depth camera
-    "FOV_horizontal"            : 62,            # Horizontal field of view of the depth camera
+    "FOV_vertical"              : 87,            # Vertical field of view of the depth camera
+    "FOV_horizontal"            : 65,            # Horizontal field of view of the depth camera
     "depth_map_size"            : (240, 320),    # Size of the depth map Earlier sensor suite
     "max_depth"                 : 10,            # Maximum depth of the depth camera
     "camera_FPS"                : 15,            # Frequency of the sensors
@@ -34,13 +34,13 @@ lv_vae_config = {
     "compressed_depth_map_size" : 224,           # Size of depth map after compression
     "latent_dim"                : 32,            # Dimension of the latent space
 #Path related parameters
-    "la_dist"                   : 2.5,           # Look ahead distance aka distance to the point on path to be followed. old:20  
+    "la_dist"                   : 1,           # Look ahead distance aka distance to the point on path to be followed. old:20  
     "accept_rad"                : 1.5,           # Acceptance radius for the quadcopter to consider the end as reached old:5     
     "n_waypoints"               : 6,             # Number of waypoints to be generated
     "segment_length"            : 5,             # Length of the segments between waypoints
     "relevant_dist_to_path"     : 5,             # Distance to the path where the observation will yield values between -1 and 1
 #Drone controller parameters
-    "s_max"                     : 2,           # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  
+    "s_max"                     : 1,           # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  
     "i_max"                     : deg2rad(75/2), # Maximum inclination angle of commanded velocity wrt x-axis #Approx half of vertical FOV restricts drone to fly where it can see
     "r_max"                     : deg2rad(30),   # Maximum commanded yaw rate rad/s
     "kv"                        : 1.5,           # Velocity gain             All tuned in test_controller.py 2.5, 0.8, 0.8 used a lot
@@ -50,7 +50,7 @@ lv_vae_config = {
     "min_reward"                : -1e4,          # Minimum reward before the simulation is terminated
     
     #Path adherence reward
-    'PA_band_edge'              : 3,             # edge of Path adherence band
+    'PA_band_edge'              : 2,             # edge of Path adherence band
     'PA_scale'                  : 2.8,           # scale of Path adherence reward [-PA_scale, PA_scale]
     
     #Path progression reward
@@ -66,15 +66,16 @@ lv_vae_config = {
     'rew_reach_end'             : 30,            # reward for reaching the end of the path
     
     #Existence reward
-    'existence_reward'          : -0.005,        # reward for existing
+    'existence_reward'          : -0.01,        # reward for existing
     
     #Collision avoidance
     'use_old_CA_rew'            : True,         # Wether to use the old or new collision avoidance reward function
-        #Collision avoidance old
+    
+    #Collision avoidance old
     'danger_range'              : 10,            # Range between quadcopter and obstacle within which the quadcopter is in danger
     'abs_inv_CA_min_rew'        : 1/16,          # 1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x 
     
-        #Collision avoidance new
+    #Collision avoidance new
     'CA_scale'                  : 1/1000,        # Scaling of the collision avoidance reward Found via tuning
     'CA_epsilon'                : 0.0001,        # Small number to avoid division by zero
     'TwoDgauss_sigma'           : 30,            # Sigma of the 2D gaussian for the collision avoidance reward
