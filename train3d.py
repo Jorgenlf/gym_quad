@@ -103,11 +103,11 @@ We train this policy for approximately 26 × 10^6 environment steps aggregated o
 '''
 #TODO implement the above hyperparameters????
 PPO_hyperparams = {
-    'n_steps': 1024, 
+    'n_steps': 2048, 
     'batch_size': 64,
     'gae_lambda': 0.95,
-    'gamma': 0.99, #old:0.99,
-    'n_epochs': 4,
+    'gamma': 0.98, #old:0.99,
+    'n_epochs': 10,
     'ent_coef': 0.001, 
     'verbose': 2,
     'device':'cuda', #Will be used for both feature extractor and PPO
@@ -130,7 +130,7 @@ lock_params = False #True if you want to lock the encoder parameters. False to l
 #From Ørjan:    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32])
 #SB3 default:   net_arch = dict(pi=[64, 64], vf=[64, 64])
 #From Kulkarni: net_arch = dict(pi=[512, 256, 64], vf=[512, 256, 64]) #NB: GRU is not included in this probs overkill though
-ppo_pi_vf_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32]) #The PPO network architecture policy and value function
+ppo_pi_vf_arch = dict(pi = [128,64,32], vf = [128,64,32]) #The PPO network architecture policy and value function
 
 policy_kwargs = dict(
     features_extractor_class = PerceptionIMUDomainExtractor,

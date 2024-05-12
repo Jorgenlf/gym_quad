@@ -3,7 +3,6 @@ import numpy as np
 import os
 
 
-
 class TensorboardLogger(BaseCallback):
     '''
     A custom callback for tensorboard logging.
@@ -56,7 +55,6 @@ class TensorboardLogger(BaseCallback):
             avg_path_progression = np.mean([info["path_progression"] for info in infos])
             avg_reach_end_reward = np.mean([info['reach_end_reward'] for info in infos])
             avg_existence_reward = np.mean([info['existence_reward'] for info in infos])
-
             # Metrics for report plotting
             avg_path_prog = np.mean([info["progression"] for info in infos])
             avg_time = np.mean([info["time"] for info in infos])
@@ -82,6 +80,8 @@ class TensorboardLogger(BaseCallback):
             self.logger.record("metrics/avg_error_e", avg_error_e)
             self.logger.record("metrics/avg_error_h", avg_error_h)
 
+
+            self.logger.record("episodes/avg_ep_approach_end_reward", avg_approach_end_reward)
         
         
         if self.n_steps % self.log_freq == 0:
@@ -94,6 +94,7 @@ class TensorboardLogger(BaseCallback):
             path_progression = np.mean([info["path_progression"] for info in infos])
             reach_end_reward = np.mean([info["reach_end_reward"] for info in infos])
             existence_reward = np.mean([info["existence_reward"] for info in infos])
+            approach_end_reward = np.mean([info["approach_end_reward"] for info in infos])
 
             self.logger.record("iter/reward", reward)
             self.logger.record("iter/length", length)
@@ -103,6 +104,7 @@ class TensorboardLogger(BaseCallback):
             self.logger.record("iter/path_progression", path_progression)
             self.logger.record("iter/reach_end_reward", reach_end_reward)
             self.logger.record("iter/existence_reward", existence_reward)
+            self.logger.record("iter/approach_end_reward", approach_end_reward)
     
 
         # Check for model saving frequency
