@@ -14,7 +14,7 @@ lv_vae_config = {
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle #TODO idk if this should be here might move it
     "enclose_scene"             : True,          # Enclose the scene with a box thats scaled to the scene size
     "padding"                   : 1.5,           # Padding of the box that encloses the scene [m] #usually 1.5m for indoor training
-    "drone_radius_for_collision": 0.25,           # Radius of the drone for collision detection [m] #Actual radius is 0.25m
+    "drone_radius_for_collision": 0.25,          # Radius of the drone for collision detection [m] #Actual radius is 0.25m
     "recap_chance"              : 0.1,           # Chance of recapitulating a previous trainig scenario
 #Noise parameters #TODO add the noise values here as well?    
     "perturb_sim"               : False,         # Activates all the noise below. Also, the perturb scenarios inside LV_VAE_MESH.py sets this to True
@@ -25,24 +25,24 @@ lv_vae_config = {
     "perturb_ctrl_gains"        : False,         # Perturb the control gains
     "perturb_latency"           : False,         # Perturb the latency of the sensors
 #Depth camera parameters    
-    "FOV_vertical"              : 87,            # Vertical field of view of the depth camera
-    "FOV_horizontal"            : 65,            # Horizontal field of view of the depth camera
+    "FOV_horizontal"            : 87,            # Horizontal field of view of the depth camera
+    "FOV_vertical"              : 65,            # Vertical field of view of the depth camera
     "depth_map_size"            : (240, 320),    # Size of the depth map Earlier sensor suite
     "max_depth"                 : 10,            # Maximum depth of the depth camera
-    "camera_FPS"                : 15,            # Frequency of the sensors
+    "camera_FPS"                : 30,            # Frequency of the sensors
 #VAE parameters    
     "compressed_depth_map_size" : 224,           # Size of depth map after compression
     "latent_dim"                : 32,            # Dimension of the latent space
 #Path related parameters
-    "la_dist"                   : 1,             # Look ahead distance aka distance to the point on path to be followed. old:20  
-    "accept_rad"                : 1,           # Acceptance radius for the quadcopter to consider the end as reached old:5     
+    "la_dist"                   : 2.5,             # Look ahead distance aka distance to the point on path to be followed. old:20  
+    "accept_rad"                : 0.1,             # Acceptance radius for the quadcopter to consider the end as reached old:5     
     "n_waypoints"               : 6,             # Number of waypoints to be generated
     "segment_length"            : 5,             # Length of the segments between waypoints
     "relevant_dist_to_path"     : 5,             # Distance to the path where the observation will yield values between -1 and 1
 #Drone controller parameters
     "s_max"                     : 1.5,           # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  
-    "i_max"                     : deg2rad(75/2), # Maximum inclination angle of commanded velocity wrt x-axis #Approx half of vertical FOV restricts drone to fly where it can see
-    "r_max"                     : deg2rad(30),   # Maximum commanded yaw rate rad/s
+    "i_max"                     : deg2rad(65/2), # Maximum inclination angle of commanded velocity wrt x-axis #Approx half of vertical FOV restricts drone to fly where it can see
+    "r_max"                     : deg2rad(45),   # Maximum commanded yaw rate rad/s
     "kv"                        : 1.5,           # Velocity proportional gain             All tuned in test_controller.py 2.5, 0.8, 0.8 used a lot
     "kangvel"                   : 0.8,           # Angular velocity damping gain 
     "kR"                        : 0.5,           # Attitude proportional gain             
@@ -50,7 +50,7 @@ lv_vae_config = {
     "min_reward"                : -1e4,          # Minimum reward before the simulation is terminated
     
     #Path adherence reward
-    'PA_band_edge'              : 2,             # edge of Path adherence band
+    'PA_band_edge'              : 3,             # edge of Path adherence band
     'PA_scale'                  : 2.8,           # scale of Path adherence reward [-PA_scale, PA_scale]
     
     #Path progression reward
@@ -70,12 +70,12 @@ lv_vae_config = {
     "max_approach_end_rew"      : 3,             # Maximum reward for the approach end reward
     
     #Existence reward
-    'existence_reward'          : -0.05,        # reward for existing
+    'existence_reward'          : -0.5,        # reward for existing
     
     #Collision avoidance
     'use_old_CA_rew'            : True,         # Wether to use the old or new collision avoidance reward function
         #Collision avoidance "old"
-    'danger_range'              : 10,            # Range between quadcopter and obstacle within which the quadcopter is in danger
+    'danger_range'              : 10,           # Range between quadcopter and obstacle within which the quadcopter is in danger
     'abs_inv_CA_min_rew'        : 1/20,         # 1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x 
     
         #Collision avoidance "new"

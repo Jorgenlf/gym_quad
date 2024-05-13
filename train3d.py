@@ -78,16 +78,16 @@ scenarios = {   "line"          :   1e5,
 #              }
 
 #This was used and all noise was active the whole run for expid 8 on "Jøreng PC"
-scenarios = {   "line"                 :  0.33e6,
+scenarios = {   "line"                 :  0.1e6,
                 "easy"                 :  0.33e6,
                 "easy_random"          :  0.33e6, #Randomized pos and att of quad in easy scenario
                 "proficient"           :  1e6,
                 "intermediate"         :  1e6,
                 "expert"               :  1e6,
-                "expert_random"       :  1e6 ,
+                "expert_random"        :  1e6,
                 "easy_perturbed"       :  0.5e6, #Perturbed by noise
                 "proficient_perturbed" :  1e6,
-                "expert_perturbed"     :  1e6
+                "expert_perturbed"     :  2e6
              }
 
 #scenarios = {'house': 5e6} # Wont work....?
@@ -104,7 +104,7 @@ We train this policy for approximately 26 × 10^6 environment steps aggregated o
 #TODO implement the above hyperparameters????
 PPO_hyperparams = {
     'n_steps': 2048, 
-    'batch_size': 64,
+    'batch_size': 128,
     'gae_lambda': 0.95,
     'gamma': 0.98, #old:0.99,
     'n_epochs': 10,
@@ -118,12 +118,12 @@ PPO_hyperparams = {
 }
 
 
-
 ###---###---### SELECT POLICYKWARGS HERE - FEATUREEXTRACTOR AND PPO NETWORK ACRHITECTURE ###---###---###
 
 #VAE
 # encoder_path = None #If you want to train the encoder from scratch
-encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_3000_seed1.json"
+# encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_3000_seed1.json"
+encoder_path = None
 lock_params = False #True if you want to lock the encoder parameters. False to let them be trained
 
 #PPO

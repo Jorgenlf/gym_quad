@@ -282,7 +282,7 @@ class LV_VAE_MESH(gym.Env):
             height = bounds[3] - bounds[2] #y in tri and pt3d, z in enu
             depth = bounds[5] - bounds[4] #x in tri and pt3d y in enu
             room_center = torch.tensor([(bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, (bounds[4] + bounds[5]) / 2])
-            cube = CubeMeshObstacle(device=self.device,width=width, height=height, depth=depth, center_position=room_center)
+            cube = CubeMeshObstacle(device=self.device,width=width, height=height, depth=depth, center_position=room_center,inverted=True) 
             self.obstacles.append(cube)
 
         ## 4. Generate camera, scene and renderer
@@ -290,7 +290,7 @@ class LV_VAE_MESH(gym.Env):
         raster_settings = None
         scene = None
         if self.obstacles!=[]:
-            focal_length = (0.5*self.depth_map_size[1]/np.tan(self.FOV_vertical/2), )
+            focal_length = (-0.5*self.depth_map_size[1]/np.tan(self.FOV_horizontal/2), )
             principal_point = ((self.depth_map_size[1] / 2, self.depth_map_size[0] / 2), ) # Assuming perfect cam TODO: get K from real cam for exact values(?)
             img_size = (self.depth_map_size,)
             camera = PerspectiveCameras(focal_length=focal_length, principal_point=principal_point, image_size=img_size, device=self.device, in_ndc=False)
@@ -300,7 +300,7 @@ class LV_VAE_MESH(gym.Env):
                     blur_radius=0.0, 
                     faces_per_pixel=1, # Keep at 1, dont change
                     perspective_correct=True, # Doesn't do anything(??), but seems to improve speed
-                    cull_backfaces=False #TODO Temp fix for the camera going inside obstacles before collision is detected Find a better less runtimeconsuming solution
+                    cull_backfaces = False #TODO set to false as Temp fix for the camera going inside obstacles before collision is detected Find a better less runtimeconsuming solution
                 )
             if self.obstacles[0].isDummy: #Means theres just the room and the path
                 scene = Scene(device = self.device, obstacles=[self.obstacles[1]])
@@ -408,7 +408,8 @@ class LV_VAE_MESH(gym.Env):
         if not self.use_old_CA_rew: #Use new collision avoidance reward function
             self.scaled_CA_reward_pre_clip = reward_collision_avoidance_pre_clip.item()*self.CA_scale #This item operation is costly as moves from GPU to CPU 
         
-        self.closest_measurement = self.closest_measurement.item()  
+        self.closest_measurement = self.closest_measurement.item()
+        print("The closeset measurement from the depthmap is: ", np.round(self.closest_measurement,3))  
         self.sensor_readings = resized_depth_map.detach().cpu().numpy()
         #.item() and .detach.cpu.numpy Moves the data from GPU to CPU so we do it here close to the tensor to numpy conversion as
         
@@ -549,7 +550,7 @@ class LV_VAE_MESH(gym.Env):
             translation = enu_to_tri(self.quadcopter.position - self.prev_quad_pos)
             self.tri_quad_mesh.apply_translation(translation)
             collision_manager_detect = self.collision_manager.in_collision_single(self.tri_quad_mesh)
-            if collision_manager_detect or self.closest_measurement < 0.05: #Adding check if drone 5cm away obs it basically collided 
+            if collision_manager_detect: #or self.closest_measurement < 0.05: #Adding check if drone 5cm away obs it basically collided 
                                                                             #to avoid the drone going inside obstacles before collision is detected
                                                                             #Also works as a safety radius for the drone. The collision manager will stil catch nonvisible collisions (rare/should not occur)
                                                                             #TODO for this to work the pixels in the depthmap must be updated correctly i.e. adjust for FOV and resolution
@@ -562,7 +563,8 @@ class LV_VAE_MESH(gym.Env):
         self.prog = self.path.get_closest_u(self.quadcopter.position, self.waypoint_index)
         k = self.path.get_u_index(self.prog)
         if k > self.waypoint_index:
-            print("Passed waypoint {:d}".format(k+1), self.path.waypoints[k], "\tquad position:", self.quadcopter.position)
+            print("Passed waypoint {:d}".format(k+1), np.round(self.path.waypoints[k],3), "\tquad position:", np.round(self.quadcopter.position,3))
+            print("At timestep: ",self.total_t_steps, "  Which equates to: ", self.total_t_steps*self.step_size, "s")
             self.passed_waypoints = np.vstack((self.passed_waypoints, self.path.waypoints[k]))
             self.waypoint_index = k
 
@@ -574,6 +576,7 @@ class LV_VAE_MESH(gym.Env):
             if end_cond_1:
                 print("Quadcopter reached target!")
                 print("Endpoint position", self.path.waypoints[-1], "\tquad position:", self.quadcopter.position) #might need the format line?
+                print("At timestep: ",self.total_t_steps, "  Which equates to: ", self.total_t_steps*self.step_size, "s")
                 self.success = True
             elif self.collided:
                 print("Quadcopter collided!")
