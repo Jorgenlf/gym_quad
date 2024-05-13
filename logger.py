@@ -55,6 +55,8 @@ class TensorboardLogger(BaseCallback):
             avg_path_progression = np.mean([info["path_progression"] for info in infos])
             avg_reach_end_reward = np.mean([info['reach_end_reward'] for info in infos])
             avg_existence_reward = np.mean([info['existence_reward'] for info in infos])
+            avg_approach_end_reward = np.mean([info['approach_end_reward'] for info in infos])
+
             # Metrics for report plotting
             avg_path_prog = np.mean([info["progression"] for info in infos])
             avg_time = np.mean([info["time"] for info in infos])

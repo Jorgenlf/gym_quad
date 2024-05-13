@@ -40,8 +40,8 @@ class DepthMapRenderer:
     def __init__(self,
                  device: torch.device,
                  scene:  Scene,
-                 #camera: FoVPerspectiveCameras,
-                 camera: PerspectiveCameras,
+                 camera: FoVPerspectiveCameras,
+                 #camera: PerspectiveCameras,
                  raster_settings: RasterizationSettings,
                  MAX_MEASURABLE_DEPTH: float = 10.0,
                  img_size: tuple = (240, 320)):
@@ -208,19 +208,22 @@ if __name__ == "__main__":
 
     # Camera globals
     IMG_SIZE = (240, 320)           # (H, W) of physical depth cam images AFTER the preprocessing pipeline
-    FOV = 60                        # Field of view in degrees, init to correct value later
+    FOV = 75                        # Field of view in degrees, init to correct value later
     MAX_MEASURABLE_DEPTH = 10.0      # Maximum measurable depth, initialized to k here but is 10 IRL
 
     #init device to use gpu if available
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     #init camera
-    #camera = FoVPerspectiveCameras(device=device, fov=FOV)
-    focal_length = (0.5*IMG_SIZE[1]/np.tan(FOV/2), )
+    camera = FoVPerspectiveCameras(device=device, fov=FOV, znear=0.1, zfar=MAX_MEASURABLE_DEPTH)
+    print(camera.get_projection_transform().get_matrix().cpu().numpy())
+    K = camera.get_projection_transform().get_matrix()
+
+    focal_length = (-0.5*IMG_SIZE[1]/np.tan(FOV/2), )
     principal_point = ((IMG_SIZE[1] / 2, IMG_SIZE[0] / 2),) # Assuming a perfect camera # TODO: Get intrinsics of physicl cam 
     img_size = (IMG_SIZE,)
     is_ndc = False
-    camera = PerspectiveCameras(focal_length=focal_length, principal_point=principal_point, image_size=img_size, device=device, in_ndc=is_ndc)
+    #camera = PerspectiveCameras(K=K, device=device, in_ndc=True)
 
     print(camera.get_projection_transform())
 

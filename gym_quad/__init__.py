@@ -25,24 +25,24 @@ lv_vae_config = {
     "perturb_ctrl_gains"        : False,         # Perturb the control gains
     "perturb_latency"           : False,         # Perturb the latency of the sensors
 #Depth camera parameters    
-    "FOV_vertical"              : 87,            # Vertical field of view of the depth camera
+    "FOV_vertical"              : 75,            # Vertical field of view of the depth camera
     "FOV_horizontal"            : 65,            # Horizontal field of view of the depth camera
     "depth_map_size"            : (240, 320),    # Size of the depth map Earlier sensor suite
     "max_depth"                 : 10,            # Maximum depth of the depth camera
     "camera_FPS"                : 15,            # Frequency of the sensors
 #VAE parameters    
     "compressed_depth_map_size" : 224,           # Size of depth map after compression
-    "latent_dim"                : 32,            # Dimension of the latent space
+    "latent_dim"                : 64,            # Dimension of the latent space
 #Path related parameters
-    "la_dist"                   : 1,             # Look ahead distance aka distance to the point on path to be followed. old:20  
+    "la_dist"                   : 2,             # Look ahead distance aka distance to the point on path to be followed. old:20  
     "accept_rad"                : 1,           # Acceptance radius for the quadcopter to consider the end as reached old:5     
     "n_waypoints"               : 6,             # Number of waypoints to be generated
     "segment_length"            : 5,             # Length of the segments between waypoints
     "relevant_dist_to_path"     : 5,             # Distance to the path where the observation will yield values between -1 and 1
 #Drone controller parameters
     "s_max"                     : 1.5,           # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  
-    "i_max"                     : deg2rad(75/2), # Maximum inclination angle of commanded velocity wrt x-axis #Approx half of vertical FOV restricts drone to fly where it can see
-    "r_max"                     : deg2rad(30),   # Maximum commanded yaw rate rad/s
+    "i_max"                     : deg2rad(65/2), # Maximum inclination angle of commanded velocity wrt x-axis #Approx half of vertical FOV restricts drone to fly where it can see
+    "r_max"                     : deg2rad(60),   # Maximum commanded yaw rate rad/s
     "kv"                        : 1.5,           # Velocity proportional gain             All tuned in test_controller.py 2.5, 0.8, 0.8 used a lot
     "kangvel"                   : 0.8,           # Angular velocity damping gain 
     "kR"                        : 0.5,           # Attitude proportional gain             
@@ -63,14 +63,14 @@ lv_vae_config = {
     'rew_collision'             : -50,           # reward for collision
     
     #reach end reward
-    'rew_reach_end'             : 30,            # reward for reaching the end of the path
+    'rew_reach_end'             : 50,            # reward for reaching the end of the path
 
     #Approach_end reward
     "approach_end_sigma"        : 2.5,           # Sigma of the gaussian for the approach end reward
     "max_approach_end_rew"      : 3,             # Maximum reward for the approach end reward
     
     #Existence reward
-    'existence_reward'          : -0.05,        # reward for existing
+    'existence_reward'          : -0.1,        # reward for existing
     
     #Collision avoidance
     'use_old_CA_rew'            : True,         # Wether to use the old or new collision avoidance reward function
