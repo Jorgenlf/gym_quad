@@ -197,11 +197,8 @@ class LV_VAE_MESH(gym.Env):
         #If the simulation is not to be perturbed the noise values are set to 0 (except for IMU noise which is always present)
         #Camera pos orient no noise
         camera_look_direction = np.array([1, 0, 0]) #TODO turn these two into hypervariables
-        camera_position_body = np.array([-0.3, 0, 0])
-        #When sim got scaled down, drone got scaled down 
-        #and camera now enters obstacles before collision is detected. 
-        #We therefore move the camera back a bit
-
+        camera_position_body = np.array([0, 0, 0])
+        
         self.camera_look_direction_noisy = camera_look_direction
         self.camera_pos_noise = camera_position_body
 
@@ -291,14 +288,14 @@ class LV_VAE_MESH(gym.Env):
         scene = None
         if self.obstacles!=[]:
             #s = min(self.depth_map_size)
-            #f_ndc = -0.5*self.depth_map_size[1]/np.tan(self.FOV_vertical/2) * 2.0 / s
+            #f_ndc = -0.5*self.depth_map_size[1]/np.tan(self.FOV_horizontal/2) * 2.0 / s
             #px_ndc = - (self.depth_map_size[1] / 2 - self.depth_map_size[1] / 2.0) * 2.0 / s
             #py_ndc = - (self.depth_map_size[0] / 2 - self.depth_map_size[0] / 2.0) * 2.0 / s
             
             #print(f_ndc, px_ndc, py_ndc)
 
 
-            #focal_length = (-0.5*self.depth_map_size[1]/np.tan(self.FOV_vertical/2), )
+            #focal_length = (-0.5*self.depth_map_size[1]/np.tan(self.FOV_horizontal/2), )
             #principal_point = ((self.depth_map_size[1] / 2, self.depth_map_size[0] / 2), ) # Assuming perfect cam TODO: get K from real cam for exact values(?)
             #img_size = (self.depth_map_size,)
             #camera = PerspectiveCameras(focal_length=focal_length, principal_point=principal_point, image_size=img_size, device=self.device, in_ndc=False)
@@ -311,7 +308,7 @@ class LV_VAE_MESH(gym.Env):
             #camera = PerspectiveCameras(K=K, device=self.device, in_ndc=True)
             #camera = FoVPerspectiveCameras(device=self.device, K=K)
 
-            camera = FoVPerspectiveCameras(device=self.device, fov=self.FOV_vertical, znear=0.01, zfar=self.max_depth)
+            camera = FoVPerspectiveCameras(device=self.device, fov=self.FOV_horizontal, znear=0.01, zfar=self.max_depth)
             #print(camera.get_projection_transform().get_matrix().cpu().numpy())            
 
             raster_settings = RasterizationSettings(
@@ -662,7 +659,7 @@ class LV_VAE_MESH(gym.Env):
             #Can find the volume of the FOV of the camera and check if the obstacle is in that volume #TODO volume approach needs more work/testing
             # y1 = np.tan(self.FOV_horizontal/2)*self.max_depth #These could be calculated once and saved as a variable
             # y2 = -y1
-            # z1 = np.tan(self.FOV_vertical/2)*self.max_depth
+            # z1 = np.tan(self.FOV_horizontal/2)*self.max_depth
             # z2 = -z1
             #This should work to check if point inside volume: if 0 < obs_cpp_in_body[0] <= self.max_depth and y2 < obs_cpp_in_body[1] < y1 and z2 < obs_cpp_in_body[2] < z1:
             for obs_cpp in self.obs_near_path_CPPs:

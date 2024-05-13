@@ -25,8 +25,8 @@ lv_vae_config = {
     "perturb_ctrl_gains"        : False,         # Perturb the control gains
     "perturb_latency"           : False,         # Perturb the latency of the sensors
 #Depth camera parameters    
-    "FOV_horizontal"            : 87,            # Horizontal field of view of the depth camera
-    "FOV_vertical"              : 65,            # Vertical field of view of the depth camera
+    "FOV_horizontal"            : 75,            # Horizontal field of view of the depth camera
+    "FOV_vertical"              : 62,            # Vertical field of view of the depth camera
     "depth_map_size"            : (240, 320),    # Size of the depth map Earlier sensor suite
     "max_depth"                 : 10,            # Maximum depth of the depth camera
     "camera_FPS"                : 30,            # Frequency of the sensors
