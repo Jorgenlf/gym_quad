@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
 from gym_quad.utils.ODE45JIT import j_Rzyx
-from gym_quad.utils.geomutils import enu_to_pytorch3d, enu_to_tri
+from gym_quad.utils.geomutils import enu_to_pytorch3d, enu_to_tri, pytorch3d_to_enu
 from gym_quad.objects.quad import Quad
 from gym_quad.objects.IMU import IMU
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
@@ -290,23 +290,42 @@ class LV_VAE_MESH(gym.Env):
         raster_settings = None
         scene = None
         if self.obstacles!=[]:
-            focal_length = (-0.5*self.depth_map_size[1]/np.tan(self.FOV_horizontal/2), )
-            principal_point = ((self.depth_map_size[1] / 2, self.depth_map_size[0] / 2), ) # Assuming perfect cam TODO: get K from real cam for exact values(?)
-            img_size = (self.depth_map_size,)
-            camera = PerspectiveCameras(focal_length=focal_length, principal_point=principal_point, image_size=img_size, device=self.device, in_ndc=False)
+            #s = min(self.depth_map_size)
+            #f_ndc = -0.5*self.depth_map_size[1]/np.tan(self.FOV_vertical/2) * 2.0 / s
+            #px_ndc = - (self.depth_map_size[1] / 2 - self.depth_map_size[1] / 2.0) * 2.0 / s
+            #py_ndc = - (self.depth_map_size[0] / 2 - self.depth_map_size[0] / 2.0) * 2.0 / s
+            
+            #print(f_ndc, px_ndc, py_ndc)
+
+
+            #focal_length = (-0.5*self.depth_map_size[1]/np.tan(self.FOV_vertical/2), )
+            #principal_point = ((self.depth_map_size[1] / 2, self.depth_map_size[0] / 2), ) # Assuming perfect cam TODO: get K from real cam for exact values(?)
+            #img_size = (self.depth_map_size,)
+            #camera = PerspectiveCameras(focal_length=focal_length, principal_point=principal_point, image_size=img_size, device=self.device, in_ndc=False)
+
+            #camera = PerspectiveCameras(focal_length=(f_ndc, ), principal_point=((px_ndc, py_ndc), ), device=self.device, in_ndc=True)
+            #print(camera.get_projection_transform().get_matrix().cpu().numpy())
+            # Change the sign of the last row of K
+            #K = camera.get_projection_transform().get_matrix().cpu().numpy()
+            #K[0, 3, :] = -K[0, 3, :]
+            #camera = PerspectiveCameras(K=K, device=self.device, in_ndc=True)
+            #camera = FoVPerspectiveCameras(device=self.device, K=K)
+
+            camera = FoVPerspectiveCameras(device=self.device, fov=self.FOV_vertical, znear=0.01, zfar=self.max_depth)
+            #print(camera.get_projection_transform().get_matrix().cpu().numpy())            
 
             raster_settings = RasterizationSettings(
                     image_size=self.depth_map_size, 
                     blur_radius=0.0, 
                     faces_per_pixel=1, # Keep at 1, dont change
                     perspective_correct=True, # Doesn't do anything(??), but seems to improve speed
-                    cull_backfaces = False #TODO set to false as Temp fix for the camera going inside obstacles before collision is detected Find a better less runtimeconsuming solution
+                    cull_backfaces=True #TODO Temp fix for the camera going inside obstacles before collision is detected Find a better less runtimeconsuming solution
                 )
             if self.obstacles[0].isDummy: #Means theres just the room and the path
                 scene = Scene(device = self.device, obstacles=[self.obstacles[1]])
             else:
                 scene = Scene(device = self.device, obstacles=self.obstacles)
-
+            
             self.renderer = DepthMapRenderer(device=self.device, 
                                             raster_settings=raster_settings, 
                                             camera=camera, 
@@ -378,7 +397,7 @@ class LV_VAE_MESH(gym.Env):
 
         #These 5 lines are for the collision avoidance reward but done here to save time as we now can bunch GPU to CPU moves together
         #Use the "pure" depth map for the collision avoidance reward
-        self.closest_measurement = torch.min(temp_depth_map)                                                     
+        self.closest_measurement = torch.min(temp_depth_map)
         if not self.use_old_CA_rew: #Use new collision avoidance reward function
             non_singular_depth_map = temp_depth_map + self.CA_epsilon #Adding 0.0001 to avoid singular matrix
             div_by_one_depth_map = 1 / non_singular_depth_map

@@ -32,7 +32,7 @@ lv_vae_config = {
     "camera_FPS"                : 30,            # Frequency of the sensors
 #VAE parameters    
     "compressed_depth_map_size" : 224,           # Size of depth map after compression
-    "latent_dim"                : 32,            # Dimension of the latent space
+    "latent_dim"                : 64,            # Dimension of the latent space
 #Path related parameters
     "la_dist"                   : 2.5,             # Look ahead distance aka distance to the point on path to be followed. old:20  
     "accept_rad"                : 0.1,             # Acceptance radius for the quadcopter to consider the end as reached old:5     
@@ -63,7 +63,7 @@ lv_vae_config = {
     'rew_collision'             : -50,           # reward for collision
     
     #reach end reward
-    'rew_reach_end'             : 30,            # reward for reaching the end of the path
+    'rew_reach_end'             : 50,            # reward for reaching the end of the path
 
     #Approach_end reward
     "approach_end_sigma"        : 2.5,           # Sigma of the gaussian for the approach end reward

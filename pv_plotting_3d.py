@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import trimesh
 
-from gym_quad.objects.mesh_obstacles import SphereMeshObstacle, CubeMeshObstacle, Scene
+from gym_quad.objects.mesh_obstacles import SphereMeshObstacle, CubeMeshObstacle, Scene, ImportedMeshObstacle
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.utils.geomutils import enu_to_tri, tri_to_enu
 
@@ -27,13 +27,14 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
         self.initial_position = initial_position
         self.nosave = nosave
 
-        self.meshes, self.room_mesh = self.obstacles_to_pyvista_meshes(obstacles)
+        self.meshes, self.room_mesh, self.house_mesh = self.obstacles_to_pyvista_meshes(obstacles)
         self.quadratic_path = self.dash_path(self.get_path_as_arr(path))
         self.bounds, self.scaled_bounds = self.get_scene_bounds(obstacles, path, drone_traj, padding=0)
 
+        self.plotter = pv.Plotter(window_size=[4000, 4000], 
+                                  off_screen=not nosave)
         
         # Plotting parameters
-        self.clim = [self.min_rew, self.max_rew]
         self.drone_path_color = '#00BA38' #TODO find suitable color
         self.path_color = '#4780ff' # blueish
         self.obstacles_color = '#ff3400' # redish
@@ -118,18 +119,25 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
         return bounds, scaled_bounds
     
     def obstacles_to_pyvista_meshes(self, obstacles: list):
+        for o in obstacles:
+            if isinstance(o, ImportedMeshObstacle):
+                house_index = obstacles.index(o)
         obs_meshes = [o.mesh for o in obstacles]
         tri_obs_meshes = [trimesh.Trimesh(vertices=tri_to_enu(o.verts_packed().cpu().numpy().T).T, faces=tri_to_enu(o.faces_packed().cpu().numpy().T).T) for o in obs_meshes]
         meshes = []
-        room = None    
+        room = None   
+        house = None 
         for i, mesh in enumerate(tri_obs_meshes):
             # If last mesh, it is the room, do not include in meshes
             if i == len(tri_obs_meshes) - 1:
                 room = pv.wrap(mesh)
                 continue
+            if i == house_index:
+                house = pv.wrap(mesh)
+                continue
             pv_mesh = pv.wrap(mesh)
             meshes.append(pv_mesh)
-        return meshes, room
+        return meshes, room, house
     
     def plot_scene_and_trajs(self, save_path=None, azimuth=90, elevation=None, see_from_plane=None): # TODO fix
         """Azimuth is the angle of the camera around the scene, + is anti-clockwise rotation about scene center, 0, 90, 180, 270 are the best angles (from each corner)
@@ -146,12 +154,17 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
             else:
                 self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params)
         
-        # Add the room (needs different coloring)
-        self.plotter.add_mesh(self.room_mesh, color=self.room_color, show_edges=False, backface_params=backface_params)
+        # Add the room, only plot if not house scenario
+        if self.room_mesh != None and self.house_mesh == None:
+            self.plotter.add_mesh(self.room_mesh, color=self.room_color, show_edges=False, backface_params=backface_params)
+        
+        if self.house_mesh != None:
+            self.plotter.add_mesh(self.house_mesh, color=self.room_color, show_edges=False, opacity=0.25)
+
 
         # Add drone traj and path
         spline = pv.Spline(self.drone_traj, 1000)
-        self.plotter.add_mesh(spline, line_width=8, label="Drone Trajectory", scalars='cumulative_reward', color=self.drone_path_color)
+        self.plotter.add_mesh(spline, line_width=8, label="Drone Trajectory", color=self.drone_path_color)
         self.plotter.add_points(self.quadratic_path, color=self.path_color, point_size=10, label="Path", render_points_as_spheres=True)
         self.plotter.add_points(self.initial_position, color="black", point_size=30, label="Initial Position", render_points_as_spheres=True)
         self.plotter.show_grid(**self.grid_kw_args)
@@ -316,18 +329,25 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
         return bounds, scaled_bounds
     
     def obstacles_to_pyvista_meshes(self, obstacles: list):
+        for o in obstacles:
+            if isinstance(o, ImportedMeshObstacle):
+                house_index = obstacles.index(o)
         obs_meshes = [o.mesh for o in obstacles]
         tri_obs_meshes = [trimesh.Trimesh(vertices=tri_to_enu(o.verts_packed().cpu().numpy().T).T, faces=tri_to_enu(o.faces_packed().cpu().numpy().T).T) for o in obs_meshes]
         meshes = []
-        room = None    
+        room = None   
+        house = None 
         for i, mesh in enumerate(tri_obs_meshes):
             # If last mesh, it is the room, do not include in meshes
             if i == len(tri_obs_meshes) - 1:
                 room = pv.wrap(mesh)
                 continue
+            if i == house_index:
+                house = pv.wrap(mesh)
+                continue
             pv_mesh = pv.wrap(mesh)
             meshes.append(pv_mesh)
-        return meshes, room
+        return meshes, room, house
     
     def plot_scene_and_trajs(self, save_path=None, azimuth=90, elevation=None, see_from_plane=None): 
         self.plotter.add_mesh(pv.Cube(bounds=self.scaled_bounds), opacity=0.0)
@@ -339,8 +359,13 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
                 self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params)
             else:
                 self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params)
-        # Add the room (needs different coloring)
-        self.plotter.add_mesh(self.room_mesh, color=self.room_color, show_edges=False, backface_params=backface_params)
+
+        # Add the room, only plot if not house scenario
+        if self.room_mesh != None and self.house_mesh == None:
+            self.plotter.add_mesh(self.room_mesh, color=self.room_color, show_edges=False, backface_params=backface_params)
+        
+        if self.house_mesh != None:
+            self.plotter.add_mesh(self.house_mesh, color=self.room_color, show_edges=False, opacity=0.2, backface_params=backface_params)
 
         # Add each drone trajectory
         for i, (key, drone_traj) in enumerate(self.drone_trajectories.items()):
