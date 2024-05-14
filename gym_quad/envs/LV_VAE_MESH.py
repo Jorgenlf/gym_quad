@@ -425,7 +425,7 @@ class LV_VAE_MESH(gym.Env):
             self.scaled_CA_reward_pre_clip = reward_collision_avoidance_pre_clip.item()*self.CA_scale #This item operation is costly as moves from GPU to CPU 
         
         self.closest_measurement = self.closest_measurement.item()
-        print("The closeset measurement from the depthmap is: ", np.round(self.closest_measurement,3))  
+        # print("The closeset measurement from the depthmap is: ", np.round(self.closest_measurement,3))  
         self.sensor_readings = resized_depth_map.detach().cpu().numpy()
         #.item() and .detach.cpu.numpy Moves the data from GPU to CPU so we do it here close to the tensor to numpy conversion as
         
@@ -713,10 +713,6 @@ class LV_VAE_MESH(gym.Env):
         if self.waypoint_index == len(self.path.waypoints)-2:
             dist_to_end = np.linalg.norm(self.quadcopter.position - self.path.get_endpoint())
             approach_end_reward = np.exp(-((dist_to_end**2)/(2*self.approach_end_sigma**2)))*self.max_approach_end_rew
-            # print("Approach end reward:", approach_end_reward)
-            # print("\nAt the next to last waypoint index")
-            # print("At waypoint index:", self.waypoint_index,\
-            #     "   Final waypoint index:", len(self.path.waypoints)-1)
 
 
         #Collision reward (sparse)

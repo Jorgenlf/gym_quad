@@ -14,7 +14,7 @@ lv_vae_config = {
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle #TODO idk if this should be here might move it
     "enclose_scene"             : True,          # Enclose the scene with a box thats scaled to the scene size
     "padding"                   : 1.5,           # Padding of the box that encloses the scene [m] #usually 1.5m for indoor training
-    "drone_radius_for_collision": 0.25,          # Radius of the drone for collision detection [m] #Actual radius is 0.25m
+    "drone_radius_for_collision": 0.10,          # Radius of the drone for collision detection [m] #Actual radius is 0.25m
     "recap_chance"              : 0.1,           # Chance of recapitulating a previous trainig scenario
 #Noise parameters #TODO add the noise values here as well?    
     "perturb_sim"               : False,         # Activates all the noise below. Also, the perturb scenarios inside LV_VAE_MESH.py sets this to True
@@ -34,8 +34,8 @@ lv_vae_config = {
     "compressed_depth_map_size" : 224,           # Size of depth map after compression
     "latent_dim"                : 64,            # Dimension of the latent space
 #Path related parameters
-    "la_dist"                   : 2.5,             # Look ahead distance aka distance to the point on path to be followed. old:20  
-    "accept_rad"                : 0.1,             # Acceptance radius for the quadcopter to consider the end as reached old:5     
+    "la_dist"                   : 2.5,           # Look ahead distance aka distance to the point on path to be followed. old:20  
+    "accept_rad"                : 0.5,           # Acceptance radius for the quadcopter to consider the end as reached old:5     
     "n_waypoints"               : 6,             # Number of waypoints to be generated
     "segment_length"            : 5,             # Length of the segments between waypoints
     "relevant_dist_to_path"     : 5,             # Distance to the path where the observation will yield values between -1 and 1
@@ -63,10 +63,10 @@ lv_vae_config = {
     'rew_collision'             : -50,           # reward for collision
     
     #reach end reward
-    'rew_reach_end'             : 50,            # reward for reaching the end of the path
+    'rew_reach_end'             : 200,            # reward for reaching the end of the path
 
     #Approach_end reward
-    "approach_end_sigma"        : 2.5,           # Sigma of the gaussian for the approach end reward
+    "approach_end_sigma"        : 0.8,           # Sigma of the gaussian for the approach end reward
     "max_approach_end_rew"      : 3,             # Maximum reward for the approach end reward
     
     #Existence reward
@@ -76,7 +76,7 @@ lv_vae_config = {
     'use_old_CA_rew'            : True,         # Wether to use the old or new collision avoidance reward function
         #Collision avoidance "old"
     'danger_range'              : 10,           # Range between quadcopter and obstacle within which the quadcopter is in danger
-    'abs_inv_CA_min_rew'        : 1/20,         # 1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x 
+    'abs_inv_CA_min_rew'        : 1/16,         # 1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x 
     
         #Collision avoidance "new"
     'CA_scale'                  : 1/1000,        # Scaling of the collision avoidance reward Found via tuning

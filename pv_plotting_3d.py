@@ -119,6 +119,7 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
         return bounds, scaled_bounds
     
     def obstacles_to_pyvista_meshes(self, obstacles: list):
+        house_index = None
         for o in obstacles:
             if isinstance(o, ImportedMeshObstacle):
                 house_index = obstacles.index(o)
