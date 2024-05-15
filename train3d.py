@@ -81,11 +81,9 @@ scenarios = {   "line"          :   1e5,
 scenarios = {   "line"                 :  0.1e6,
                 "easy"                 :  0.33e6,
                 "easy_random"          :  0.33e6, #Randomized pos and att of quad in easy scenario 
-                "proficient"           :  1e6,
                 "intermediate"         :  1e6,
-                "expert"               :  1e6,
-                "expert_up_down"       :  1e6, #Up and down in z direction 
-                "easy_perturbed"       :  0.5e6, #Perturbed by noise #TODO incorporate noise in more of the training?
+                "proficient"           :  1e6,
+                "expert"               :  3e6,
                 "proficient_perturbed" :  1e6,
                 "expert_perturbed"     :  2e6
              }

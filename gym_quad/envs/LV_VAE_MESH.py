@@ -923,13 +923,11 @@ class LV_VAE_MESH(gym.Env):
         elif chance < 3/n_prev_scenarios:
             initial_state = self.scenario_random_pos_att_easy()
         elif chance < 4/n_prev_scenarios:
-            initial_state = self.scenario_proficient()
-        elif chance < 5/n_prev_scenarios:
             initial_state = self.scenario_intermediate()
+        elif chance < 5/n_prev_scenarios:
+            initial_state = self.scenario_proficient()
         elif chance < 6/n_prev_scenarios:
             initial_state = self.scenario_expert()    
-        elif chance < 8/n_prev_scenarios:
-            initial_state = self.scenario_easy_perturbed_sim()
         else:
             initial_state = self.scenario_proficient_perturbed_sim()
         
@@ -1113,24 +1111,24 @@ class LV_VAE_MESH(gym.Env):
 
         return initial_state
 
-    def scenario_proficient(self): #NOTE THAT PROFICENT IS (USUALLY) RUN BEFORE INTERMEDATE
+    def scenario_intermediate(self):
         initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
-        #One obs near/ on path:
-        self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 0.01, onPath=True, quad_pos=initial_state[0:3])
-        # One away from path
-        self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
-
+        #One obs on path
+        self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos=initial_state[0:3])
+        
         n_prev_scenarios = 3
         if np.random.uniform(0,1) < self.recap_chance:
             initial_state = self.recap_previous_scenario(n_prev_scenarios)
 
         return initial_state
     
-    def scenario_intermediate(self):
+    def scenario_proficient(self): #NOTE THAT PROFICENT HAS BEEN RUN BEFORE INTERMEDIATE FOR MANY TRAINING SESSIONS TRY TO FLIP IT NOW
         initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
-        #One obs on path
-        self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos=initial_state[0:3])
-        
+        #One obs near/ on path:
+        self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 0.01, onPath=True, quad_pos=initial_state[0:3])
+        # One away from path
+        self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
+
         n_prev_scenarios = 4
         if np.random.uniform(0,1) < self.recap_chance:
             initial_state = self.recap_previous_scenario(n_prev_scenarios)
@@ -1160,7 +1158,7 @@ class LV_VAE_MESH(gym.Env):
         initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
         self.perturb_sim = True
 
-        n_prev_scenarios = 6
+        n_prev_scenarios = None
         if np.random.uniform(0,1) < self.recap_chance:
             initial_state = self.recap_previous_scenario(n_prev_scenarios)
 
@@ -1170,7 +1168,7 @@ class LV_VAE_MESH(gym.Env):
         initial_state=self.scenario_proficient()
         self.perturb_sim = True
 
-        n_prev_scenarios = 7
+        n_prev_scenarios = 6
         if np.random.uniform(0,1) < self.recap_chance:
             initial_state = self.recap_previous_scenario(n_prev_scenarios) 
 
@@ -1180,7 +1178,7 @@ class LV_VAE_MESH(gym.Env):
         initial_state = self.scenario_expert()
         self.perturb_sim = True
 
-        n_prev_scenarios = 8
+        n_prev_scenarios = 7
         if np.random.uniform(0,1) < self.recap_chance:
             initial_state = self.recap_previous_scenario(n_prev_scenarios)  
 
