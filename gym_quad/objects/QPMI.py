@@ -422,21 +422,6 @@ def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentl
         for wp in path_1:
             waypoints.append(np.array(wp))
         
-
-    elif scen =='3d_new':
-        a_start_angle=np.random.uniform(-np.pi,np.pi)
-        e_start_angle=np.random.uniform(-np.pi,np.pi) 
-        e_start_angle=0
-        distance = segmentlength
-        for i in range(nwaypoints-1):
-            azimuth = a_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
-            elevation = e_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
-            x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
-            y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
-            z = waypoints[i][2] + distance*np.sin(elevation)
-            wp = np.array([x, y, z])
-            waypoints.append(wp)
-
     elif scen =='squiggly_line_xy_plane':
         a_start_angle=np.random.uniform(-np.pi,np.pi)
         e_start_angle=np.random.uniform(-np.pi,np.pi) 
@@ -467,6 +452,38 @@ def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentl
             wp = np.array([x, y, z])
             waypoints.append(wp)
 
+    elif scen == 'line_y':
+        path_length = segmentlength*(nwaypoints-1)
+        new_segmentlength = path_length/2
+        nwaypoints = 3
+
+        for i in range(nwaypoints-1):
+            distance = new_segmentlength
+            azimuth = np.random.uniform(-np.pi/4, np.pi/4)
+            elevation = np.random.uniform(-np.pi/4, np.pi/4)
+            x = 0 
+            y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
+            z = 0 
+            
+            wp = np.array([x, y, z])
+            waypoints.append(wp)
+
+    elif scen=='line_up':
+        path_length = segmentlength*(nwaypoints-1)
+        new_segmentlength = path_length/2
+        nwaypoints = 3
+
+        for i in range(nwaypoints-1):
+            distance = new_segmentlength
+            azimuth = np.random.uniform(-np.pi/4, np.pi/4)
+            elevation = np.random.uniform(-np.pi/4, np.pi/4)
+            x = 0 
+            y = 0 
+            z = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
+            
+            wp = np.array([x, y, z])
+            waypoints.append(wp)
+
     elif scen=='xy_line':
         a_start_angle=np.random.uniform(-np.pi,np.pi)
         azimuth = a_start_angle+np.random.uniform(-np.pi/4, np.pi/4)
@@ -476,6 +493,46 @@ def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentl
             x = waypoints[i][0] + distance*np.cos(azimuth)
             y = waypoints[i][1] + distance*np.sin(azimuth)
             z = 0
+            wp = np.array([x, y, z])
+            waypoints.append(wp)
+
+    elif scen =='3d_new':
+        a_start_angle=np.random.uniform(-np.pi,np.pi)
+        e_start_angle=np.random.uniform(-np.pi,np.pi) 
+        e_start_angle=0
+        distance = segmentlength
+        for i in range(nwaypoints-1):
+            azimuth = a_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
+            elevation = e_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
+            x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
+            y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
+            z = waypoints[i][2] + distance*np.sin(elevation)
+            wp = np.array([x, y, z])
+            waypoints.append(wp)
+
+    elif scen =='3d_up':
+        a_start_angle=np.random.uniform(-np.pi,np.pi)
+        e_start_angle=np.random.uniform(np.pi/3, np.pi/2) 
+        distance = segmentlength
+        for i in range(nwaypoints-1):
+            azimuth = a_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
+            elevation = max(np.pi/4, min(np.pi/2, e_start_angle + np.random.uniform(-np.pi/8, np.pi/8)))  # Clamp the elevation
+            x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
+            y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
+            z = waypoints[i][2] + distance*np.sin(elevation)
+            wp = np.array([x, y, z])
+            waypoints.append(wp)
+
+    elif scen =='3d_down':
+        a_start_angle=np.random.uniform(-np.pi,np.pi)
+        e_start_angle = np.random.uniform(-np.pi/3, -np.pi/2) 
+        distance = segmentlength
+        for i in range(nwaypoints-1):
+            azimuth = a_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
+            elevation = max(-np.pi/2, min(-np.pi/4, e_start_angle + np.random.uniform(-np.pi/8, np.pi/8)))  # Clamp the elevation
+            x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
+            y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
+            z = waypoints[i][2] + distance*np.sin(elevation)
             wp = np.array([x, y, z])
             waypoints.append(wp)
 
@@ -500,7 +557,7 @@ if __name__ == "__main__":
                     np.array([80,80,60]), np.array([50,80,20]), np.array([20,60,15]), np.array([20,40,10]), np.array([0,0,0])])
     #wps = np.array([np.array([0,0,0]), np.array([20,25,22]), np.array([50,40,30]), np.array([90,55,60]), np.array([130,95,110]), np.array([155,65,86])])
     #wps = generate_random_waypoints(10)
-    wps = generate_random_waypoints(10,scen='house',select_house_path=3)
+    wps = generate_random_waypoints(nwaypoints=6,segmentlength=5, scen='3d_up')
     path = QPMI(wps)
    
     # point = path(20)
@@ -513,8 +570,11 @@ if __name__ == "__main__":
     ax.plot3D(xs=wps[:,0], ys=wps[:,1], zs=wps[:,2], linestyle="dashed", color="#33bb5c")
     #ax.plot3D(xs=[point[0],vec_x], ys=[point[1],vec_y], zs=[point[2], vec_z])
     #ax.scatter3D(*point)
-    for wp in wps:
-        ax.scatter3D(*wp, color="r")
+    for i, wp in enumerate(wps):
+        if i == 0:
+            ax.scatter3D(*wp, color="g")
+        else:
+            ax.scatter3D(*wp, color="r")
     ax.legend(["QPMI path", "Linear piece-wise path", "Waypoints"], fontsize=14)
     plt.rc('lines', linewidth=3)
     ax.set_xlabel(xlabel="East [m]", fontsize=14)
@@ -523,5 +583,4 @@ if __name__ == "__main__":
     ax.xaxis.set_tick_params(labelsize=12)
     ax.yaxis.set_tick_params(labelsize=12)
     ax.zaxis.set_tick_params(labelsize=12)
-    ax.view_init(elev=-165, azim=-15)
     plt.show()

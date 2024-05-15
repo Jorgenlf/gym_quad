@@ -93,12 +93,14 @@ class LV_VAE_MESH(gym.Env):
             
             # Training scenarios, all functions defined at the bottom of this file
             "line"                  : self.scenario_line,
+            "line_up"               : self.scenario_line_up,
             "xy_line"               : self.scenario_xy_line,                
             "squiggly_line_xy_plane": self.scenario_squiggly_line_xy_plane,
             "3d_new"                : self.scenario_3d_new,
+            "3d_up_down"            : self.scenario_3d_up_down,
             
             "easy"                  : self.scenario_easy,
-            "easy_random"           : self.scenario_random_pos_att_easy,
+            "easy_random"           : self.scenario_random_pos_att_easy, #All training scenarios that are "harder than easy random" also have random pos and att
             "easy_perturbed"        : self.scenario_easy_perturbed_sim,
             
             "intermediate"          : self.scenario_intermediate,
@@ -107,9 +109,10 @@ class LV_VAE_MESH(gym.Env):
             "proficient_perturbed"  : self.scenario_proficient_perturbed_sim,
             
             "expert"                : self.scenario_expert,
-            "expert_random"         : self.scenario_expert_random,
             "expert_perturbed"      : self.scenario_expert_perturbed_sim,
             
+            #Special
+            "random_corridor"       : self.scenario_random_corridor,
             # Testing scenarios
             #Agent testing
             "helix"             : self.scenario_helix,
@@ -125,6 +128,7 @@ class LV_VAE_MESH(gym.Env):
             "obs_at_end"        : self.scenario_dev_test_obs_at_end,
             "outskirt"          : self.scenario_dev_test_obs_in_outskirt,
             "outskirt_and_end"  : self.scenario_dev_test_outskirt_and_end,
+            "dev_obsgen_plane"  : self.scenario_dev_test_obs_gen_plane,
         }
 
         #New init values for sensor using depth camera, mesh and pt3d
@@ -647,7 +651,6 @@ class LV_VAE_MESH(gym.Env):
 
 
         ####Collision avoidance reward#### (continuous)
-        clip_min_PP_rew = False
         reward_collision_avoidance = 0
         if self.obstacles != []: #If there are no obstacles, no need to calculate the reward
             danger_range = self.danger_range
@@ -665,7 +668,6 @@ class LV_VAE_MESH(gym.Env):
             for obs_cpp in self.obs_near_path_CPPs:
                 obs_cpp_in_body = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(obs_cpp - self.quadcopter.position)
                 if np.linalg.norm(obs_cpp - self.quadcopter.position) < self.max_depth and obs_cpp_in_body[0] > 0:
-                    clip_min_PP_rew = True
                     lambda_PA = (drone_closest_obs_dist/danger_range)/2
                     if lambda_PA < 0.10 : lambda_PA = 0.10
                     lambda_CA = 1-lambda_PA
@@ -702,10 +704,7 @@ class LV_VAE_MESH(gym.Env):
         reward_path_progression1 = np.cos(self.chi_error)*self.PP_rew_max#*np.linalg.norm(self.quadcopter.velocity)
         reward_path_progression2 = np.cos(self.upsilon_error)*self.PP_rew_max#*np.linalg.norm(self.quadcopter.velocity)
         reward_path_progression = reward_path_progression1/2 + reward_path_progression2/2
-        if clip_min_PP_rew and self.let_lambda_affect_PP:
-            reward_path_progression = np.clip(reward_path_progression, 0, self.PP_rew_max) #If there is an obstacle nearby and we choose to let lambda affect PP the minimum path prog reward becomes zero
-        else:
-            reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max) #If there is no obstacle nearby the minimum path prog reward is the min value
+        reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max) #If there is no obstacle nearby the minimum path prog reward is the min value
 
 
         #Approach end reward 
@@ -731,10 +730,7 @@ class LV_VAE_MESH(gym.Env):
         #Existential reward (penalty for being alive to encourage the quadcopter to reach the end of the path quickly) (continous)
         ex_reward = self.existence_reward 
 
-        if self.let_lambda_affect_PP:
-            tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression*lambda_PA + reach_end_reward + ex_reward + approach_end_reward
-        else:
-            tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression + reach_end_reward + ex_reward + approach_end_reward
+        tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression + reach_end_reward + ex_reward + approach_end_reward
 
         self.info['reward'] = tot_reward
         self.info['collision_avoidance_reward'] = reward_collision_avoidance*lambda_CA
@@ -932,8 +928,6 @@ class LV_VAE_MESH(gym.Env):
             initial_state = self.scenario_intermediate()
         elif chance < 6/n_prev_scenarios:
             initial_state = self.scenario_expert()    
-        elif chance < 7/n_prev_scenarios:
-            initial_state = self.scenario_expert_random()
         elif chance < 8/n_prev_scenarios:
             initial_state = self.scenario_easy_perturbed_sim()
         else:
@@ -943,7 +937,7 @@ class LV_VAE_MESH(gym.Env):
 
         return initial_state
     
-    def generate_obstacles(self, n, rmin, rmax , path:QPMI, mean, std, onPath=False, quad_pos = None, safety_margin = 2):
+    def generate_obstacles(self, n, rmin, rmax , path:QPMI, mean, std, onPath=False, quad_pos = None, safety_margin = 2, obstacle_type = None):
         '''
         Inputs:
         n: number of obstacles
@@ -953,60 +947,85 @@ class LV_VAE_MESH(gym.Env):
         mean: mean distance from path
         std: standard deviation of distance from path
         onPath: if True, obstacles will be placed on the path
+        quad_pos: position of the quadcopter
+        safety_margin: minimum distance between obstacles and quadcopter upon initialization
+        obstacle_type: if None, obstacles will be either spheres or cubes with equal probability. If 'sphere', all obstacles will be spheres. If 'cube', all obstacles will be cubes.
         Returns:
-        obstaclecoords: list of obstacle coordinates
+        None. Adds obstacles directly to the environment.
         '''
         num_obstacles = 0
         path_lenght = path.length
         while num_obstacles < n:
             #uniform distribution of length along path
             u_obs = np.random.uniform(0.20*path_lenght,0.90*path_lenght)
-            #get path angle at u_obs
-            azimuth = path.get_direction_angles(u_obs)[0]
-            elevation = path.get_direction_angles(u_obs)[1]
+
+            # Get the tangent, normal, and binormal vectors at u_obs
+            t_hat, n_hat, b_hat = path.calculate_vectors(u_obs)
+
             #Draw a normal distributed random number for the distance from the path
             dist = np.random.normal(mean, std)
             #get x,y,z coordinates of the obstacle if it were placed on the path
             x,y,z = path.__call__(u_obs)
             obs_on_path_pos = np.array([x,y,z])
             
-            #offset the obstacle from the path 90 degrees normal on the path in xy plane or zx plane 50/50
             obs_pos = np.zeros(3)
-            if np.random.uniform(0,1) > 0.5:
-                obs_pos = obs_on_path_pos + dist*np.array([np.cos(azimuth-np.pi/2),np.sin(azimuth-np.pi/2),0])
-            else:
-                obs_pos = obs_on_path_pos + dist*np.array([np.cos(elevation-np.pi/2), 0, np.sin(elevation - np.pi/2)])
+
+            #Offset the obstacle a distance d from the path at a random angle in the yz path plane (x-axis in path plane points along path)
+            # Generate random angle theta in the yz-plane (local to the path)
+            theta = np.random.uniform(0, 2 * np.pi)
+            # Compute position offset in local yz-plane
+            local_offset = dist * np.array([0, np.sin(theta), np.cos(theta)])
+            # Transform local offset to world coordinates
+            world_offset = n_hat * local_offset[1] + b_hat * local_offset[2]
+            obs_pos = obs_on_path_pos + world_offset
 
             obstacle_radius = np.random.uniform(rmin,rmax) #uniform distribution of size
+            #50/50 of it being a sphere or a cube unless overridden by the obstacle_type (can add more meshes if wanted)
+            obstacle_type_choice = np.random.uniform(0,1)
 
-            if (not onPath) and \
-               (np.linalg.norm(obs_pos - obs_on_path_pos) > obstacle_radius + safety_margin ) and \
-               (np.linalg.norm(obs_pos - quad_pos) > obstacle_radius + safety_margin):  
-
+            if (onPath) and \
+               (np.linalg.norm(obs_pos - obs_on_path_pos) < obstacle_radius + safety_margin ) and \
+               (np.linalg.norm(obs_pos - quad_pos) < obstacle_radius + safety_margin):  
+                continue
+            elif not onPath and (np.linalg.norm(obs_pos - quad_pos) < obstacle_radius + safety_margin):   
+                continue
+            elif np.linalg.norm(obs_pos - path.get_endpoint()) < obstacle_radius + safety_margin:
+                continue
+            else:
                 obstacle_coords = torch.tensor(obs_pos,device=self.device).float().squeeze()
                 pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-                #Do a 50/50 of it being a sphere or a cube
-                if np.random.uniform(0,1) > 0.5:
+                if obstacle_type == 'sphere': #First check if anything specific is requested if not leave it to chance
                     self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
-                else:
+                elif obstacle_type == 'cube':
+                    self.obstacles.append(CubeMeshObstacle(device=self.device, width=obstacle_radius*1.15, height=obstacle_radius*1.15, depth=obstacle_radius*1.15, center_position=pt3d_obs_coords, inverted=False))
+                elif obstacle_type_choice > 0.5:
+                    self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path)) 
+                elif obstacle_type_choice < 0.5:
                     self.obstacles.append(CubeMeshObstacle(device=self.device, width=obstacle_radius*1.15, height=obstacle_radius*1.15, depth=obstacle_radius*1.15, center_position=pt3d_obs_coords, inverted=False))
                 num_obstacles += 1
-
-            elif onPath and (np.linalg.norm(obs_pos - quad_pos) > obstacle_radius + safety_margin):   
-                obstacle_coords = torch.tensor(obs_pos,device=self.device).float().squeeze()
-                pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-                if np.random.uniform(0,1) > 0.5:
-                    self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
-                else:
-                    self.obstacles.append(CubeMeshObstacle(device=self.device, width=obstacle_radius*1.2, height=obstacle_radius*1.2, depth=obstacle_radius*1.2, center_position=pt3d_obs_coords, inverted=False))
-                num_obstacles += 1
-            else:
-                continue
 
     #No obstacles
     def scenario_line(self):
         initial_state = np.zeros(6)
         waypoints = generate_random_waypoints(self.n_waypoints,'line',segmentlength=self.segment_length)
+        self.path = QPMI(waypoints)
+        init_pos = [0, 0, 0]
+        init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
+        initial_state = np.hstack([init_pos, init_attitude])
+        return initial_state
+    
+    def scenario_line_y(self):
+        initial_state = np.zeros(6)
+        waypoints = generate_random_waypoints(self.n_waypoints,'line_y',segmentlength=self.segment_length)
+        self.path = QPMI(waypoints)
+        init_pos = [0, 0, 0]
+        init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
+        initial_state = np.hstack([init_pos, init_attitude])
+        return initial_state
+    
+    def scenario_line_up(self):
+        initial_state = np.zeros(6)
+        waypoints = generate_random_waypoints(self.n_waypoints,'line_up',segmentlength=self.segment_length)
         self.path = QPMI(waypoints)
         init_pos = [0, 0, 0]
         init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
@@ -1048,6 +1067,27 @@ class LV_VAE_MESH(gym.Env):
             
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
+    
+    def scenario_3d_up_down(self, random_pos=False, random_attitude=False):
+        initial_state = np.zeros(6)
+        if np.random.uniform(0,1) < 0.5:
+            waypoints = generate_random_waypoints(self.n_waypoints,'3d_up', segmentlength=self.segment_length)
+        else:
+            waypoints = generate_random_waypoints(self.n_waypoints,'3d_down', segmentlength=self.segment_length)
+        self.path = QPMI(waypoints)
+
+        if random_pos:
+            init_pos = [np.random.uniform(-self.padding+2,self.padding-2), np.random.uniform(-self.padding+2,self.padding-2), np.random.uniform(-self.padding+2,self.padding-2)]
+        else:    
+            init_pos=[0, 0, 0]
+        
+        if random_attitude:
+            init_attitude=np.array([np.random.uniform(-np.pi/6,np.pi/6), np.random.uniform(-np.pi/6,np.pi/6), np.random.uniform(-np.pi,np.pi)])
+        else:
+            init_attitude=np.array([0, 0, self.path.get_direction_angles(0)[0]])
+            
+        initial_state = np.hstack([init_pos, init_attitude])
+        return initial_state
 
     #With obstacles
     def scenario_easy(self): #Surround the path with 1-4 obstacles But ensure no obstacles on path
@@ -1074,7 +1114,7 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
     def scenario_proficient(self): #NOTE THAT PROFICENT IS (USUALLY) RUN BEFORE INTERMEDATE
-        initial_state = self.scenario_3d_new()
+        initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
         #One obs near/ on path:
         self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 0.01, onPath=True, quad_pos=initial_state[0:3])
         # One away from path
@@ -1087,7 +1127,7 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
     
     def scenario_intermediate(self):
-        initial_state = self.scenario_3d_new()
+        initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
         #One obs on path
         self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos=initial_state[0:3])
         
@@ -1098,36 +1138,29 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
     def scenario_expert(self):
-        initial_state = self.scenario_3d_new()
+        #make it a 50/50 if we use the 3d_new path which is mostly in xy-plane or the 3d_up_down path which is more in the xz-plane
+        initial_state = np.zeros(6)
+        if np.random.uniform(0,1) < 0.5:
+            initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
+        else:
+            initial_state = self.scenario_3d_up_down(random_attitude=True,random_pos=True)
+
         #One on path
-        self.generate_obstacles(n = 1, rmin=0.4, rmax=5, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos=initial_state[0:3])
+        self.generate_obstacles(n = 1, rmin=0.4, rmax=3, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos=initial_state[0:3])
         #Five Near path
-        self.generate_obstacles(n = 5, rmin=0.4, rmax=5, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
+        self.generate_obstacles(n = 5, rmin=0.4, rmax=3, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
 
         n_prev_scenarios = 5
         if np.random.uniform(0,1) < self.recap_chance:
             initial_state = self.recap_previous_scenario(n_prev_scenarios)
 
         return initial_state
-
-    def scenario_expert_random(self): #Cant call scenario expert as must check obstacle quadcopter overlap
-        initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
-        #One on path
-        self.generate_obstacles(n = 1, rmin=0.4, rmax=5, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos = initial_state[0:3])
-        #Five Near path
-        self.generate_obstacles(n = 5, rmin=0.4, rmax=5, path = self.path, mean = 0, std = 3, onPath=False, quad_pos = initial_state[0:3])
-        
-        n_prev_scenarios = 6
-        if np.random.uniform(0,1) < self.recap_chance:
-            initial_state = self.recap_previous_scenario(n_prev_scenarios)
-
-        return initial_state  
-
+    
     def scenario_easy_perturbed_sim(self):
-        initial_state = self.scenario_easy()
+        initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
         self.perturb_sim = True
 
-        n_prev_scenarios = 7
+        n_prev_scenarios = 6
         if np.random.uniform(0,1) < self.recap_chance:
             initial_state = self.recap_previous_scenario(n_prev_scenarios)
 
@@ -1137,7 +1170,7 @@ class LV_VAE_MESH(gym.Env):
         initial_state=self.scenario_proficient()
         self.perturb_sim = True
 
-        n_prev_scenarios = 8
+        n_prev_scenarios = 7
         if np.random.uniform(0,1) < self.recap_chance:
             initial_state = self.recap_previous_scenario(n_prev_scenarios) 
 
@@ -1147,15 +1180,36 @@ class LV_VAE_MESH(gym.Env):
         initial_state = self.scenario_expert()
         self.perturb_sim = True
 
-        n_prev_scenarios = 9
+        n_prev_scenarios = 8
         if np.random.uniform(0,1) < self.recap_chance:
             initial_state = self.recap_previous_scenario(n_prev_scenarios)  
 
         return initial_state
+    
+#Specials    
+    def scenario_random_corridor(self): #This can be used as a test scenario if we set the seed to be consistent
+        initial_state = self.scenario_3d_new()
+        #Many cubes 1m away from path
+        self.generate_obstacles(n = 40, rmin=0.8, rmax=1, path = self.path, mean = 2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube')
+        self.generate_obstacles(n = 40, rmin=0.8, rmax=1, path = self.path, mean = -2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube')
+        return initial_state
+
+    def scenario_rotate_to_escape(self): #TODO
+        #Start inside "deadend" and rotate to escape. 
+        #Let path go through the middle of the obstacles
+        #Randomize where the opening is.
+        #Mybe not needed as random attitude in other train scenarios make agent learn rotation about itself.
+        self.padding = 5
+        initial_state = self.scenario_line()
+        #move quad pos to be in the middle of the path offset by 2.5 m in y
+        initial_state[0] = 5
+        #Surround the point [0,2.5,0] with n sphere obstacles encapsulating the quadcopter
+        n_obstacles = 10
+
+        return initial_state
 
 
-
-#Testing scenarios #TODO veriy scale update
+#Testing scenarios #TODO verify scale update
     def scenario_test_path(self):
         test_waypoints = np.array([np.array([0,0,0]), np.array([10,1,0]), np.array([20,0,0]), np.array([70,0,0])])
         self.n_waypoints = len(test_waypoints)
@@ -1196,7 +1250,7 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
     def scenario_vertical_test(self):
-        waypoints = [(0,0,0), (5,0,1), (10,0,0)]
+        waypoints = [(0,0,0), (5,0,0), (10,0,0)]
         self.path = QPMI(waypoints)
         self.obstacles = []
         for i in range(7):
@@ -1312,3 +1366,11 @@ class LV_VAE_MESH(gym.Env):
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
         self.obstacles.append(CubeMeshObstacle(width=1, height=1, depth=1, inverted=False, center_position=pt3d_obs_coords,device=self.device))
         return init_state
+    
+    def scenario_dev_test_obs_gen_plane(self):
+        initial_state = self.scenario_squiggly_line_xy_plane()
+        #Place many obstacles along the path
+        self.generate_obstacles(n = 40, rmin=0.8, rmax=1, path = self.path, mean = 2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube')
+        # self.generate_obstacles(n = 40, rmin=0.8, rmax=1, path = self.path, mean = -2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube')
+        return initial_state
+

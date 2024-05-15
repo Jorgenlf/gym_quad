@@ -80,12 +80,12 @@ scenarios = {   "line"          :   1e5,
 #This was used and all noise was active the whole run for expid 8 on "Jøreng PC"
 scenarios = {   "line"                 :  0.1e6,
                 "easy"                 :  0.33e6,
-                "easy_random"          :  0.33e6, #Randomized pos and att of quad in easy scenario
+                "easy_random"          :  0.33e6, #Randomized pos and att of quad in easy scenario 
                 "proficient"           :  1e6,
                 "intermediate"         :  1e6,
                 "expert"               :  1e6,
-                "expert_random"        :  1e6,
-                "easy_perturbed"       :  0.5e6, #Perturbed by noise
+                "expert_up_down"       :  1e6, #Up and down in z direction 
+                "easy_perturbed"       :  0.5e6, #Perturbed by noise #TODO incorporate noise in more of the training?
                 "proficient_perturbed" :  1e6,
                 "expert_perturbed"     :  2e6
              }

@@ -92,7 +92,7 @@ class EncoderFeatureExtractor(BaseFeaturesExtractor):
         #logvar = self.fc_logvar(x)
         #z = self.reparameterize(mu, logvar)
         #return z, mu, logvar
-
+        # print(mu)
         return mu
     
     def get_features(self, observations:th.Tensor) -> list:
