@@ -27,20 +27,20 @@ lv_vae_config = {
 #Depth camera parameters    
     "FOV_horizontal"            : 75,            # Horizontal field of view of the depth camera
     "FOV_vertical"              : 62,            # Vertical field of view of the depth camera
-    "depth_map_size"            : (240, 320),    # Size of the depth map Earlier sensor suite
+    "depth_map_size"            : (240, 320),    # Size of the depth map Earlier sensor suite (H,W)
     "max_depth"                 : 10,            # Maximum depth of the depth camera
     "camera_FPS"                : 30,            # Frequency of the sensors
 #VAE parameters    
     "compressed_depth_map_size" : 224,           # Size of depth map after compression
     "latent_dim"                : 64,            # Dimension of the latent space
 #Path related parameters
-    "la_dist"                   : 2.8,           # Look ahead distance aka distance to the point on path to be followed. old:20  
-    "accept_rad"                : 0.7,           # Acceptance radius for the quadcopter to consider the end as reached old:5     
+    "la_dist"                   : 2.8,           # Look ahead distance aka distance to the point on path to be followed. old:20  #LAidst 0.5 is nice in house
+    "accept_rad"                : 0.8,           # Acceptance radius for the quadcopter to consider the end as reached old:5     
     "n_waypoints"               : 6,             # Number of waypoints to be generated
     "segment_length"            : 5,             # Length of the segments between waypoints
     "relevant_dist_to_path"     : 5,             # Distance to the path where the observation will yield values between -1 and 1
 #Drone controller parameters
-    "s_max"                     : 2,           # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  
+    "s_max"                     : 2,           # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  #Speed 1 is nice in house
     "i_max"                     : deg2rad(65/2), # Maximum inclination angle of commanded velocity wrt x-axis #Approx half of vertical FOV restricts drone to fly where it can see
     "r_max"                     : deg2rad(60),   # Maximum commanded yaw rate rad/s
     "kv"                        : 1.5,           # Velocity proportional gain             All tuned in test_controller.py 2.5, 0.8, 0.8 used a lot
@@ -81,7 +81,7 @@ lv_vae_config = {
         'CA_epsilon'                : 0.0001,        # Small number to avoid division by zero
         'TwoDgauss_sigma'           : 30,            # Sigma of the 2D gaussian for the collision avoidance reward
         'TwoDgauss_peak'            : 1.5,           # Peak value at the center of the 2D gaussian
-        'min_CA_rew'                : -16,           # Minimum reward for collision avoidance #-20 is too penalizing I think
+        'min_CA_rew'                : -16.5,           # Minimum reward for collision avoidance #-20 is too penalizing I think
 }
 
 register(
