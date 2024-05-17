@@ -10,7 +10,7 @@ def rad2deg(rad):
 lv_vae_config = {
 #General parameters    
     "step_size"                 : 0.01,          # Step size of the physics simulation
-    "max_t_steps"               : 8000,          # Maximum number of timesteps in the DRL simulation before it is terminated
+    "max_t_steps"               : 6000,          # Maximum number of timesteps in the DRL simulation before it is terminated
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle #TODO idk if this should be here might move it
     "enclose_scene"             : True,          # Enclose the scene with a box thats scaled to the scene size
     "padding"                   : 1.5,           # Padding of the box that encloses the scene [m] #usually 1.5m for indoor training
@@ -38,9 +38,9 @@ lv_vae_config = {
     "accept_rad"                : 0.8,           # Acceptance radius for the quadcopter to consider the end as reached old:5     
     "n_waypoints"               : 6,             # Number of waypoints to be generated
     "segment_length"            : 5,             # Length of the segments between waypoints
-    "relevant_dist_to_path"     : 5,             # Distance to the path where the observation will yield values between -1 and 1
+    "relevant_dist_to_path"     : 8,             # Distance to the path where the observation will yield values between -1 and 1
 #Drone controller parameters
-    "s_max"                     : 2,           # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  #Speed 1 is nice in house
+    "s_max"                     : 2,             # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  #Speed 1 is nice in house
     "i_max"                     : deg2rad(65/2), # Maximum inclination angle of commanded velocity wrt x-axis #Approx half of vertical FOV restricts drone to fly where it can see
     "r_max"                     : deg2rad(60),   # Maximum commanded yaw rate rad/s
     "kv"                        : 1.5,           # Velocity proportional gain             All tuned in test_controller.py 2.5, 0.8, 0.8 used a lot
@@ -55,7 +55,7 @@ lv_vae_config = {
     
     #Path progression reward
     'PP_rew_max'                : 2,             # maximum reward for path progression
-    'PP_rew_min'                : -1,            # minimum reward for path progression
+    'PP_rew_min'                : -0.8,            # minimum reward for path progression
     
     #Collision reward
     'rew_collision'             : -60,           # reward (penalty) for collision
@@ -80,8 +80,8 @@ lv_vae_config = {
         'CA_scale'                  : 1/1000,        # Scaling of the collision avoidance reward Found via tuning
         'CA_epsilon'                : 0.0001,        # Small number to avoid division by zero
         'TwoDgauss_sigma'           : 30,            # Sigma of the 2D gaussian for the collision avoidance reward
-        'TwoDgauss_peak'            : 1.5,           # Peak value at the center of the 2D gaussian
-        'min_CA_rew'                : -16.5,           # Minimum reward for collision avoidance #-20 is too penalizing I think
+        'TwoDgauss_peak'            : 1,             # Peak value at the center of the 2D gaussian
+        'min_CA_rew'                : -16.5,         # Minimum reward for collision avoidance #-20 is too penalizing I think
 }
 
 register(

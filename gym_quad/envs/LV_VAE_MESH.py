@@ -652,6 +652,7 @@ class LV_VAE_MESH(gym.Env):
 
         ####Collision avoidance reward#### (continuous)
         reward_collision_avoidance = 0
+        lambda_interpol = False
         if self.obstacles != []: #If there are no obstacles, no need to calculate the reward
             danger_range = self.danger_range
             drone_closest_obs_dist = self.closest_measurement 
@@ -671,6 +672,7 @@ class LV_VAE_MESH(gym.Env):
                     lambda_PA = (drone_closest_obs_dist/danger_range)/2
                     if lambda_PA < 0.10 : lambda_PA = 0.10
                     lambda_CA = 1-lambda_PA
+                    lambda_interpol = True
             
             # if clip_min_PP_rew: #Debugging print
             #     if self.total_t_steps % 10 == 0:
@@ -705,6 +707,8 @@ class LV_VAE_MESH(gym.Env):
         reward_path_progression2 = np.cos(self.upsilon_error)*self.PP_rew_max#*np.linalg.norm(self.quadcopter.velocity)
         reward_path_progression = reward_path_progression1/2 + reward_path_progression2/2
         reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max) #If there is no obstacle nearby the minimum path prog reward is the min value
+        if lambda_interpol:
+            reward_path_progression = np.clip(reward_path_progression, -0.2, self.PP_rew_max)
 
 
         #Approach end reward 
@@ -1262,14 +1266,14 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
     def scenario_deadend_test(self):
-        waypoints = [(0,0,0), (5,0,0), (10,0,0)]
+        waypoints = [(0,0,0), (25,0,0), (50,0,0)]
         self.path = QPMI(waypoints)
-        radius = 1
+        radius = 10
         angles = np.linspace(-90, 90, 10)*np.pi/180
         obstacle_radius = (angles[1]-angles[0])*radius/2
         for ang1 in angles:
             for ang2 in angles:
-                x = 4.5 + radius*np.cos(ang1)*np.cos(ang2)
+                x = 25 + radius*np.cos(ang1)*np.cos(ang2)
                 y = radius*np.cos(ang1)*np.sin(ang2)
                 z = -radius*np.sin(ang1)
                 
@@ -1297,7 +1301,7 @@ class LV_VAE_MESH(gym.Env):
 
     def scenario_house(self):
         initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(self.n_waypoints,'house')
+        waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=1) #TODO change select_house_path to what we want
         self.path = QPMI(waypoints)
 
         init_pos = waypoints[0]# + np.random.uniform(low=-0.25, high=0.25, size=(1,3))

@@ -26,8 +26,8 @@ elif option == 'B':
     #Choose which depth maps to use:    
     ###---###---###---###
     exp_id = 19
-    test_id = 16
-    scenario = "house"
+    test_id = 2
+    scenario = "random_corridor"
     ###---###---###---###
 
     # Regular expression to extract numbers from filenames:

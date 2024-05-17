@@ -370,57 +370,55 @@ def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentl
         # the last name in the previous subpath must match the first in this path while also not being the same as the first of the previous path
         path_1 = house_paths["bedroom_to_kitchen"]
 
-        #TODO uncomment these when done testing training in house as the pop 
+        #If training in house the pop 
         #Operation somehow was done on empty lists during training. But not when doing run. idk why.
-        # path_2_1 = house_paths["leisure_room_to_corridor"]
-        # path_2_2 = house_paths["corridor_to_living_room"]
-        # path_2_3 = house_paths["living_room_to_entrance_hall"]
-        # path_2_4 = house_paths["entrance_hall_to_guest_room"]
-        # path_2_2.pop(0) #Removing the first waypoint in path_2_2 as it is the same as the last waypoint in path_2_1
-        # path_2_3.pop(0) 
-        # path_2_4.pop(0)        
-        # path_2 = path_2_1 + path_2_2 + path_2_3 + path_2_4
+        path_2_1 = house_paths["leisure_room_to_corridor"]
+        path_2_2 = house_paths["corridor_to_living_room"]
+        path_2_3 = house_paths["living_room_to_entrance_hall"]
+        path_2_4 = house_paths["entrance_hall_to_guest_room"]
+        path_2_2.pop(0) #Removing the first waypoint in path_2_2 as it is the same as the last waypoint in path_2_1
+        path_2_3.pop(0) 
+        path_2_4.pop(0)        
+        path_2 = path_2_1 + path_2_2 + path_2_3 + path_2_4
 
-        # path_3_1 = house_paths["living_room_to_bedroom"]
-        # path_3_2 = house_paths["bedroom_to_main_bedroom"]
-        # path_3_3 = house_paths["main_bedroom_to_home"]
-        # path_3_2.pop(0) 
-        # path_3_3.pop(0)
-        # path_3 = path_3_1 + path_3_2 + path_3_3
+        path_3_1 = house_paths["living_room_to_bedroom"]
+        path_3_2 = house_paths["bedroom_to_main_bedroom"]
+        path_3_3 = house_paths["main_bedroom_to_home"]
+        path_3_2.pop(0) 
+        path_3_3.pop(0)
+        path_3 = path_3_1 + path_3_2 + path_3_3
 
-        # path_4_1 = house_paths["kitchen_to_home"]
-        # path_4_2 = house_paths["home_to_leisure_room"]
-        # path_4_3 = house_paths["leisure_room_to_corridor"]
-        # path_4_2.pop(0) 
-        # path_4_3.pop(0)
-        # path_4 = path_4_1 + path_4_2 + path_4_3
+        path_4_1 = house_paths["kitchen_to_home"]
+        path_4_2 = house_paths["home_to_leisure_room"]
+        path_4_3 = house_paths["leisure_room_to_corridor"]
+        path_4_2.pop(0) 
+        path_4_3.pop(0)
+        path_4 = path_4_1 + path_4_2 + path_4_3
 
-        # path_5_1 = house_paths["entrance_hall_to_corridor"]
-        # path_5_2 = house_paths["corridor_to_living_room"]
-        # path_5_3 = house_paths["living_room_to_kitchen"]
-        # path_5_2.pop(0) 
-        # path_5_3.pop(0)
-        # path_5 = path_5_1 + path_5_2 + path_5_3
+        path_5_1 = house_paths["entrance_hall_to_corridor"]
+        path_5_2 = house_paths["corridor_to_living_room"]
+        path_5_3 = house_paths["living_room_to_kitchen"]
+        path_5_2.pop(0) 
+        path_5_3.pop(0)
+        path_5 = path_5_1 + path_5_2 + path_5_3
 
-        # #randomly choose one of the five paths
-        # if np.random.uniform() < 0.2 or select_house_path == 1:
-        #     for wp in path_1:
-        #         waypoints.append(np.array(wp))
-        # elif np.random.uniform() < 0.4 or select_house_path == 2:
-        #     for wp in path_2:
-        #         waypoints.append(np.array(wp))
-        # elif np.random.uniform() < 0.6 or select_house_path == 3:
-        #     for wp in path_3:
-        #         waypoints.append(np.array(wp))
-        # elif np.random.uniform() < 0.8 or select_house_path == 4:
-        #     for wp in path_4:
-        #         waypoints.append(np.array(wp))
-        # elif np.random.uniform() < 1 or select_house_path == 5:
-        #     for wp in path_5:
-        #         waypoints.append(np.array(wp))
-        
-        for wp in path_1:
-            waypoints.append(np.array(wp))
+        #randomly choose one of the five paths
+        if np.random.uniform() < 0.2 or select_house_path == 1:
+            for wp in path_1:
+                waypoints.append(np.array(wp))
+        elif np.random.uniform() < 0.4 or select_house_path == 2:
+            for wp in path_2:
+                waypoints.append(np.array(wp))
+        elif np.random.uniform() < 0.6 or select_house_path == 3:
+            for wp in path_3:
+                waypoints.append(np.array(wp))
+        elif np.random.uniform() < 0.8 or select_house_path == 4:
+            for wp in path_4:
+                waypoints.append(np.array(wp))
+        elif np.random.uniform() < 1 or select_house_path == 5:
+            for wp in path_5:
+                waypoints.append(np.array(wp))
+    
         
     elif scen =='squiggly_line_xy_plane':
         a_start_angle=np.random.uniform(-np.pi,np.pi)
