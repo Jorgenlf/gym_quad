@@ -13,7 +13,7 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines3 import PPO
-from gym_quad import lv_vae_config
+from gym_quad import register_lv_vae_envs
 from logger import TensorboardLogger
 
 from PPO_feature_extractor import *
@@ -24,6 +24,12 @@ import warnings
 #NB this is a temporary fix to avoid the warning from pytorch3d #Need the mtl file if we want actual images.
 warnings.filterwarnings("ignore", message="No mtl file provided", category=UserWarning, module="pytorch3d.io.obj_io")
 
+
+###---###---### IMPORT THE DRL_CONFIG AND MODIFY IF NEEDED ###---###---###
+from drl_config import lv_vae_config
+train_config = lv_vae_config.copy()
+train_config["max_t_steps"] = 8000
+train_config["recap_chance"] = 0.1
 
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---###
 # total_timesteps = 10e6 #15e6
@@ -132,8 +138,8 @@ ppo_pi_vf_arch = dict(pi = [128,64,32], vf = [128,64,32]) #The PPO network archi
 
 policy_kwargs = dict(
     features_extractor_class = PerceptionIMUDomainExtractor,
-    features_extractor_kwargs = dict(img_size=lv_vae_config["compressed_depth_map_size"],
-                                     features_dim=lv_vae_config["latent_dim"],
+    features_extractor_kwargs = dict(img_size=train_config["compressed_depth_map_size"],
+                                     features_dim=train_config["latent_dim"],
                                      device = PPO_hyperparams['device'],
                                      lock_params=lock_params,
                                      pretrained_encoder_path = encoder_path),
@@ -147,7 +153,9 @@ python train3d.py --exp_id x --n_cpu x
 """
 
 if __name__ == '__main__':
-    
+
+    register_lv_vae_envs(train_config) #Register the train_config such that the gym can use it
+
     _s = time.time() #For tracking training time
 
     print('\nTOTAL CPU CORE COUNT:', multiprocessing.cpu_count())
@@ -169,10 +177,6 @@ if __name__ == '__main__':
         if done_training:
             break
         
-        #Changes to the LV_VAE config between different curriculum stages/scenarios: THIS DOES NOT APPLY/WORK
-        # if lv_vae_config["accept_rad"] > lv_vae_config["minimum_accept_rad"]:
-        #     lv_vae_config["accept_rad"]  -= lv_vae_config["accept_rad"]*0.1 #Decrease acceptance radius by 10% per new stage/scenario until minimum acceptance radius is reached
-
         #Saving configs
         agents_dir = os.path.join(experiment_dir, scen, "agents")
         tensorboard_dir = os.path.join(experiment_dir, scen, "tensorboard")
@@ -183,8 +187,8 @@ if __name__ == '__main__':
         os.makedirs(tensorboard_dir, exist_ok=True)
         os.makedirs(config_dir, exist_ok=True)
 
-        with open(os.path.join(config_dir, 'lv_vae_config.json'), 'w') as file:
-            json.dump(lv_vae_config, file)
+        with open(os.path.join(config_dir, 'train_config.json'), 'w') as file:
+            json.dump(train_config, file)
         with open(os.path.join(config_dir, 'ppo_config.json'), 'w') as file:
             json.dump(PPO_hyperparams, file)
         with open(os.path.join(config_dir, 'curriculum_config.json'), 'w') as file:

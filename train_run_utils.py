@@ -22,6 +22,9 @@ def parse_experiment_info():
     parser.add_argument("--manual_control", default=False, type=bool, help="Whether to use manual control or not")
     parser.add_argument("--RT_vis", default=False, type=bool, help="Whether to visualize in realtime training or not")
     parser.add_argument("--save_depth_maps", default=False, type=bool, help="Whether to save depth maps or not")
+    parser.add_argument("--test_list", nargs='+', default=["horizontal", "vertical"], help="List of test scenarios to run for generating results. Default is horizontal and vertical.")
+    parser.add_argument("--trained_list", nargs='+', default=["expert"], help="List of trained scenarios to run for generating results. Default is expert.")
+    parser.add_argument("--test_all_agents", default=False, type=bool, help="Whether to test all agents or not")
     args = parser.parse_args()
 
 
