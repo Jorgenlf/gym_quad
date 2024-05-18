@@ -12,6 +12,16 @@ def extract_success_rate(report_path):
             return float(match.group(1))
         else:
             return None
+        
+def extract_progress_rate(report_path): #TODO make it possible to plot this as well maybe collision rate also
+    with open(report_path, 'r') as file:
+        content = file.read()
+        # Find the Success Rate in the report
+        match = re.search(r'Progress Rate \[%\]\s+([\d.]+)', content)
+        if match:
+            return float(match.group(1))
+        else:
+            return None        
 
 def collect_results(base_dir):
     results = {}
