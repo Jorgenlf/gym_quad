@@ -45,6 +45,8 @@ if __name__ == "__main__":
 
     run_config = lv_vae_config.copy()
     run_config["recap_chance"] = 0.0 # No recapitulation when running
+    run_config["max_t_steps"] = 10 # Maximum number of timesteps in the DRL simulation before it is terminated
+
     register_lv_vae_envs(run_config)
     
     experiment_dir, agent_path, args = parse_experiment_info()

@@ -506,7 +506,9 @@ class LV_VAE_MESH(gym.Env):
             lookahead_world = self.path.get_endpoint()    
 
         lookahead_body = np.transpose(geom.Rzyx(*quad_att)).dot(lookahead_world - quad_pos)
-        relevant_distance = self.la_dist*2 
+        relevant_distance = self.la_dist*2 if self.la_dist > 1 else self.la_dist + self.la_dist
+        # select_house_path - 1 if select_house_path is not None else np.random.randint(len(paths))
+
         domain_obs[13] = m1to1(lookahead_body[0], -relevant_distance,relevant_distance)
         domain_obs[14] = m1to1(lookahead_body[1], -relevant_distance, relevant_distance)
         domain_obs[15] = m1to1(lookahead_body[2], -relevant_distance,relevant_distance)
@@ -600,11 +602,14 @@ class LV_VAE_MESH(gym.Env):
                 self.success = True
             elif self.collided:
                 print("Quadcopter collided!")
+                print("At timestep: ",self.total_t_steps, "  Which equates to: ", self.total_t_steps*self.step_size, "s")
                 self.success = False
             elif end_cond_2:
                 print("Exceeded time limit")
+                print("At timestep: ",self.total_t_steps, "  Which equates to: ", self.total_t_steps*self.step_size, "s")
             elif end_cond_3:
                 print("Acumulated reward less than", self.min_reward)
+                print("At timestep: ",self.total_t_steps, "  Which equates to: ", self.total_t_steps*self.step_size, "s")
 
             self.done = True
 
@@ -1192,6 +1197,7 @@ class LV_VAE_MESH(gym.Env):
     def scenario_random_corridor(self): #This can be used as a test scenario if we set the seed to be consistent
         initial_state = self.scenario_3d_new()
         #Many cubes 1m away from path
+        #TODO Make this not random while still allowing the other tests that are running in parallell be random
         self.generate_obstacles(n = 40, rmin=0.8, rmax=1, path = self.path, mean = 2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube')
         self.generate_obstacles(n = 40, rmin=0.8, rmax=1, path = self.path, mean = -2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube')
         return initial_state
@@ -1211,7 +1217,7 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
 
-#Testing scenarios #TODO verify scale update
+#Testing scenarios #TODO make the drone spawn at a larger random area at the start for more varied paths
     def scenario_test_path(self):
         test_waypoints = np.array([np.array([0,0,0]), np.array([10,1,0]), np.array([20,0,0]), np.array([70,0,0])])
         self.n_waypoints = len(test_waypoints)
@@ -1265,7 +1271,7 @@ class LV_VAE_MESH(gym.Env):
         initial_state = np.hstack([init_pos[0], init_attitude])
         return initial_state
 
-    def scenario_deadend_test(self):
+    def scenario_deadend_test(self): 
         waypoints = [(0,0,0), (25,0,0), (50,0,0)]
         self.path = QPMI(waypoints)
         radius = 10
@@ -1279,9 +1285,10 @@ class LV_VAE_MESH(gym.Env):
                 
                 obstacle_coords = torch.tensor([x,y,z],device=self.device).float().squeeze()
                 pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-                self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+                self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius*1.3,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+                # self.obstacles.append(CubeMeshObstacle(device=self.device, width=obstacle_radius*1.41, height=obstacle_radius*1.41, depth=obstacle_radius*1.41, center_position=pt3d_obs_coords, inverted=False))
 
-        init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-0.5, high=0.5, size=(1,3))
+        init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-2, high=2, size=(1,3)) #TODO verify that not outside box
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos[0], init_attitude])
         return initial_state
@@ -1301,7 +1308,7 @@ class LV_VAE_MESH(gym.Env):
 
     def scenario_house(self):
         initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=1) #TODO change select_house_path to what we want
+        waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=1) #TODO change select_house_path to what we want, None for random
         self.path = QPMI(waypoints)
 
         init_pos = waypoints[0]# + np.random.uniform(low=-0.25, high=0.25, size=(1,3))

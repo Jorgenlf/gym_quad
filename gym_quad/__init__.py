@@ -2,11 +2,11 @@ from gymnasium.envs.registration import register
 
 #New which register the env from the script that runs the training/testing
 def register_lv_vae_envs(config):
-    register(
-        id='LV_VAE-v0',
-        entry_point='gym_quad.envs:LV_VAE',
-        kwargs={'env_config': config}
-    )
+    # register(                     #Not needed as this env is left in the dust
+    #     id='LV_VAE-v0',
+    #     entry_point='gym_quad.envs:LV_VAE',
+    #     kwargs={'env_config': config}
+    # )
 
     register(
         id='LV_VAE_MESH-v0',

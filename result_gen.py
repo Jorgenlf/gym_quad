@@ -20,6 +20,15 @@ from argparse import Namespace
 from gym_quad import register_lv_vae_envs
 from drl_config import lv_vae_config
 
+import warnings
+# Filter out the specific warning
+#NB this is a temporary fix to avoid the warning from pytorch3d #Need the mtl file if we want actual images.
+warnings.filterwarnings("ignore", message="No mtl file provided", category=UserWarning, module="pytorch3d.io.obj_io")
+
+def unregister_env(env_id):
+    if env_id in gym.envs.registry:
+        del gym.envs.registry[env_id]
+
 '''
 REMEMBER TO 2X CHECK THE VAE CONFIG BEFORE STARTING RESULTS GENERATION
 This script can be run from cli. Four modes of operation are supported:
@@ -65,9 +74,11 @@ result_config["recap_chance"] = 0
 result_config["perturb_sim"] = True
 
 if __name__ == "__main__":
-
-    #TODO as the house and the other scenarios require different LV_VAE_config param we need to figure out
-    #To switch config between house and the other scenarios. Can do manually, but auto would be nice.
+    #TODO Plotting
+    #Make the path in multiplotter be the correct color
+    #Make a visualization for collision (,timeout and success?)
+    #Make the house zoomed in. Make plots from several angles
+    
     
     #---# For debugging and manual running #---#
     # test_scenarios = ["horizontal","vertical","deadend","random_corridor"]
@@ -103,6 +114,7 @@ if __name__ == "__main__":
                     result_config["la_dist"] = lv_vae_config["la_dist"]
                     result_config["s_max"] = lv_vae_config["s_max"]
                 
+                unregister_env('LV_VAE_MESH-v0') #To avoid overwriting the envs
                 register_lv_vae_envs(result_config)
 
                 # Construct the directory paths
@@ -133,6 +145,10 @@ if __name__ == "__main__":
 
                     env = gym.make(args.env, scenario=test_scen)
                     agent_model = PPO.load(agent)
+
+                    #Debugging prints to check that the config is correct
+                    # print("LA dist", env.unwrapped.la_dist) #Works :)
+                    # print("S max", env.unwrapped.s_max)
 
                     cum_rewards = {}
                     all_drone_trajs = {}  # Maps episode number to a trajectory

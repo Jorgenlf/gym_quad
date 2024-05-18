@@ -73,13 +73,13 @@ lv_vae_config = {
     #Collision avoidance                         #Think the new one is superior
     'use_old_CA_rew'            : False,         # Wether to use the old or new collision avoidance reward function
         #Collision avoidance "old"
-        'danger_range'              : 10,           # Range between quadcopter and obstacle within which the quadcopter is in danger
-        'abs_inv_CA_min_rew'        : 1/16,         # 1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x 
+        'danger_range'              : 10,        # Range between quadcopter and obstacle within which the quadcopter is in danger
+        'abs_inv_CA_min_rew'        : 1/16,      # 1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x 
     
         #Collision avoidance "new"
-        'CA_scale'                  : 1/1000,        # Scaling of the collision avoidance reward Found via tuning
-        'CA_epsilon'                : 0.0001,        # Small number to avoid division by zero
-        'TwoDgauss_sigma'           : 30,            # Sigma of the 2D gaussian for the collision avoidance reward
-        'TwoDgauss_peak'            : 1,             # Peak value at the center of the 2D gaussian
-        'min_CA_rew'                : -16.5,         # Minimum reward for collision avoidance #-20 is too penalizing I think
+        'CA_scale'                  : 1/1000,    # Scaling of the collision avoidance reward Found via tuning
+        'CA_epsilon'                : 0.0001,    # Small number to avoid division by zero
+        'TwoDgauss_sigma'           : 30,        # Sigma of the 2D gaussian for the collision avoidance reward
+        'TwoDgauss_peak'            : 1,         # Peak value at the center of the 2D gaussian
+        'min_CA_rew'                : -16.5,     # Minimum reward for collision avoidance #-20 is too penalizing I think
 }
