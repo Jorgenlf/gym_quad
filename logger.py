@@ -46,6 +46,7 @@ class TensorboardLogger(BaseCallback):
             self.logger.record('time/episodes', self.n_episodes)
             infos = np.array(self.locals["infos"])[done_array]
 
+
             # Standard tensorboard plotting
             avg_reward = np.mean([info["reward"] for info in infos])
             avg_length = np.mean([info["env_steps"] for info in infos])
@@ -81,6 +82,16 @@ class TensorboardLogger(BaseCallback):
             self.logger.record("metrics/avg_total_path_deviance", avg_total_path_deviance)
             self.logger.record("metrics/avg_error_e", avg_error_e)
             self.logger.record("metrics/avg_error_h", avg_error_h)
+
+            # test this setup
+            # This setup does for some reason only send to tensorbord every n_spes*n_cpus steps, we try avergaing but that just gives the last value (i.e. just for one agent(????))
+            # since .record only uses last value when called multiple times (as in mult cpu training), we need to use .record_mean to get actual 
+            self.logger.record_mean("metrics_2/avg_path_progression", avg_path_prog)
+            self.logger.record_mean("metrics_2/avg_time", avg_time)
+            self.logger.record_mean("metrics_2/avg_collision_rate", avg_collision_rate)
+            self.logger.record_mean("metrics_2/avg_total_path_deviance", avg_total_path_deviance)
+            self.logger.record_mean("metrics_2/avg_error_e", avg_error_e)
+            self.logger.record_mean("metrics_2/avg_error_h", avg_error_h)
 
 
             self.logger.record("episodes/avg_ep_approach_end_reward", avg_approach_end_reward)

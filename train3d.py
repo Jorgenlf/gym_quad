@@ -78,13 +78,14 @@ scenarios = {   "line"          :   1e5,
 #              }
 
 #This was used and all noise was active the whole run for expid 8 on "Jøreng PC"
-scenarios = {   "line"                 :  0.1e6,
+scenarios = {   "line"                 :  0.33e6,
                 "easy"                 :  0.33e6,
-                "easy_random"          :  0.33e6, #Randomized pos and att of quad in easy scenario 
-                "intermediate"         :  1e6,
+                "easy_random"          :  0.33e6, 
                 "proficient"           :  1e6,
-                "expert"               :  3e6,
+                "intermediate"         :  1e6,
+                #"easy_perturbed"       :  0.5e6, 
                 "proficient_perturbed" :  1e6,
+                "expert"               :  2e6,
                 "expert_perturbed"     :  2e6
              }
 
@@ -104,7 +105,7 @@ PPO_hyperparams = {
     'n_steps': 2048, 
     'batch_size': 128,
     'gae_lambda': 0.95,
-    'gamma': 0.98, #old:0.99,
+    'gamma': 0.99, #old:0.99,
     'n_epochs': 10,
     'ent_coef': 0.001, 
     'verbose': 2,
@@ -120,7 +121,7 @@ PPO_hyperparams = {
 
 #VAE
 # encoder_path = None #If you want to train the encoder from scratch
-# encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_3000_seed1.json"
+encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_7_seed1.json"
 encoder_path = None
 lock_params = False #True if you want to lock the encoder parameters. False to let them be trained
 

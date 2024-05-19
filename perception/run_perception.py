@@ -21,6 +21,9 @@ from VAE.vae import VAE
 
 from train_perception import TrainerVAE
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 
 # HYPERPARAMS
 #LEARNING_RATE = 0.001
@@ -88,12 +91,12 @@ def main(args):
                             transforms_train=valid_additional_transform,
                             transforms_validate=valid_additional_transform)
     
-    dataloader_synthetic = DataReaderSynthetic(path_depth="data/synthetic_depthmaps",
-                            batch_size=BATCH_SIZE,
-                            train_test_split=0.7,
-                            train_val_split=0.3,
-                            transforms_train=valid_additional_transform,
-                            transforms_validate=valid_additional_transform)
+    # dataloader_synthetic = DataReaderSynthetic(path_depth="data/synthetic_depthmaps",
+    #                         batch_size=BATCH_SIZE,
+    #                         train_test_split=0.7,
+    #                         train_val_split=0.3,
+    #                         transforms_train=valid_additional_transform,
+    #                         transforms_validate=valid_additional_transform)
     
     dataloader_combined = DataReaderRealSensev2(path_img_depth="data/all_imgs",
                             batch_size=BATCH_SIZE,
@@ -164,6 +167,7 @@ def main(args):
                     decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=decoder_flattened_size, dim_before_flatten=decoder_intermediate_size)
                     vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)
 
+                print(f'Number of parameters in model: {count_parameters(vae)}')
 
                 # Train model
                 optimizer = Adam(vae.parameters(), lr=LEARNING_RATE)
@@ -266,8 +270,7 @@ def main(args):
                     seed += 2*i
                     print(f'Seed {i}/{NUM_SEEDS}')
                     #train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=seed, shuffle=True)
-                    train_loader, val_loader, test_loader = dataloader_rs.load_split_data_realsense(seed=seed, shuffle=True)
-
+                    train_loader, val_loader, test_loader = dataloader_combined.load_split_data_realsense(seed=seed, shuffle=True)
 
                     # Create VAE based on args.model_name
                     if model_name == 'conv1':
@@ -287,7 +290,7 @@ def main(args):
                                         beta=BETA,
                                         reconstruction_loss="MSE")
                     
-                    trained_epochs = trainer.train(early_stopping=False)
+                    trained_epochs = trainer.train(early_stopping=True)
                     
                     # Only insert to the first trained_epochs elements if early stopping has been triggered
                     total_train_losses[i,:trained_epochs] = trainer.training_loss['Total loss']
@@ -632,24 +635,27 @@ def main(args):
         
         if "reconstructions" in args.plot:
             savepath_recon = f'results/{model_name}/plots/reconstructions/exp{experiment_id}/latent_dim_{LATENT_DIMS}/'
-            if experiment_id == 20: savepath_recon = f'results/{model_name}/plots/reconstructions/exp{experiment_id}/latent_dim_{LATENT_DIMS}_beta{BETA}/'
             os.makedirs(savepath_recon, exist_ok=True)
-            test_numbers = [96, 74, 72, 45, 27, 26, 22]
-            #for i, x in enumerate(test_loader_rs):
-            for i, x in enumerate(test_loader_rs):
+            for i, x in enumerate(test_loader_combined):
                 if i == args.num_examples: break
-                #if i in test_numbers:
                 img = x.to(device)
-                plotting.reconstruct_and_plot(img, vae, model_name, experiment_id, savepath_recon, i, cmap='magma', save=True)
+                plotting.reconstruct_and_plot(img, vae, model_name, experiment_id, savepath_recon, i, cmap='magma', save=True, save_input=True)
+            
+            savepath_recon = f'results/{model_name}/plots/reconstructions/exp{experiment_id}/latent_dim_{LATENT_DIMS}_realsense/'
+            os.makedirs(savepath_recon, exist_ok=True)
+            for i,x in enumerate(test_loader_rs):
+                if i == args.num_examples: break
+                img = x.to(device)
+                plotting.reconstruct_and_plot(img, vae, model_name, experiment_id, savepath_recon, i, cmap='magma', save=True, save_input=False)
                 
         if "kde" in args.plot:
-            savepath_kde = f'results/{model_name}/plots/kde/exp{experiment_id}_realsense'
+            savepath_kde = f'results/{model_name}/plots/kde/exp{experiment_id}'
             os.makedirs(savepath_kde, exist_ok=True)
             
-            combos_to_test = [(0, 1), (1, 2), (0, 2), (0, 3), (1, 3), (2, 3)]#, (0, 4), (1, 4), (2, 4), (3, 4)]
+            combos_to_test = [(0, 1), (1, 2), (0, 2)]#, (0, 3), (1, 3), (2, 3)]#, (0, 4), (1, 4), (2, 4), (3, 4)]
             #combos_to_test = [(0,4), (1,4), (2,4), (3,4), (5,4), (5,9), (7,6), (8,9), (8,7), (9,7), (13,2), (12,3), (11,4), (10,5), (9,6), (8,7), (7,8), (6,9), (5,10), (4,11), (3,12), (2,13), (1,14), (0,15)]
             plotting.latent_space_kde(model=vae, 
-                                      dataloader=test_loader_rs, 
+                                      dataloader=test_loader_combined, 
                                       latent_dim=LATENT_DIMS, 
                                       name=model_name,
                                       path = savepath_kde,

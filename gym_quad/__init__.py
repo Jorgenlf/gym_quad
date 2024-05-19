@@ -34,8 +34,8 @@ lv_vae_config = {
     "compressed_depth_map_size" : 224,           # Size of depth map after compression
     "latent_dim"                : 64,            # Dimension of the latent space
 #Path related parameters
-    "la_dist"                   : 2.8,           # Look ahead distance aka distance to the point on path to be followed. old:20  
-    "accept_rad"                : 0.7,           # Acceptance radius for the quadcopter to consider the end as reached old:5     
+    "la_dist"                   : 2.5,           # Look ahead distance aka distance to the point on path to be followed. old:20  
+    "accept_rad"                : 1.0,           # Acceptance radius for the quadcopter to consider the end as reached old:5     
     "n_waypoints"               : 6,             # Number of waypoints to be generated
     "segment_length"            : 5,             # Length of the segments between waypoints
     "relevant_dist_to_path"     : 5,             # Distance to the path where the observation will yield values between -1 and 1
@@ -58,7 +58,7 @@ lv_vae_config = {
     'PP_rew_min'                : -1,            # minimum reward for path progression
     
     #Collision reward
-    'rew_collision'             : -60,           # reward (penalty) for collision
+    'rew_collision'             : -50,           # reward (penalty) for collision
     
     #reach end reward
     'rew_reach_end'             : 200,           # reward for reaching the end of the path
@@ -68,7 +68,7 @@ lv_vae_config = {
     "max_approach_end_rew"      : 3,             # Maximum reward for the approach end reward
     
     #Existence reward
-    'existence_reward'          : -1.5,          # reward (penalty) for existing
+    'existence_reward'          : -1.0,          # reward (penalty) for existing
     
     #Collision avoidance                         #Think the new one is superior
     'use_old_CA_rew'            : False,         # Wether to use the old or new collision avoidance reward function
@@ -79,9 +79,9 @@ lv_vae_config = {
         #Collision avoidance "new"
         'CA_scale'                  : 1/1000,        # Scaling of the collision avoidance reward Found via tuning
         'CA_epsilon'                : 0.0001,        # Small number to avoid division by zero
-        'TwoDgauss_sigma'           : 30,            # Sigma of the 2D gaussian for the collision avoidance reward
+        'TwoDgauss_sigma'           : 60,            # Sigma of the 2D gaussian for the collision avoidance reward
         'TwoDgauss_peak'            : 1.5,           # Peak value at the center of the 2D gaussian
-        'min_CA_rew'                : -16,           # Minimum reward for collision avoidance #-20 is too penalizing I think
+        'min_CA_rew'                : -18,           # Minimum reward for collision avoidance #-20 is too penalizing I think
 }
 
 register(

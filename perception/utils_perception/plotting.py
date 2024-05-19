@@ -59,7 +59,7 @@ def plot_separated_losses(total_losses:list, BCE_losses:list, KL_losses:list, la
         path = os.path.join(path, f'LOSS_SEPARATED.pdf')
         fig.savefig(path, bbox_inches='tight')
 
-def reconstruct_and_plot(input_img_as_tensor, vae: nn.Module, model_name: str, experiment_id: int, path: str, i:int, cmap, save=False) -> None:
+def reconstruct_and_plot(input_img_as_tensor, vae: nn.Module, model_name: str, experiment_id: int, path: str, i:int, cmap, save=False, save_input=False) -> None:
     """Plots input image and its reconstruction"""
     print('Plotting input image and its reconstruction...')
 
@@ -80,11 +80,12 @@ def reconstruct_and_plot(input_img_as_tensor, vae: nn.Module, model_name: str, e
         if not os.path.exists(path):
             os.makedirs(path)
         
-        plt.figure(figsize=(10, 10))  
-        plt.imshow(input_img, cmap=cmap, vmin=0, vmax=1)
-        plt.axis('off')
-        save_path = os.path.join(path, f"{model_name}_experiment_{experiment_id}_{i}_input.pdf")
-        plt.savefig(save_path, bbox_inches='tight')
+        if save_input:
+            plt.figure(figsize=(10, 10))  
+            plt.imshow(input_img, cmap=cmap, vmin=0, vmax=1)
+            plt.axis('off')
+            save_path = os.path.join(path, f"{model_name}_experiment_{experiment_id}_{i}_input.pdf")
+            plt.savefig(save_path, bbox_inches='tight')
 
         plt.figure(figsize=(10, 10))  
         plt.imshow(reconstruction, cmap=cmap, vmin=0, vmax=1)
@@ -177,7 +178,13 @@ def kde(zs, xlabel:str, ylabel:str, path:str, name:str, save=True):
     
     ax = plt.gca()
     ax.set_box_aspect(1)
+    ax.set_ylim(-6,6)
+    ax.set_xlim(-6,6)
     #ax.set_aspect('equal', 'box')
+    # Set integer ticks
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+
     
     if save:
         plt.savefig(f'{path}/{name}.pdf', bbox_inches='tight')
