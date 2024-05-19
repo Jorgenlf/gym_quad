@@ -22,6 +22,9 @@ def parse_experiment_info():
     parser.add_argument("--manual_control", default=False, type=bool, help="Whether to use manual control or not")
     parser.add_argument("--RT_vis", default=False, type=bool, help="Whether to visualize in realtime training or not")
     parser.add_argument("--save_depth_maps", default=False, type=bool, help="Whether to save depth maps or not")
+    parser.add_argument("--test_list", nargs='+', default=["horizontal", "vertical"], help="List of test scenarios to run for generating results. Default is horizontal and vertical.")
+    parser.add_argument("--trained_list", nargs='+', default=["expert"], help="List of trained scenarios to run for generating results. Default is expert.")
+    parser.add_argument("--test_all_agents", default=False, type=bool, help="Whether to test all agents or not")
     args = parser.parse_args()
 
 
@@ -730,62 +733,104 @@ if __name__ == "__main__":
     # plt.show()
 
     #Plotting the v2 CA rew:
+    #Setting the style to what we use:
+    plt.style.use('ggplot')
+    plt.rc('font', family='serif')
+    plt.rc('axes', facecolor='#ffffff', edgecolor='gray',
+        axisbelow=True, grid=True)
+    plt.rc('patch', edgecolor='#ffffff')
+
     dgaus,ce_synthdm,co_synthdm = CA_rew_v2(gauss_peak=1.5, gauss_std=30)
     #plot the 2d gaussian in 3d
     fig = plt.figure(1)
-    fig.suptitle("2D gauss to multiply with depthmaps", fontsize=16)
+    # fig.suptitle("2D gauss to multiply with depthmaps", fontsize=16)
     ax = fig.add_subplot(111, projection='3d')
     x = np.linspace(0, 320, 320)
     y = np.linspace(0, 240, 240)
     X, Y = np.meshgrid(x, y)
     ax.plot_surface(X, Y, dgaus, cmap='magma')
 
-    #plot the center synthetic depth map in 3d
-    fig = plt.figure(2)
-    fig.suptitle("Synthetic depthmap object in center", fontsize=16)
-    ax = fig.add_subplot(111, projection='3d')
-    x = np.linspace(0, 320, 320)
-    y = np.linspace(0, 240, 240)
-    X, Y = np.meshgrid(x, y)
-    ax.plot_surface(X, Y, ce_synthdm, cmap='magma')
+    # #plot the center synthetic depth map in 3d
+    # fig = plt.figure(2)
+    # fig.suptitle("Synthetic depthmap object in center", fontsize=16)
+    # ax = fig.add_subplot(111, projection='3d')
+    # x = np.linspace(0, 320, 320)
+    # y = np.linspace(0, 240, 240)
+    # X, Y = np.meshgrid(x, y)
+    # ax.plot_surface(X, Y, ce_synthdm, cmap='magma')
 
-    #plot the corner synthetic depth map in 3d
-    fig = plt.figure(3)
-    fig.suptitle("Synthetic depthmap object in corner", fontsize=16)
+    # #plot the corner synthetic depth map in 3d
+    # fig = plt.figure(3)
+    # fig.suptitle("Synthetic depthmap object in corner", fontsize=16)
+    # ax = fig.add_subplot(111, projection='3d')
+    # x = np.linspace(0, 320, 320)
+    # y = np.linspace(0, 240, 240)
+    # X, Y = np.meshgrid(x, y)
+    # ax.plot_surface(X, Y, co_synthdm, cmap='magma')
+
+    #import depthmap_06 from npy file
+    actual_depthmap = np.load("tests/test_img/depth_maps/depth_map0.npy")
+    
+    #plot the actual depth map in 3d
+    fig = plt.figure(4)
+    # fig.suptitle("Depth map", fontsize=16)
     ax = fig.add_subplot(111, projection='3d')
     x = np.linspace(0, 320, 320)
     y = np.linspace(0, 240, 240)
     X, Y = np.meshgrid(x, y)
-    ax.plot_surface(X, Y, co_synthdm, cmap='magma')
+    ax.plot_surface(X, Y, actual_depthmap, cmap='magma')
+
+    #Do 1/depthmap
+    inv_depthmap = 1/(actual_depthmap+0.0001)
+    #plot the inv depth map in 3d
+    fig = plt.figure(5)
+    # fig.suptitle("1/Depth map", fontsize=16)
+    ax = fig.add_subplot(111, projection='3d')
+    x = np.linspace(0, 320, 320)
+    y = np.linspace(0, 240, 240)
+    X, Y = np.meshgrid(x, y)
+    ax.plot_surface(X, Y, inv_depthmap, cmap='magma')
+
+    #Multiply the 1/depthmap with the 2d gaussian
+    scaled_actualDM_product = (dgaus*inv_depthmap)/1000
+    #plot the product in 3d
+    fig = plt.figure(6)
+    # fig.suptitle("Scaled product of 2d gauss and 1/depth map", fontsize=16)
+    ax = fig.add_subplot(111, projection='3d')
+    x = np.linspace(0, 320, 320)
+    y = np.linspace(0, 240, 240)
+    X, Y = np.meshgrid(x, y)
+    ax.plot_surface(X, Y, scaled_actualDM_product, cmap='magma')
+
 
     #Calculate the reward from the synthetic depth maps
-    non_s_ce_dm = ce_synthdm + 0.0001
-    divby1_non_s_ce_dm = 1/non_s_ce_dm
-    scaled_center_product = (dgaus*divby1_non_s_ce_dm)/1000
-    rew = -np.sum(scaled_center_product)
-    print("rew when in center", rew)
+    # non_s_ce_dm = ce_synthdm + 0.0001
+    # divby1_non_s_ce_dm = 1/non_s_ce_dm
+    # scaled_center_product = (dgaus*divby1_non_s_ce_dm)/1000
+    # rew = -np.sum(scaled_center_product)
+    # print("rew when in center", rew)
 
-    non_s_co_dm = co_synthdm + 0.0001
-    divby1_non_s_co_dm = 1/non_s_co_dm
-    scaled_corner_product = (dgaus*divby1_non_s_co_dm)/1000
-    rew = -np.sum(scaled_corner_product)
-    print("rew when in corner", rew)
+    # non_s_co_dm = co_synthdm + 0.0001
+    # divby1_non_s_co_dm = 1/non_s_co_dm
+    # scaled_corner_product = (dgaus*divby1_non_s_co_dm)/1000
+    # rew = -np.sum(scaled_corner_product)
+    # print("rew when in corner", rew)
 
-    #Visualizing the reward before it gets summed
-    fig = plt.figure(4)
-    fig.suptitle("Rew for center obj", fontsize=16)
-    ax = fig.add_subplot(111, projection='3d')
-    x = np.linspace(0, 320, 320)
-    y = np.linspace(0, 240, 240)
-    X, Y = np.meshgrid(x, y)
-    ax.plot_surface(X, Y, scaled_center_product, cmap='magma')
+    # #Visualizing the reward before it gets summed
+    # fig = plt.figure(4)
+    # fig.suptitle("Rew for center obj", fontsize=16)
+    # ax = fig.add_subplot(111, projection='3d')
+    # x = np.linspace(0, 320, 320)
+    # y = np.linspace(0, 240, 240)
+    # X, Y = np.meshgrid(x, y)
+    # ax.plot_surface(X, Y, scaled_center_product, cmap='magma')
 
-    fig = plt.figure(5)
-    fig.suptitle("Rew for corner obj", fontsize=16)
-    ax = fig.add_subplot(111, projection='3d')
-    x = np.linspace(0, 320, 320)
-    y = np.linspace(0, 240, 240)
-    X, Y = np.meshgrid(x, y)
-    ax.plot_surface(X, Y, scaled_corner_product, cmap='magma')
+    # fig = plt.figure(5)
+    # fig.suptitle("Rew for corner obj", fontsize=16)
+    # ax = fig.add_subplot(111, projection='3d')
+    # x = np.linspace(0, 320, 320)
+    # y = np.linspace(0, 240, 240)
+    # X, Y = np.meshgrid(x, y)
+    # ax.plot_surface(X, Y, scaled_corner_product, cmap='magma')
     
     plt.show()

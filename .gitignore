@@ -13,3 +13,4 @@ test_sim.csv
 *.zip
 **/results/*
 **/figures/*
+tests

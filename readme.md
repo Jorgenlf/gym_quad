@@ -34,8 +34,7 @@ Essentially on windows do these:
 5.  ```pip install gymnasium stable-baselines3 rich numba trimesh python-fcl vispy tensorboard imageio snakeviz scipy pycollada pyglet vtk pyvista```
 
 ### Training an agent:
-
-All hyperparameters and setup can be tuned in the file [gym_quad/train3d.py] and [gym_quad/gym_quad/__init__.py].
+The drl environment hyperparameters can be tuned in the main config file: [gym_quad/drl_config.py]. This is then copied to the [gym_quad/train3d.py] file where one can change certain hyperparameteres to better support training mode and also select the remaining hyperparameters: curriculum training setup, PPO and feature extractor.
 
 For training an agent, run:
 
@@ -46,11 +45,10 @@ python train3d.py --exp_id [x] --n_cpu [y]
 - x: experiment id number
 - y: number of cpus to train on
 
-
 ### Running an agent in the environment
+Copies the [gym_quad/drl_config.py] hyperparameters and changes certain hyperparam supporting running of agent in the [gym_quad/run3d.py] file.
 
 For running an agent in any scenario, use:
-
 ```
 python run3d.py --env "" --exp_id x --run_scenario "..." --trained_scenario "..." --agent x --episodes x 
 ```
@@ -88,6 +86,40 @@ This is an overview of how keyboardinputs map to moving the quadcopter:
 | `Space`   | Up                 | `[1, 1, 0]`   | Directs the drone upwards; the most positive pitch is used to achieve this. |
 | `escape`  | Exit environment   | N/A           | Closes the simulation or control environment. |
 
+### Generating results 
+Copies the [gym_quad/drl_config.py] hyperparameters and changes certain hyperparam supporting resultgen in [gym_quad/result_gen.py] for mass result generation. Four modes:
+
+1. Testing all trained agents:
+    1.1. Sequentially in one terminal (slower)
+        Example:
+            python result_gen.py --exp_id 19 --episodes 10 --trained_list expert expert_perturbed --test_list horizontal vertical deadend random_corridor --test_all_agents True
+    1.2. Parallell in multiple terminals (faster)
+        Example:
+            terminal 1:
+                python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list horizontal --test_all_agents True
+            terminal 2:
+                python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list vertical --test_all_agents True
+            terminal 3:
+                python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list deadend --test_all_agents True
+            .
+            .
+            .
+
+2. Testing a specific trained agent
+    2.1. Sequentially in one terminal (slower)
+        Example:
+            python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list house --agent 170000
+    2.2. Parallell in multiple terminals (faster)
+        Example:
+            terminal 1:
+                python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list house --agent 170000
+            terminal 2:
+                python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list horizontal --agent 170000
+            terminal 3:
+                python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list vertical --agent 170000
+            .
+            .
+            .
 
 
 

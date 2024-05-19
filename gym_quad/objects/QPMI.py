@@ -359,68 +359,58 @@ class QPMI():
         # ax.set_zlabel(zlabel="z [m]")
         return ax
 
+#Helper fcn for the house scenario in generate_random_waypoints
+def remove_first_if_duplicate(path, previous_path):
+    if path and previous_path and np.array_equal(path[0], previous_path[-1]):
+        return path[1:]
+    return path
+
+def concatenate_paths(*paths):
+    concatenated_path = []
+    for i, path in enumerate(paths):
+        if i > 0:
+            path = remove_first_if_duplicate(path, paths[i-1])
+        concatenated_path.extend(path)
+    return concatenated_path
 
 def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentlength=5): #Decide a reasonbale segment length
     waypoints = [np.array([0,0,0])]
 
     if scen == "house": 
-        waypoints.pop(0) #remove the initial waypoint
+        waypoints.pop(0)  # remove the initial waypoint
 
-        # Could do some fancy logic where the subpaths are chosen based on
-        # the last name in the previous subpath must match the first in this path while also not being the same as the first of the previous path
+        # Define the subpaths
         path_1 = house_paths["bedroom_to_kitchen"]
 
-        #TODO uncomment these when done testing training in house as the pop 
-        #Operation somehow was done on empty lists during training. But not when doing run. idk why.
-        # path_2_1 = house_paths["leisure_room_to_corridor"]
-        # path_2_2 = house_paths["corridor_to_living_room"]
-        # path_2_3 = house_paths["living_room_to_entrance_hall"]
-        # path_2_4 = house_paths["entrance_hall_to_guest_room"]
-        # path_2_2.pop(0) #Removing the first waypoint in path_2_2 as it is the same as the last waypoint in path_2_1
-        # path_2_3.pop(0) 
-        # path_2_4.pop(0)        
-        # path_2 = path_2_1 + path_2_2 + path_2_3 + path_2_4
+        path_2 = concatenate_paths(
+            house_paths["leisure_room_to_corridor"],
+            house_paths["corridor_to_living_room"],
+            house_paths["living_room_to_entrance_hall"],
+            house_paths["entrance_hall_to_guest_room"]
+        )
 
-        # path_3_1 = house_paths["living_room_to_bedroom"]
-        # path_3_2 = house_paths["bedroom_to_main_bedroom"]
-        # path_3_3 = house_paths["main_bedroom_to_home"]
-        # path_3_2.pop(0) 
-        # path_3_3.pop(0)
-        # path_3 = path_3_1 + path_3_2 + path_3_3
+        path_3 = concatenate_paths(
+            house_paths["living_room_to_bedroom"],
+            house_paths["bedroom_to_main_bedroom"],
+            house_paths["main_bedroom_to_home"]
+        )
 
-        # path_4_1 = house_paths["kitchen_to_home"]
-        # path_4_2 = house_paths["home_to_leisure_room"]
-        # path_4_3 = house_paths["leisure_room_to_corridor"]
-        # path_4_2.pop(0) 
-        # path_4_3.pop(0)
-        # path_4 = path_4_1 + path_4_2 + path_4_3
+        path_4 = concatenate_paths(
+            house_paths["kitchen_to_home"],
+            house_paths["home_to_leisure_room"],
+            house_paths["leisure_room_to_corridor"]
+        )
 
-        # path_5_1 = house_paths["entrance_hall_to_corridor"]
-        # path_5_2 = house_paths["corridor_to_living_room"]
-        # path_5_3 = house_paths["living_room_to_kitchen"]
-        # path_5_2.pop(0) 
-        # path_5_3.pop(0)
-        # path_5 = path_5_1 + path_5_2 + path_5_3
+        path_5 = concatenate_paths(
+            house_paths["entrance_hall_to_corridor"],
+            house_paths["corridor_to_living_room"],
+            house_paths["living_room_to_kitchen"]
+        )
 
-        # #randomly choose one of the five paths
-        # if np.random.uniform() < 0.2 or select_house_path == 1:
-        #     for wp in path_1:
-        #         waypoints.append(np.array(wp))
-        # elif np.random.uniform() < 0.4 or select_house_path == 2:
-        #     for wp in path_2:
-        #         waypoints.append(np.array(wp))
-        # elif np.random.uniform() < 0.6 or select_house_path == 3:
-        #     for wp in path_3:
-        #         waypoints.append(np.array(wp))
-        # elif np.random.uniform() < 0.8 or select_house_path == 4:
-        #     for wp in path_4:
-        #         waypoints.append(np.array(wp))
-        # elif np.random.uniform() < 1 or select_house_path == 5:
-        #     for wp in path_5:
-        #         waypoints.append(np.array(wp))
-        
-        for wp in path_1:
-            waypoints.append(np.array(wp))
+        # Select one of the paths based on random choice or a specific selection
+        paths = [path_1, path_2, path_3, path_4, path_5]
+        selected_path = select_house_path - 1 if select_house_path is not None else np.random.randint(len(paths))
+        waypoints.extend(map(np.array, paths[selected_path]))    
         
     elif scen =='squiggly_line_xy_plane':
         a_start_angle=np.random.uniform(-np.pi,np.pi)
@@ -557,7 +547,7 @@ if __name__ == "__main__":
                     np.array([80,80,60]), np.array([50,80,20]), np.array([20,60,15]), np.array([20,40,10]), np.array([0,0,0])])
     #wps = np.array([np.array([0,0,0]), np.array([20,25,22]), np.array([50,40,30]), np.array([90,55,60]), np.array([130,95,110]), np.array([155,65,86])])
     #wps = generate_random_waypoints(10)
-    wps = generate_random_waypoints(nwaypoints=6,segmentlength=5, scen='3d_up')
+    wps = generate_random_waypoints(nwaypoints=6,segmentlength=5, scen='house', select_house_path=5)
     path = QPMI(wps)
    
     # point = path(20)

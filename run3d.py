@@ -17,6 +17,10 @@ from stable_baselines3 import PPO
 from train_run_utils import *
 from argparse import Namespace
 
+from gym_quad import register_lv_vae_envs
+from drl_config import lv_vae_config
+
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # Tensflow logging level
 # '0': (default) logs all messages.
 # '1': logs messages with level INFO and above.
@@ -38,6 +42,12 @@ The simulation will be ran and results and plots will be saved to a test folder 
 """
 
 if __name__ == "__main__":
+
+    run_config = lv_vae_config.copy()
+    run_config["recap_chance"] = 0.0 # No recapitulation when running
+    run_config["max_t_steps"] = 10 # Maximum number of timesteps in the DRL simulation before it is terminated
+
+    register_lv_vae_envs(run_config)
     
     experiment_dir, agent_path, args = parse_experiment_info()
 
@@ -173,7 +183,7 @@ if __name__ == "__main__":
                 
                 # plt.close('all')
 
-                #write_report(test_dir, sim_df, env, episode)
+            write_report(test_dir, sim_df, env, episode)
 
 
 
@@ -353,7 +363,7 @@ SHIFT + LMB: translate the center point
 SHIFT + RMB: change FOV
 '''
 
-'''Possible scenarios:
+'''Possible scenarios: (Exist more now check LV_VAE_MESH.py dict in init() fcn)
 Training scenarios
     "line": 
     "line_new": 

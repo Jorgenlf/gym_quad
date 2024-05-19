@@ -25,9 +25,9 @@ if option == 'A':
 elif option == 'B':
     #Choose which depth maps to use:    
     ###---###---###---###
-    exp_id = 18
-    test_id = 3
-    scenario = "house"
+    exp_id = 19
+    test_id = 2
+    scenario = "random_corridor"
     ###---###---###---###
 
     # Regular expression to extract numbers from filenames:
@@ -39,7 +39,7 @@ elif option == 'B':
     filenames = sorted(glob.glob(path_pattern), key=sort_key)
 
 ###---###---###---### Define if you want a gif or a webp animation:
-create_gif = True #IF false creates a webp animation instead (better quality)
+create_gif = False #IF false creates a webp animation instead (better quality)
 ###---###---###---###
 
 if create_gif:
@@ -59,7 +59,7 @@ elif not create_gif:
     print("There are ", len(filenames), " images in the folder\nBeginning to create webp animation... ",end="")
 
     # Frame duration set for 90 FPS:
-    frame_duration = 1 / 30  # seconds per frame
+    frame_duration = 1 / 90  # seconds per frame
 
     # Read, compose and write images to .webp:
     with imageio.get_writer('my_image_animation.webp', mode='I', duration=frame_duration, loop=0, quality=100) as writer:

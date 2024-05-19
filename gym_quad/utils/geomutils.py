@@ -26,7 +26,11 @@ def tri_to_enu(tri_pos: np.ndarray):
     return np.array([tri_pos[2], tri_pos[0], tri_pos[1]])
 
 
+def deg2rad(deg):
+    return deg * np.pi / 180
 
+def rad2deg(rad):
+    return rad * 180 / np.pi
 
 def R(x, y, z):
     """

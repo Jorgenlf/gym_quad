@@ -4,10 +4,22 @@ import numpy as np
 import torch
 import trimesh
 
+
 from gym_quad.objects.mesh_obstacles import SphereMeshObstacle, CubeMeshObstacle, Scene, ImportedMeshObstacle
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.utils.geomutils import enu_to_tri, tri_to_enu
 
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+# hex_colors = ['#FFFF00','#990099']
+# custom_cmap = ListedColormap(hex_colors)
+
+# Define start and end colors
+start_color = '#FFFF00'  # Yellow
+end_color = '#990099'    # Purple
+
+# Create a colormap that interpolates between the two colors
+custom_cmap = LinearSegmentedColormap.from_list('custom_cmap', [start_color, end_color], N=256)
 
 
 def polyline_from_points(points):
@@ -211,7 +223,7 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
         self.cum_rewards = cum_rewards
         self.nosave = nosave
 
-        self.meshes, self.room_mesh = self.obstacles_to_pyvista_meshes(obstacles)
+        self.meshes, self.room_mesh, self.house_mesh = self.obstacles_to_pyvista_meshes(obstacles)
         self.quadratic_path = self.dash_path(self.get_path_as_arr(path))
         self.bounds, self.scaled_bounds = self.get_scene_bounds(obstacles, path, list(drone_trajectories.values()), padding=0)
 
@@ -224,7 +236,7 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
 
         # Plotting parameters
         self.clim = [self.min_rew, self.max_rew]
-        self.cmap = 'YlGn'
+        self.cmap = custom_cmap # OLD 'YlGn'
         self.flip_scalars = True # To invert the colorbar
         self.path_color = '#4780ff' # blueish
         self.obstacles_color = '#ff3400' # redish
@@ -330,6 +342,7 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
         return bounds, scaled_bounds
     
     def obstacles_to_pyvista_meshes(self, obstacles: list):
+        house_index = None
         for o in obstacles:
             if isinstance(o, ImportedMeshObstacle):
                 house_index = obstacles.index(o)

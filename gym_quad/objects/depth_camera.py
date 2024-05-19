@@ -262,8 +262,8 @@ if __name__ == "__main__":
 
 
     ####Change this to visualize different scenes and movement of the camera
-    referencetype = 'line'
     referencetype = 'enclosed_spin'
+    referencetype = 'line'
     # 'line' - Camera moves in a line along the x-axis
     # 'circle' - Camera moves in a circle around the origin
     # 'spin' - Camera spins about its z axis (ENU) with position equal to the the origin
@@ -391,6 +391,8 @@ if __name__ == "__main__":
             sphere_renderer.update_R(R)
             sphere_renderer.update_T(T)
             depth_map = sphere_renderer.render_depth_map()
+            #Save the depth map as an npy file
+            np.save(path_to_save_depth_maps+f"depth_map{i}.npy", depth_map.cpu().numpy())
             print("min depth: ", torch.min(depth_map).item(), "max depth: ", torch.max(depth_map).item())  
             sphere_renderer.save_depth_map(path_to_save_depth_maps+f"depth_map{i}.png", depth_map)
 
