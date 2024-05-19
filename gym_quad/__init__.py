@@ -2,7 +2,9 @@ from gymnasium.envs.registration import register
 
 #New which register the env from the script that runs the training/testing
 def register_lv_vae_envs(config):
-    # register(                     #Not needed as this env is left in the dust
+    
+    #Not needed as this env is left in the dust
+    # register(                     
     #     id='LV_VAE-v0',
     #     entry_point='gym_quad.envs:LV_VAE',
     #     kwargs={'env_config': config}
@@ -16,48 +18,7 @@ def register_lv_vae_envs(config):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#OLD which was dumb as could not run/modify config on the fly from separate scripts
+# #OLD which was dumb as could not run/modify config on the fly from separate scripts
 # import numpy as np
 # def deg2rad(deg):
 #     return deg * np.pi / 180
@@ -69,12 +30,12 @@ def register_lv_vae_envs(config):
 # #General parameters    
 #     "step_size"                 : 0.01,          # Step size of the physics simulation
 #     "max_t_steps"               : 6000,          # Maximum number of timesteps in the DRL simulation before it is terminated
-#     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle #TODO idk if this should be here might move it
+#     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle idk if this should be here might move it
 #     "enclose_scene"             : True,          # Enclose the scene with a box thats scaled to the scene size
 #     "padding"                   : 1.5,           # Padding of the box that encloses the scene [m] #usually 1.5m for indoor training
 #     "drone_radius_for_collision": 0.10,          # Radius of the drone for collision detection [m] #Actual radius is 0.25m
 #     "recap_chance"              : 0.1,           # Chance of recapitulating a previous trainig scenario
-# #Noise parameters #TODO add the noise values here as well?    
+# #Noise parameters add the noise values here as well?    
 #     "perturb_sim"               : False,         # Activates all the noise below. Also, the "perturb" scenarios inside LV_VAE_MESH.py sets this to True
 #     "perturb_domain"            : False,         # Perturb the domain observation
 #     "perturb_IMU"               : False,         # Perturb the IMU data

@@ -31,6 +31,7 @@ train_config = lv_vae_config.copy()
 train_config["max_t_steps"] = 8000
 train_config["recap_chance"] = 0.1
 
+
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---###
 # total_timesteps = 10e6 #15e6
 # scenarios = {"line"         :   2.5e5, #Experimental result see Exp 4 on "Jørgen PC"
@@ -127,7 +128,8 @@ PPO_hyperparams = {
 #VAE
 # encoder_path = None #If you want to train the encoder from scratch
 # encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_3000_seed1.json"
-encoder_path = None
+# encoder_path = None
+encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_7_seed1.json"
 lock_params = False #True if you want to lock the encoder parameters. False to let them be trained
 
 #PPO
@@ -142,6 +144,7 @@ policy_kwargs = dict(
                                      features_dim=train_config["latent_dim"],
                                      device = PPO_hyperparams['device'],
                                      lock_params=lock_params,
+                                     lock_params_conv = True,
                                      pretrained_encoder_path = encoder_path),
     net_arch = ppo_pi_vf_arch
 )
@@ -152,10 +155,17 @@ To train the agent, run the following command in terminal exchange x for the exp
 python train3d.py --exp_id x --n_cpu x
 """
 
+#To register multiple envs when using SubprocVecEnv
+def make_env(env_id, scenario, rank, seed=0):
+    def _init():
+        register_lv_vae_envs(train_config)  # Register the env in the subprocess
+        env = gym.make(env_id, scenario=scenario)
+        env.reset(seed=seed + rank)  # Set the seed here via reset
+        return Monitor(env)
+    set_random_seed(seed)
+    return _init
+
 if __name__ == '__main__':
-
-    register_lv_vae_envs(train_config) #Register the train_config such that the gym can use it
-
     _s = time.time() #For tracking training time
 
     print('\nTOTAL CPU CORE COUNT:', multiprocessing.cpu_count())
@@ -219,10 +229,10 @@ if __name__ == '__main__':
         print("\nINITIALIZING", num_envs, scen.upper(), "ENVIRONMENTS...",end="")
         if num_envs > 1:
             env = SubprocVecEnv(
-                [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir, allow_early_resets=True)
-                for i in range(num_envs)]
+                [make_env(args.env, scen, i, seed) for i in range(num_envs)]
             )
         else:
+            register_lv_vae_envs(train_config) 
             env = DummyVecEnv(
                 [lambda: Monitor(gym.make(args.env, scenario=scen), agents_dir,allow_early_resets=True)]
             )

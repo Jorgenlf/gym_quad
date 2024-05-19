@@ -140,6 +140,11 @@ class EncoderFeatureExtractor(BaseFeaturesExtractor):
     def lock_params(self) -> None:
         for param in self.parameters():
             param.requires_grad = False
+    
+    def lock_params_conv(self) -> None:
+        """Locks the parameters of the convolutional block, but not the fully connected layers."""
+        for param in self.conv_block.parameters():
+            param.requires_grad = False
         
 class IMU_NN(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 6):
@@ -173,7 +178,8 @@ class PerceptionIMUDomainExtractor(BaseFeaturesExtractor):
                  img_size:int=224, 
                  features_dim:int=32,
                  device:str="cuda",
-                 lock_params:bool=True,
+                 lock_params:bool=False,
+                 lock_params_conv:bool=False,
                  pretrained_encoder_path:str=None):
         # We do not know features-dim here before going over all the items,
         # so put something dummy for now. PyTorch requires calling
@@ -192,6 +198,8 @@ class PerceptionIMUDomainExtractor(BaseFeaturesExtractor):
                     encoder.load_params(pretrained_encoder_path)
                 if lock_params:
                     encoder.lock_params()
+                if lock_params_conv:
+                    encoder.lock_params_conv()
                 extractors[key] = encoder
                 total_concat_size += features_dim  # extractors[key].n_flatten
             elif key == "IMU":
