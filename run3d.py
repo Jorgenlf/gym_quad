@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     run_config = lv_vae_config.copy()
     run_config["recap_chance"] = 0.0 # No recapitulation when running
-    run_config["max_t_steps"] = 10 # Maximum number of timesteps in the DRL simulation before it is terminated
+    run_config["max_t_steps"] = 5000 # Maximum number of timesteps in the DRL simulation before it is terminated
 
     register_lv_vae_envs(run_config)
     
@@ -110,12 +110,25 @@ if __name__ == "__main__":
                 drone_traj = np.stack((episode_df[r"$X$"], episode_df[r"$Y$"], episode_df[r"$Z$"]), axis=-1)
                 init_pos = drone_traj[0]
                 obstacles = env.unwrapped.obstacles
-            
+
+                #Make the interactive 3D plot            
                 plotter = Plotter3D(obstacles=obstacles, 
                                     path=path, 
                                     drone_traj=drone_traj,
                                     initial_position=init_pos,
-                                    nosave=True) #TODO make it both save and display interactive plot, needs to fix resolution thing
+                                    nosave=True) 
+                plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
+                                            azimuth=90, # 90 or 0 is best angle for the 3D plot 
+                                            elevation=None,
+                                            see_from_plane=None)
+                del plotter
+                
+                # Save the 3D plot: #Ghetto fix calling the same class twice but works.
+                plotter = Plotter3D(obstacles=obstacles, 
+                                    path=path, 
+                                    drone_traj=drone_traj,
+                                    initial_position=init_pos,
+                                    nosave=False) 
                 plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
                                             azimuth=90, # 90 or 0 is best angle for the 3D plot 
                                             elevation=None,

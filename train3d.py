@@ -84,7 +84,6 @@ scenarios = {   "line"          :   1e5,
 #                 "expert"        :   1e6
 #              }
 
-#This was used and all noise was active the whole run for expid 8 on "Jøreng PC"
 scenarios = {   "line"                 :  0.1e6,
                 "easy"                 :  0.33e6,
                 "easy_random"          :  0.33e6, #Randomized pos and att of quad in easy scenario 
@@ -94,9 +93,6 @@ scenarios = {   "line"                 :  0.1e6,
                 "proficient_perturbed" :  1e6,
                 "expert_perturbed"     :  2e6
              }
-
-#scenarios = {'house': 5e6} # Wont work....?
-
 
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
 '''From kulkarni paper:

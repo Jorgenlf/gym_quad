@@ -1195,6 +1195,7 @@ class LV_VAE_MESH(gym.Env):
     
 #Specials    
     def scenario_random_corridor(self): #This can be used as a test scenario if we set the seed to be consistent
+        print("RANDOM CORRIDOR")
         initial_state = self.scenario_3d_new()
         #Many cubes 1m away from path
         #TODO Make this not random while still allowing the other tests that are running in parallell be random
@@ -1243,6 +1244,7 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
     def scenario_horizontal_test(self):
+        print("HORIZONTAL")
         waypoints = [(0,0,0), (5,0,0), (10,0,0)]
         self.path = QPMI(waypoints)
         self.obstacles = []
@@ -1258,6 +1260,7 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
     def scenario_vertical_test(self):
+        print("VERTICAL")
         waypoints = [(0,0,0), (5,0,0), (10,0,0)]
         self.path = QPMI(waypoints)
         self.obstacles = []
@@ -1272,6 +1275,7 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
     def scenario_deadend_test(self): 
+        print("DEADEND")
         waypoints = [(0,0,0), (25,0,0), (50,0,0)]
         self.path = QPMI(waypoints)
         radius = 10
@@ -1288,12 +1292,13 @@ class LV_VAE_MESH(gym.Env):
                 self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius*1.3,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
                 # self.obstacles.append(CubeMeshObstacle(device=self.device, width=obstacle_radius*1.41, height=obstacle_radius*1.41, depth=obstacle_radius*1.41, center_position=pt3d_obs_coords, inverted=False))
 
-        init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-2, high=2, size=(1,3)) #TODO verify that not outside box
+        init_pos = np.array([0, 0, 0]) + np.random.uniform(low=-self.padding + 0.3, high=self.padding - 0.3, size=(1,3)) #TODO verify that not outside box
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([init_pos[0], init_attitude])
         return initial_state
 
     def scenario_helix(self):
+        print("HELIX")
         initial_state = np.zeros(6)
         waypoints = generate_random_waypoints(self.n_waypoints,'helix', segmentlength=self.segment_length)
         self.path = QPMI(waypoints)
@@ -1307,6 +1312,7 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
     def scenario_house(self):
+        print("HOUSE")
         initial_state = np.zeros(6)
         waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=1) #TODO change select_house_path to what we want, None for random
         self.path = QPMI(waypoints)
