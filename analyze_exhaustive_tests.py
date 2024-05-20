@@ -49,13 +49,13 @@ def calculate_average_success(results):
     avg_results = {agent: sum(rates)/len(rates) for agent, rates in results.items()}
     return avg_results
 
-def visualize_results(avg_results):
+def visualize_results(avg_results,trained_scen):
     agents = list(avg_results.keys())
     success_rates = list(avg_results.values())
 
     plt.figure(figsize=(10, 6))
     plt.bar(agents, success_rates, color='skyblue')
-    plt.xlabel('Agent')
+    plt.xlabel(f'Agents from {trained_scen} Scenario')
     plt.ylabel('Average Success Rate [%]')
     plt.title('Average Success Rate Across All Test Scenarios')
     plt.xticks(rotation=90)
@@ -64,10 +64,10 @@ def visualize_results(avg_results):
 
 if __name__ == "__main__":
 
-    exp_id = 19
-    trained_scen = "proficient"
+    exp_id = 20
+    trained_scen = "expert"
 
     base_dir = f'log/LV_VAE_MESH-v0/Experiment {exp_id}/{trained_scen}/results_gen'  # Base directory containing test scenario directories
     results = collect_results(base_dir)
     avg_results = calculate_average_success(results)
-    visualize_results(avg_results)
+    visualize_results(avg_results,trained_scen)

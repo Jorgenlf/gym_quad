@@ -89,8 +89,9 @@ scenarios = {   "line"                 :  0.1e6,
                 "easy_random"          :  0.33e6, #Randomized pos and att of quad in easy scenario 
                 "intermediate"         :  1e6,
                 "proficient"           :  1e6,
-                "expert"               :  3e6,
-                "proficient_perturbed" :  1e6,
+                "advanced"             :  1.5e6, 
+                "expert"               :  2e6,
+                "proficient_perturbed" :  2e6,
                 "expert_perturbed"     :  2e6
              }
 
@@ -125,7 +126,7 @@ PPO_hyperparams = {
 # encoder_path = None #If you want to train the encoder from scratch
 # encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_3000_seed1.json"
 # encoder_path = None
-encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_7_seed1.json"
+encoder_path = None #f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_7_seed1.json"
 lock_params = False #True if you want to lock the encoder parameters. False to let them be trained
 
 #PPO

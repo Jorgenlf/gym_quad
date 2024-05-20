@@ -108,6 +108,8 @@ class LV_VAE_MESH(gym.Env):
             "proficient"            : self.scenario_proficient,
             "proficient_perturbed"  : self.scenario_proficient_perturbed_sim,
             
+            "advanced"              : self.scenario_advanced,
+
             "expert"                : self.scenario_expert,
             "expert_perturbed"      : self.scenario_expert_perturbed_sim,
             
@@ -688,7 +690,6 @@ class LV_VAE_MESH(gym.Env):
 
 
             if (drone_closest_obs_dist < danger_range):
-                #Previously this was the check for lambda interpolation but now it is done above only caring for obstacles near/on the path
                 #OLD naive ish reward function
                 if self.use_old_CA_rew:
                     inv_abs_min_rew = self.abs_inv_CA_min_rew 
@@ -712,8 +713,8 @@ class LV_VAE_MESH(gym.Env):
         reward_path_progression2 = np.cos(self.upsilon_error)*self.PP_rew_max#*np.linalg.norm(self.quadcopter.velocity)
         reward_path_progression = reward_path_progression1/2 + reward_path_progression2/2
         reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max) #If there is no obstacle nearby the minimum path prog reward is the min value
-        if lambda_interpol:
-            reward_path_progression = np.clip(reward_path_progression, -0.2, self.PP_rew_max)
+        # if lambda_interpol: #Uncertain if this is wise or not
+        #     reward_path_progression = np.clip(reward_path_progression, -0.2, self.PP_rew_max)
 
 
         #Approach end reward 
@@ -913,7 +914,7 @@ class LV_VAE_MESH(gym.Env):
     #### SCENARIOS #### 
     
     #Utility function for scenarios
-    def recap_previous_scenario(self,n_prev_scenarios):
+    def recap_previous_scenario(self,n_prev_scenarios): #TODO low pri make this update based on the curriculum_config
         '''
         Inputs:
         n_prev_scenarios: number of previous scenarios
@@ -936,6 +937,8 @@ class LV_VAE_MESH(gym.Env):
         elif chance < 5/n_prev_scenarios:
             initial_state = self.scenario_proficient()
         elif chance < 6/n_prev_scenarios:
+            initial_state = self
+        elif chance < 7/n_prev_scenarios:
             initial_state = self.scenario_expert()    
         else:
             initial_state = self.scenario_proficient_perturbed_sim()
@@ -990,14 +993,12 @@ class LV_VAE_MESH(gym.Env):
             #50/50 of it being a sphere or a cube unless overridden by the obstacle_type (can add more meshes if wanted)
             obstacle_type_choice = np.random.uniform(0,1)
 
-            if (onPath) and \
-               (np.linalg.norm(obs_pos - obs_on_path_pos) < obstacle_radius + safety_margin ) and \
-               (np.linalg.norm(obs_pos - quad_pos) < obstacle_radius + safety_margin):  
-                continue
-            elif not onPath and (np.linalg.norm(obs_pos - quad_pos) < obstacle_radius + safety_margin):   
-                continue
+            if not onPath and (np.linalg.norm(obs_pos - obs_on_path_pos) < obstacle_radius + safety_margin):
+                continue #We check if the obstacle is too close to the path when its not allowed to be on the path if so we skip this obstacle
+            elif (np.linalg.norm(obs_pos - quad_pos) < obstacle_radius + safety_margin + self.drone_radius_for_collision):  
+                continue #We check if the obstacle is too close to the quadcopter if so we skip this obstacle
             elif np.linalg.norm(obs_pos - path.get_endpoint()) < obstacle_radius + safety_margin:
-                continue
+                continue #We check if the obstacle is too close to the endpoint if so we skip this obstacle
             else:
                 obstacle_coords = torch.tensor(obs_pos,device=self.device).float().squeeze()
                 pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
@@ -1144,6 +1145,26 @@ class LV_VAE_MESH(gym.Env):
 
         return initial_state
 
+    def scenario_advanced(self):
+        
+        initial_state  = np.zeros(6)
+        #make it a 50/50 if we use the 3d_new path which is mostly in xy-plane or the 3d_up_down path which is more in the xz-plane
+        if np.random.uniform(0,1) < 0.5:
+            initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
+        else:
+            initial_state = self.scenario_3d_up_down(random_attitude=True,random_pos=True)
+        
+        #One obs near/ on path:
+        self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 0.01, onPath=True, quad_pos=initial_state[0:3])
+        # 3 away from path
+        self.generate_obstacles(n = 3, rmin=1, rmax=3, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
+
+        n_prev_scenarios = 5
+        if np.random.uniform(0,1) < self.recap_chance:
+            initial_state = self.recap_previous_scenario(n_prev_scenarios)
+
+        return initial_state
+
     def scenario_expert(self):
         #make it a 50/50 if we use the 3d_new path which is mostly in xy-plane or the 3d_up_down path which is more in the xz-plane
         initial_state = np.zeros(6)
@@ -1157,7 +1178,7 @@ class LV_VAE_MESH(gym.Env):
         #Five Near path
         self.generate_obstacles(n = 5, rmin=0.4, rmax=3, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
 
-        n_prev_scenarios = 5
+        n_prev_scenarios = 6
         if np.random.uniform(0,1) < self.recap_chance:
             initial_state = self.recap_previous_scenario(n_prev_scenarios)
 
@@ -1177,7 +1198,7 @@ class LV_VAE_MESH(gym.Env):
         initial_state=self.scenario_proficient()
         self.perturb_sim = True
 
-        n_prev_scenarios = 6
+        n_prev_scenarios = 7
         if np.random.uniform(0,1) < self.recap_chance:
             initial_state = self.recap_previous_scenario(n_prev_scenarios) 
 
@@ -1187,7 +1208,7 @@ class LV_VAE_MESH(gym.Env):
         initial_state = self.scenario_expert()
         self.perturb_sim = True
 
-        n_prev_scenarios = 7
+        n_prev_scenarios = 8
         if np.random.uniform(0,1) < self.recap_chance:
             initial_state = self.recap_previous_scenario(n_prev_scenarios)  
 

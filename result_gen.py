@@ -1,23 +1,15 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import gymnasium as gym
-import gym_quad
 import os
 import glob
 import re
 import pandas as pd
 
 from joblib import Parallel, delayed
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from matplotlib.patches import Rectangle
-from PIL import Image
-from RTvisualizer import *
 from pv_plotting_3d import Plotter3D, Plotter3DMultiTraj
 
-from mpl_toolkits.mplot3d import Axes3D
 from stable_baselines3 import PPO
 from train_run_utils import *
-from argparse import Namespace
 from gym_quad import register_lv_vae_envs
 from drl_config import lv_vae_config
 
@@ -25,6 +17,8 @@ import warnings
 # Filter out the specific warning
 #NB this is a temporary fix to avoid the warning from pytorch3d #Need the mtl file if we want actual images.
 warnings.filterwarnings("ignore", message="No mtl file provided", category=UserWarning, module="pytorch3d.io.obj_io")
+warnings.filterwarnings("ignore", message="Attempting to set window_size on an unavailable render widow.", category=UserWarning, module="pyvista.plotting.plotter")
+warnings.filterwarnings("ignore", message="This plotter is closed and cannot be scaled. Using the last saved image. Try using the `image_scale` property directly.", category=UserWarning, module="pyvista.plotting.plotter")
 
 def unregister_env(env_id):
     if env_id in gym.envs.registry:
@@ -55,8 +49,7 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
     test_dir = os.path.join(test_scen_dir, f"test_agent_{agent_name}")
     completed_episodes = 0
     resuming = False
-    no_report = False
-    no_test_dir = False
+
     if os.path.exists(test_dir):
         report_path = os.path.join(test_dir, 'report.txt')
         if os.path.exists(report_path):
@@ -88,6 +81,20 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
         summary.to_csv(summary_path, index=False)
 
     env = gym.make(args.env, scenario=test_scen)
+    #TODO Low pri possible improvement run several envs in parallel to speed up testing, 
+    # will require refactoring of how data is saved and handled in the fcns below:
+    # def make_env(env_id, scenario, rank, seed=0):
+    #     def _init():
+    #         register_lv_vae_envs(train_config)  # Register the env in the subprocess
+    #         env = gym.make(env_id, scenario=scenario)
+    #         env.reset(seed=seed + rank)  # Set the seed here via reset
+    #         return Monitor(env)
+    #     set_random_seed(seed)
+    #     return _init
+
+    # n_envs = min(args.episodes, 4)  # Adjust number of parallel environments based on available resources
+    # env = SubprocVecEnv([make_env() for _ in range(n_envs)])
+
     agent_model = PPO.load(agent)
 
     cum_rewards = {}
@@ -215,7 +222,7 @@ if __name__ == "__main__":
 #     2.1. Sequentially in one terminal (slower)
 #         Example:
 #             python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list house --agent 170000
-#     2.2. Parallell in multiple terminals (faster)
+#     2.2. Pseudo Parallell in multiple terminals (faster up to a point, depending on n terminals)
 #         Example:
 #             terminal 1:
 #                 python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list house --agent 170000
