@@ -610,7 +610,7 @@ class LV_VAE_MESH(gym.Env):
             elif end_cond_3:
                 print("Acumulated reward less than", self.min_reward)
                 print("At timestep: ",self.total_t_steps, "  Which equates to: ", self.total_t_steps*self.step_size, "s")
-
+            print("\nTERMINAL STATE REACHED IN SCENARIO: ", self.scenario)
             self.done = True
 
         # Save sim time info
