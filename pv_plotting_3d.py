@@ -41,7 +41,9 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
 
         self.meshes, self.room_mesh, self.house_mesh = self.obstacles_to_pyvista_meshes(obstacles)
         self.quadratic_path = self.dash_path(self.get_path_as_arr(path))
-        self.bounds, self.scaled_bounds = self.get_scene_bounds(obstacles, path, drone_traj, padding=0)
+        # if any of the obstacles are imported mesh obstacle, set padding to negative value
+        padding = 2 if any([isinstance(o, ImportedMeshObstacle) for o in obstacles]) else 0
+        self.bounds, self.scaled_bounds = self.get_scene_bounds(obstacles, path, drone_traj, padding=padding)
 
         self.plotter = pv.Plotter(window_size=[4000, 4000], 
                                   off_screen=not nosave)
@@ -225,7 +227,9 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
 
         self.meshes, self.room_mesh, self.house_mesh = self.obstacles_to_pyvista_meshes(obstacles)
         self.quadratic_path = self.dash_path(self.get_path_as_arr(path))
-        self.bounds, self.scaled_bounds = self.get_scene_bounds(obstacles, path, list(drone_trajectories.values()), padding=0)
+
+        padding = 2 if any([isinstance(o, ImportedMeshObstacle) for o in obstacles]) else 0        
+        self.bounds, self.scaled_bounds = self.get_scene_bounds(obstacles, path, list(drone_trajectories.values()), padding=padding)
 
         self.min_rew, self.max_rew = self.find_min_max_rewards(cum_rewards)
 

@@ -55,7 +55,7 @@ lv_vae_config = {
     
     #Path progression reward
     'PP_rew_max'                : 2,             # maximum reward for path progression
-    'PP_rew_min'                : -0.8,            # minimum reward for path progression
+    'PP_rew_min'                : -0.8,          # minimum reward for path progression
     
     #Collision reward
     'rew_collision'             : -60,           # reward (penalty) for collision
@@ -79,7 +79,7 @@ lv_vae_config = {
         #Collision avoidance "new"
         'CA_scale'                  : 1/1000,    # Scaling of the collision avoidance reward Found via tuning
         'CA_epsilon'                : 0.0001,    # Small number to avoid division by zero
-        'TwoDgauss_sigma'           : 30,        # Sigma of the 2D gaussian for the collision avoidance reward
+        'TwoDgauss_sigma'           : 40,        # Sigma of the 2D gaussian for the collision avoidance reward
         'TwoDgauss_peak'            : 1,         # Peak value at the center of the 2D gaussian
-        'min_CA_rew'                : -16.5,     # Minimum reward for collision avoidance #-20 is too penalizing I think
+        'min_CA_rew'                : -15.0,     # Minimum reward for collision avoidance #-20 is too penalizing I think
 }

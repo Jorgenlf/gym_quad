@@ -1318,7 +1318,7 @@ class LV_VAE_MESH(gym.Env):
 
         obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-        self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI.obj", center_position=pt3d_obs_coords))
+        self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI_new.obj", center_position=pt3d_obs_coords))
         return initial_state
 
 

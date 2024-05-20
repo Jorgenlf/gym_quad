@@ -115,7 +115,7 @@ if __name__ == "__main__":
                                     path=path, 
                                     drone_traj=drone_traj,
                                     initial_position=init_pos,
-                                    nosave=True) #TODO make it both save and display interactive plot, needs to fix resolution thing
+                                    nosave=False) #TODO make it both save and display interactive plot, needs to fix resolution thing
                 plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
                                             azimuth=90, # 90 or 0 is best angle for the 3D plot 
                                             elevation=None,
