@@ -43,9 +43,9 @@ lv_vae_config = {
     "s_max"                     : 2,             # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  #Speed 1 is nice in house
     "i_max"                     : deg2rad(65/2), # Maximum inclination angle of commanded velocity wrt x-axis #Approx half of vertical FOV restricts drone to fly where it can see
     "r_max"                     : deg2rad(60),   # Maximum commanded yaw rate rad/s
-    "kv"                        : 1.5,           # Velocity proportional gain             All tuned in test_controller.py 2.5, 0.8, 0.8 used a lot
-    "kangvel"                   : 0.8,           # Angular velocity damping gain 
-    "kR"                        : 0.5,           # Attitude proportional gain             
+    "kv"                        : 2,   #1.5,     # Velocity proportional gain             All tuned in test_controller.py 2.5, 0.8, 0.8 used a lot
+    "kR"                        : 2,   #0.5,     # Attitude proportional gain             
+    "kangvel"                   : 0.3, #0.8,     # Angular velocity damping gain 
 #Reward parameters
     "min_reward"                : -1.5e4,        # Minimum reward before the simulation is terminated
     
