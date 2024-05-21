@@ -373,7 +373,18 @@ def concatenate_paths(*paths):
         concatenated_path.extend(path)
     return concatenated_path
 
-def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentlength=5): #Decide a reasonbale segment length
+def generate_random_waypoints(nwaypoints, scen, segmentlength=5, select_house_path = None, e_angle_range = (np.pi/3,np.pi/2)):
+    '''
+    Generate random waypoints for the path generation
+    Input:
+    nwaypoints: int, number of waypoints
+    scen: str, the scenario for the waypoints
+    segmentlength: float, the length of the segments
+    select_house_path: int, the house path to select used in the house scenario
+    e_angle_range: tuple, the range of the elevation angle used in the 3d_up and 3d_down scenarios
+    '''
+    
+    
     waypoints = [np.array([0,0,0])]
 
     if scen == "house": 
@@ -501,12 +512,14 @@ def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentl
             waypoints.append(wp)
 
     elif scen =='3d_up':
+        e_angle_min = e_angle_range[0]
+        e_angle_max = e_angle_range[1]
         a_start_angle=np.random.uniform(-np.pi,np.pi)
-        e_start_angle=np.random.uniform(np.pi/3, np.pi/2) 
+        e_start_angle=np.random.uniform(e_angle_min, e_angle_max) 
         distance = segmentlength
         for i in range(nwaypoints-1):
             azimuth = a_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
-            elevation = max(np.pi/4, min(np.pi/2, e_start_angle + np.random.uniform(-np.pi/8, np.pi/8)))  # Clamp the elevation
+            elevation = max(np.pi/4, min(e_angle_max, e_start_angle + np.random.uniform(-np.pi/8, np.pi/8)))  # Clamp the elevation
             x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
             y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
             z = waypoints[i][2] + distance*np.sin(elevation)
@@ -514,12 +527,14 @@ def generate_random_waypoints(nwaypoints, scen, select_house_path=None, segmentl
             waypoints.append(wp)
 
     elif scen =='3d_down':
+        e_angle_min = -e_angle_range[0]
+        e_angle_max = -e_angle_range[1]
         a_start_angle=np.random.uniform(-np.pi,np.pi)
-        e_start_angle = np.random.uniform(-np.pi/3, -np.pi/2) 
+        e_start_angle = np.random.uniform(e_angle_min, e_angle_max) 
         distance = segmentlength
         for i in range(nwaypoints-1):
             azimuth = a_start_angle + np.random.uniform(-np.pi/4, np.pi/4)
-            elevation = max(-np.pi/2, min(-np.pi/4, e_start_angle + np.random.uniform(-np.pi/8, np.pi/8)))  # Clamp the elevation
+            elevation = max(e_angle_max, min(-np.pi/4, e_start_angle + np.random.uniform(-np.pi/8, np.pi/8)))  # Clamp the elevation
             x = waypoints[i][0] + distance*np.cos(azimuth)*np.cos(elevation)
             y = waypoints[i][1] + distance*np.sin(azimuth)*np.cos(elevation)
             z = waypoints[i][2] + distance*np.sin(elevation)
@@ -547,7 +562,7 @@ if __name__ == "__main__":
                     np.array([80,80,60]), np.array([50,80,20]), np.array([20,60,15]), np.array([20,40,10]), np.array([0,0,0])])
     #wps = np.array([np.array([0,0,0]), np.array([20,25,22]), np.array([50,40,30]), np.array([90,55,60]), np.array([130,95,110]), np.array([155,65,86])])
     #wps = generate_random_waypoints(10)
-    wps = generate_random_waypoints(nwaypoints=6,segmentlength=5, scen='house', select_house_path=5)
+    wps = generate_random_waypoints(nwaypoints=6,segmentlength=5, scen='3d_up', select_house_path=5)
     path = QPMI(wps)
    
     # point = path(20)

@@ -937,7 +937,7 @@ class LV_VAE_MESH(gym.Env):
         elif chance < 5/n_prev_scenarios:
             initial_state = self.scenario_proficient()
         elif chance < 6/n_prev_scenarios:
-            initial_state = self
+            initial_state = self.scenario_advanced()
         elif chance < 7/n_prev_scenarios:
             initial_state = self.scenario_expert()    
         else:
@@ -1096,6 +1096,31 @@ class LV_VAE_MESH(gym.Env):
             
         initial_state = np.hstack([init_pos, init_attitude])
         return initial_state
+    
+    def scenario_3d_up_down_plane(self, random_pos=False, random_attitude=False, e_angle_range = (np.pi/3,np.pi/2)):
+        initial_state = np.zeros(6)
+        choice = np.random.uniform(0,1)
+        if choice < 0.33:
+            waypoints = generate_random_waypoints(self.n_waypoints,'3d_new', segmentlength=self.segment_length)
+        elif choice < 0.66:
+            waypoints = generate_random_waypoints(self.n_waypoints,'3d_up', segmentlength=self.segment_length, e_angle_range=e_angle_range)
+        else:
+            waypoints = generate_random_waypoints(self.n_waypoints,'3d_down', segmentlength=self.segment_length, e_angle_range=e_angle_range)
+        self.path = QPMI(waypoints)
+
+        if random_pos:
+            init_pos = [np.random.uniform(-self.padding+2,self.padding-2), np.random.uniform(-self.padding+2,self.padding-2), np.random.uniform(-self.padding+2,self.padding-2)]
+        else:    
+            init_pos=[0, 0, 0]
+        
+        if random_attitude:
+            init_attitude=np.array([np.random.uniform(-np.pi/6,np.pi/6), np.random.uniform(-np.pi/6,np.pi/6), np.random.uniform(-np.pi,np.pi)])
+        else:
+            init_attitude=np.array([0, 0, self.path.get_direction_angles(0)[0]])
+            
+        initial_state = np.hstack([init_pos, init_attitude])
+        return initial_state
+    
 
     #With obstacles
     def scenario_easy(self): #Surround the path with 1-4 obstacles But ensure no obstacles on path
@@ -1123,7 +1148,6 @@ class LV_VAE_MESH(gym.Env):
 
     def scenario_intermediate(self):
         initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
-        #One obs on path
         self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos=initial_state[0:3])
         
         n_prev_scenarios = 3
@@ -1146,18 +1170,9 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
     def scenario_advanced(self):
-        
-        initial_state  = np.zeros(6)
-        #make it a 50/50 if we use the 3d_new path which is mostly in xy-plane or the 3d_up_down path which is more in the xz-plane
-        if np.random.uniform(0,1) < 0.5:
-            initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
-        else:
-            initial_state = self.scenario_3d_up_down(random_attitude=True,random_pos=True)
-        
-        #One obs near/ on path:
+        initial_state = self.scenario_3d_up_down_plane(random_attitude=True,random_pos=True,e_angle_range=(np.pi/6,np.pi/3))        
         self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 0.01, onPath=True, quad_pos=initial_state[0:3])
-        # 3 away from path
-        self.generate_obstacles(n = 3, rmin=1, rmax=3, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
+        self.generate_obstacles(n = 3, rmin=1, rmax=3, path = self.path, mean = 0, std = 4, onPath=False, quad_pos=initial_state[0:3])
 
         n_prev_scenarios = 5
         if np.random.uniform(0,1) < self.recap_chance:
@@ -1165,18 +1180,10 @@ class LV_VAE_MESH(gym.Env):
 
         return initial_state
 
-    def scenario_expert(self):
-        #make it a 50/50 if we use the 3d_new path which is mostly in xy-plane or the 3d_up_down path which is more in the xz-plane
-        initial_state = np.zeros(6)
-        if np.random.uniform(0,1) < 0.5:
-            initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
-        else:
-            initial_state = self.scenario_3d_up_down(random_attitude=True,random_pos=True)
-
-        #One on path
+    def scenario_expert(self):        
+        initial_state = self.scenario_3d_up_down_plane(random_attitude=True,random_pos=True,e_angle_range=(np.pi/4,deg2rad(75)))
         self.generate_obstacles(n = 1, rmin=0.4, rmax=3, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos=initial_state[0:3])
-        #Five Near path
-        self.generate_obstacles(n = 5, rmin=0.4, rmax=3, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
+        self.generate_obstacles(n = 5, rmin=0.4, rmax=3, path = self.path, mean = 0, std = 4.5, onPath=False, quad_pos=initial_state[0:3])
 
         n_prev_scenarios = 6
         if np.random.uniform(0,1) < self.recap_chance:
