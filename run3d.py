@@ -111,29 +111,44 @@ if __name__ == "__main__":
                 init_pos = drone_traj[0]
                 obstacles = env.unwrapped.obstacles
 
-                #Make the interactive 3D plot            
-                plotter = Plotter3D(obstacles=obstacles, 
-                                    path=path, 
-                                    drone_traj=drone_traj,
-                                    initial_position=init_pos,
-                                    nosave=True) 
-                plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
-                                            azimuth=90, # 90 or 0 is best angle for the 3D plot 
-                                            elevation=None,
-                                            see_from_plane=None)
-                del plotter
+                # #Make the interactive 3D plot            
+                # plotter = Plotter3D(obstacles=obstacles, 
+                #                     path=path, 
+                #                     drone_traj=drone_traj,
+                #                     initial_position=init_pos,
+                #                     nosave=True) 
+                # plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
+                #                             azimuth=90, # 90 or 0 is best angle for the 3D plot 
+                #                             elevation=None,
+                #                             see_from_plane=None)
+                
+                # del plotter
                 
                 # Save the 3D plot: #Ghetto fix calling the same class twice but works.
-                plotter = Plotter3D(obstacles=obstacles, 
+                # plotter = Plotter3D(obstacles=obstacles, 
+                #                     path=path, 
+                #                     drone_traj=drone_traj,
+                #                     initial_position=init_pos,
+                #                     nosave=False) 
+                #plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
+                #                            azimuth=90, # 90 or 0 is best angle for the 3D plot 
+                #                            elevation=None,
+                #                            see_from_plane=None)
+                
+                # For plotting the scenarios
+                savename = "expert"
+                azis = [0, 90, 180, 270]
+                for azi in azis:
+                    plotter = Plotter3D(obstacles=obstacles, 
                                     path=path, 
                                     drone_traj=drone_traj,
                                     initial_position=init_pos,
                                     nosave=False) 
-                plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
-                                            azimuth=90, # 90 or 0 is best angle for the 3D plot 
+                    plotter.plot_only_scene(save_path=os.path.join(test_dir, "plots", f"{savename}_azi{azi}.png"),
+                                            azimuth=azi, 
                                             elevation=None,
                                             see_from_plane=None)
-                del plotter
+                    del plotter
             
             if args.episodes > 1:
                 multiplotter = Plotter3DMultiTraj(obstacles=obstacles,

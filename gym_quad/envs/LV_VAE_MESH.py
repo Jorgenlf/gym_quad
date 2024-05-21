@@ -164,7 +164,7 @@ class LV_VAE_MESH(gym.Env):
         
         #ONLY UNCOMMENT THIS RANDOM SEEDING IF YOU WANT RANDOMNESS WHEN DOING RUN3D.PY
         #IF YOU WANT TO REPRODUCE THE SAME RESULTS EVERY TIME ADD A NUMBER INTO THE NP.RANDOM.SEED() FUNCTION
-        # np.random.seed() 
+        np.random.seed() 
 
         #General variables being reset
         self.quadcopter = None

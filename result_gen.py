@@ -55,8 +55,6 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
     test_dir = os.path.join(test_scen_dir, f"test_agent_{agent_name}")
     completed_episodes = 0
     resuming = False
-    no_report = False
-    no_test_dir = False
     if os.path.exists(test_dir):
         report_path = os.path.join(test_dir, 'report.txt')
         if os.path.exists(report_path):

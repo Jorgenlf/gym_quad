@@ -43,7 +43,7 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
         self.quadratic_path = self.dash_path(self.get_path_as_arr(path))
         # if any of the obstacles are imported mesh obstacle, set padding to negative value
         padding = 2 if any([isinstance(o, ImportedMeshObstacle) for o in obstacles]) else 0
-        self.bounds, self.scaled_bounds = self.get_scene_bounds(obstacles, path, drone_traj, padding=padding)
+        self.bounds, self.scaled_bounds = self.get_scene_bounds(obstacles, path, drone_traj, padding=0)
 
         self.plotter = pv.Plotter(window_size=[4000, 4000], 
                                   off_screen=not nosave)
@@ -214,6 +214,60 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
         self.plotter.show()
         if save_path and not self.nosave:
             self.plotter.screenshot(save_path, scale=40, window_size = [1000, 1000])
+        
+    def plot_only_scene(self, save_path=None, azimuth=90, elevation=None, see_from_plane=None):
+        self.plotter.add_mesh(pv.Cube(bounds=self.scaled_bounds), opacity=0.0)
+        backface_params = dict(opacity=0.0)
+        # Add all obstacles
+        for i, mesh in enumerate(self.meshes):
+            if i == 0:
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params)
+            else:
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params)
+        
+        # Add the room, only plot if not house scenario
+        if self.room_mesh != None and self.house_mesh == None:
+            self.plotter.add_mesh(self.room_mesh, color=self.room_color, show_edges=False, backface_params=backface_params)
+        
+        if self.house_mesh != None:
+            self.plotter.add_mesh(self.house_mesh, color=self.room_color, show_edges=False, opacity=0.25)
+        
+        # Add drone traj and path
+        self.plotter.add_points(self.quadratic_path, color=self.path_color, point_size=20, label="Path", render_points_as_spheres=True)
+        self.plotter.add_points(self.initial_position, color="black", point_size=30, label="Initial Position", render_points_as_spheres=True)
+        self.plotter.show_grid(**self.grid_kw_args)
+
+        # Custom legend
+        offset_x = 800
+        offset_y = 700
+        offset_between = 100
+        legend_pos = [self.plotter.window_size[0] - offset_x, self.plotter.window_size[1] - offset_y]
+
+        #self.plotter.add_text("Obstacles", position=legend_pos, font_size=40, color=self.obstacles_color, font='times')
+        self.plotter.add_text("Path", position=[legend_pos[0], legend_pos[1] - 1*offset_between], font_size=40, color=self.path_color, font='times')
+        self.plotter.add_text("Initial Position", position=[legend_pos[0], legend_pos[1] - 2*offset_between], font_size=40, color=self.initial_pos_color, font='times')
+
+        # Camera stuff
+        self.plotter.camera.zoom(0.9) # Zoom a bit out to include axes from corner views
+
+        if see_from_plane == None:
+            self.plotter.camera.azimuth = azimuth
+        if elevation is not None:
+            self.plotter.camera.elevation = elevation
+
+        if see_from_plane == "xy":
+            self.plotter.view_xy()
+        elif see_from_plane == "xz":
+            self.plotter.view_xz(negative=True)
+        elif see_from_plane == "yz":
+            self.plotter.view_yz()
+
+        #if self.nosave: self.plotter.show()
+        self.plotter.show()
+        if save_path and not self.nosave:
+            self.plotter.screenshot(save_path, scale=40, window_size = [1000, 1000])
+        
+
     
 
 
