@@ -63,8 +63,11 @@ def visualize_results(avg_results):
     plt.show()
 
 if __name__ == "__main__":
-    print("Current directory:", os.getcwd())
-    base_dir = 'log/LV_VAE_MESH-v0/Experiment 19/expert/results_gen'  # Base directory containing test scenario directories
+
+    exp_id = 19
+    trained_scen = "proficient"
+
+    base_dir = f'log/LV_VAE_MESH-v0/Experiment {exp_id}/{trained_scen}/results_gen'  # Base directory containing test scenario directories
     results = collect_results(base_dir)
     avg_results = calculate_average_success(results)
     visualize_results(avg_results)

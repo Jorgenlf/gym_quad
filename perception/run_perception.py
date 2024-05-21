@@ -140,8 +140,8 @@ def main(args):
 
                 # Load data with different seed
                 #train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=None, shuffle=True)
-                #train_loader, val_loader, test_loader = dataloader_rs.load_split_data_realsense(seed=None, shuffle=True)
-                train_loader, val_loader, test_loader = dataloader_combined.load_split_data_realsense(seed=None, shuffle=True)
+                train_loader, val_loader, test_loader = dataloader_rs.load_split_data_realsense(seed=None, shuffle=True)
+                #train_loader, val_loader, test_loader = dataloader_combined.load_split_data_realsense(seed=None, shuffle=True)
                 print('Data loaded')
                 print(f'Size train: {len(train_loader.dataset)} | Size validation: {len(val_loader.dataset)} | Size test: {len(test_loader.dataset)}\n')
 
@@ -646,13 +646,13 @@ def main(args):
             for i,x in enumerate(test_loader_rs):
                 if i == args.num_examples: break
                 img = x.to(device)
-                plotting.reconstruct_and_plot(img, vae, model_name, experiment_id, savepath_recon, i, cmap='magma', save=True, save_input=False)
+                plotting.reconstruct_and_plot(img, vae, model_name, experiment_id, savepath_recon, i, cmap='magma', save=True, save_input=True)
                 
         if "kde" in args.plot:
             savepath_kde = f'results/{model_name}/plots/kde/exp{experiment_id}'
             os.makedirs(savepath_kde, exist_ok=True)
             
-            combos_to_test = [(0, 1), (1, 2), (0, 2)]#, (0, 3), (1, 3), (2, 3)]#, (0, 4), (1, 4), (2, 4), (3, 4)]
+            combos_to_test = [(0, 1), (1, 2), (0, 2), (0, 3), (1, 3), (2, 3), (0, 4), (1, 4), (2, 4), (3, 4)]
             #combos_to_test = [(0,4), (1,4), (2,4), (3,4), (5,4), (5,9), (7,6), (8,9), (8,7), (9,7), (13,2), (12,3), (11,4), (10,5), (9,6), (8,7), (7,8), (6,9), (5,10), (4,11), (3,12), (2,13), (1,14), (0,15)]
             plotting.latent_space_kde(model=vae, 
                                       dataloader=test_loader_combined, 
