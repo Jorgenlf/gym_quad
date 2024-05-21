@@ -46,56 +46,82 @@ class TensorboardLogger(BaseCallback):
             self.logger.record('time/episodes', self.n_episodes)
             infos = np.array(self.locals["infos"])[done_array]
 
-            # Standard tensorboard plotting
-            avg_reward = np.mean([info["reward"] for info in infos])
-            avg_length = np.mean([info["env_steps"] for info in infos])
-            avg_collision_reward = np.mean([info["collision_reward"] for info in infos])
-            avg_collision_avoidance_reward = np.mean([info["collision_avoidance_reward"] for info in infos])
-            avg_path_adherence = np.mean([info["path_adherence"] for info in infos])
-            avg_path_progression = np.mean([info["path_progression"] for info in infos])
-            avg_reach_end_reward = np.mean([info['reach_end_reward'] for info in infos])
-            avg_existence_reward = np.mean([info['existence_reward'] for info in infos])
-            avg_approach_end_reward = np.mean([info['approach_end_reward'] for info in infos])
-
-            # Metrics for report plotting
-            avg_path_prog = np.mean([info["progression"] for info in infos])
-            avg_time = np.mean([info["time"] for info in infos])
-            avg_collision_rate = np.mean([info["collision_rate"] for info in infos])
-            avg_total_path_deviance = np.mean([info["total_path_deviance"] for info in infos])
-            avg_error_e = np.mean([info["errors"][0] for info in infos])
-            avg_error_h = np.mean([info["errors"][1] for info in infos])
+            #The np.mean covers the rare case of several agents being done at the same time
             
-            # Log into two different folders
-            self.logger.record("episodes/avg_ep_reward", avg_reward)
-            self.logger.record("episodes/avg_ep_length", avg_length)
-            self.logger.record("episodes/avg_ep_collision_reward", avg_collision_reward)
-            self.logger.record("episodes/avg_ep_collision_avoidance_reward", avg_collision_avoidance_reward)
-            self.logger.record("episodes/avg_ep_path_adherence_reward", avg_path_adherence)
-            self.logger.record("episodes/avg_ep_path_progression_reward", avg_path_progression)
-            self.logger.record("episodes/avg_ep_reach_end_reward", avg_reach_end_reward)
-            self.logger.record("episodes/avg_ep_existence_reward", avg_existence_reward)
+            #Average over all agents last time step (done by record_mean function)
+            # Reward metrics
+            avg_agent_last_t_reward = np.mean([info["reward"] for info in infos])
+            avg_agent_last_t_length = np.mean([info["env_steps"] for info in infos])
+            avg_agent_last_t_collision_reward = np.mean([info["collision_reward"] for info in infos])
+            avg_agent_last_t_collision_avoidance_reward = np.mean([info["collision_avoidance_reward"] for info in infos])
+            avg_agent_last_t_path_adherence = np.mean([info["path_adherence"] for info in infos])
+            avg_agent_last_t_path_progression = np.mean([info["path_progression"] for info in infos])
+            avg_agent_last_t_reach_end_reward = np.mean([info['reach_end_reward'] for info in infos])
+            avg_agent_last_t_existence_reward = np.mean([info['existence_reward'] for info in infos])
+            avg_agent_last_t_approach_end_reward = np.mean([info['approach_end_reward'] for info in infos])
+            self.logger.record_mean("episodes/avg_ep_reward", avg_agent_last_t_reward)
+            self.logger.record_mean("episodes/avg_ep_length", avg_agent_last_t_length)
+            self.logger.record_mean("episodes/avg_ep_collision_reward", avg_agent_last_t_collision_reward)
+            self.logger.record_mean("episodes/avg_ep_collision_avoidance_reward", avg_agent_last_t_collision_avoidance_reward)
+            self.logger.record_mean("episodes/avg_ep_path_adherence_reward", avg_agent_last_t_path_adherence)
+            self.logger.record_mean("episodes/avg_ep_path_progression_reward", avg_agent_last_t_path_progression)
+            self.logger.record_mean("episodes/avg_ep_reach_end_reward", avg_agent_last_t_reach_end_reward)
+            self.logger.record_mean("episodes/avg_ep_existence_reward", avg_agent_last_t_existence_reward)
+            self.logger.record_mean("episodes/avg_ep_approach_end_reward", avg_agent_last_t_approach_end_reward)
 
-            self.logger.record("metrics/avg_path_progression", avg_path_prog)
-            self.logger.record("metrics/avg_time", avg_time)
-            self.logger.record("metrics/avg_collision_rate", avg_collision_rate)
-            self.logger.record("metrics/avg_total_path_deviance", avg_total_path_deviance)
-            self.logger.record("metrics/avg_error_e", avg_error_e)
-            self.logger.record("metrics/avg_error_h", avg_error_h)
+
+            #Average over all agents last time step
+            # Metrics for report plotting 
+            avg_agent_last_t_path_prog = np.mean([info["progression"] for info in infos])
+            avg_agent_last_t_time = np.mean([info["time"] for info in infos])
+            avg_agent_last_t_collision_rate = np.mean([info["collision_rate"] for info in infos])
+            avg_agent_last_t_total_path_deviance = np.mean([info["total_path_deviance"] for info in infos])
+            avg_agent_last_t_error_e = np.mean([info["errors"][0] for info in infos])
+            avg_agent_last_t_error_h = np.mean([info["errors"][1] for info in infos])
+
+            self.logger.record_mean("metrics_agent_avg/path_progression", avg_agent_last_t_path_prog)
+            self.logger.record_mean("metrics_agent_avg/time", avg_agent_last_t_time)
+            self.logger.record_mean("metrics_agent_avg/collision_rate", avg_agent_last_t_collision_rate)
+            self.logger.record_mean("metrics_agent_avg/total_path_deviance", avg_agent_last_t_total_path_deviance)
+            self.logger.record_mean("metrics_agent_avg/error_e", avg_agent_last_t_error_e)
+            self.logger.record_mean("metrics_agent_avg/error_h", avg_agent_last_t_error_h)
+
+            #Average over episode and agents
+            #Cumulative errors divided by the number of steps to get averages per episode
+            #Reward metrics
+            avg_episode_avg_agent_reward = np.mean([info["cumulative_reward"]/info["env_steps"] for info in infos])
+            avg_episode_avg_agent_CA_reward = np.mean([info["cum_CA_rew"]/info["env_steps"] for info in infos])
+            avg_episode_avg_agent_path_adherence = np.mean([info["cum_path_adherence_rew"]/info["env_steps"] for info in infos])
+            avg_episode_avg_agent_path_progression = np.mean([info["cum_path_progression_rew"]/info["env_steps"] for info in infos])
+            avg_episode_avg_agent_existence_reward = np.mean([info["cum_existence_rew"]/info["env_steps"] for info in infos])
+            avg_episode_avg_agent_approach_end_reward = np.mean([info["cum_approach_end_rew"]/info["env_steps"] for info in infos])
+            # avg_episode_avg_agent_collision_reward = np.mean([info["cum_collision_rew"]/info["env_steps"] for info in infos])
+            # avg_episode_avg_agent_reach_end_reward = np.mean([info["cum_reach_end_rew"]/info["env_steps"] for info in infos]) #TODO move em elsewhere DOesnt make sense to do the episode average of the sparse rewards
+            self.logger.record_mean("reward_agent_episode_avg/reward", avg_episode_avg_agent_reward)
+            self.logger.record_mean("reward_agent_episode_avg/CA_reward", avg_episode_avg_agent_CA_reward)
+            self.logger.record_mean("reward_agent_episode_avg/path_adherence", avg_episode_avg_agent_path_adherence)
+            self.logger.record_mean("reward_agent_episode_avg/path_progression", avg_episode_avg_agent_path_progression)
+            self.logger.record_mean("reward_agent_episode_avg/existence_reward", avg_episode_avg_agent_existence_reward)
+            self.logger.record_mean("reward_agent_episode_avg/approach_end_reward", avg_episode_avg_agent_approach_end_reward)
+            # self.logger.record_mean("reward_agent_episode_avg/collision_reward", avg_episode_avg_agent_collision_reward)
+            # self.logger.record_mean("reward_agent_episode_avg/reach_end_reward", avg_episode_avg_agent_reach_end_reward)
+
+            #Metrics for report plotting
+            avg_episode_avg_agent_path_prog = np.mean([info["cum_path_progression"]/info["env_steps"] for info in infos])
+            avg_episode_avg_agent_time = np.mean([info["cum_time"]/info["env_steps"] for info in infos])
+            avg_episode_avg_agent_collision_rate = np.mean([info["cum_collision"]/info["env_steps"] for info in infos])
+            avg_episode_avg_agent_total_path_deviance = np.mean([info["cum_total_path_deviance"]/info["env_steps"] for info in infos])
+            avg_episode_avg_agent_error_e = np.mean([info["cum_e_error"]/info["env_steps"] for info in infos])
+            avg_episode_avg_agent_error_h = np.mean([info["cum_h_error"]/info["env_steps"] for info in infos])
+
+            self.logger.record_mean("metrics_agent_avg_episode_avg/path_progression", avg_episode_avg_agent_path_prog)
+            self.logger.record_mean("metrics_agent_avg_episode_avg/time", avg_episode_avg_agent_time)
+            self.logger.record_mean("metrics_agent_avg_episode_avg/collision_rate", avg_episode_avg_agent_collision_rate)
+            self.logger.record_mean("metrics_agent_avg_episode_avg/total_path_deviance", avg_episode_avg_agent_total_path_deviance)
+            self.logger.record_mean("metrics_agent_avg_episode_avg/error_e", avg_episode_avg_agent_error_e)
+            self.logger.record_mean("metrics_agent_avg_episode_avg/error_h", avg_episode_avg_agent_error_h)
 
 
-            self.logger.record("episodes/avg_ep_approach_end_reward", avg_approach_end_reward)
-
-            # test this setup
-            # This setup does for some reason only send to tensorbord every n_spes*n_cpus steps, we try avergaing but that just gives the last value (i.e. just for one agent(????))
-            # since .record only uses last value when called multiple times (as in mult cpu training), we need to use .record_mean to get actual
-            self.logger.record_mean("metrics_2/avg_path_progression", avg_path_prog)
-            self.logger.record_mean("metrics_2/avg_time", avg_time)
-            self.logger.record_mean("metrics_2/avg_collision_rate", avg_collision_rate)
-            self.logger.record_mean("metrics_2/avg_total_path_deviance", avg_total_path_deviance)
-            self.logger.record_mean("metrics_2/avg_error_e", avg_error_e)
-            self.logger.record_mean("metrics_2/avg_error_h", avg_error_h)
-        
-        
         if self.n_steps % self.log_freq == 0:
             infos = self.locals["infos"]
             reward = np.mean([info["reward"] for info in infos])

@@ -168,6 +168,27 @@ class LV_VAE_MESH(gym.Env):
         #IF YOU WANT TO REPRODUCE THE SAME RESULTS EVERY TIME ADD A NUMBER INTO THE NP.RANDOM.SEED() FUNCTION
         # np.random.seed() 
 
+        #Logging variables:
+        #Metrics
+        self.cum_e = 0
+        self.cum_h = 0
+        self.cum_path_progression =0
+        self.cum_total_path_deviance =0
+        self.cum_collision =0
+        self.cum_time =0
+        #Rewards
+        self.cum_collision_rew = 0
+        self.cum_collision_avoidance_rew = 0
+        self.cum_path_adherence_rew = 0
+        self.cum_path_progression_rew = 0
+        self.cum_reach_end_rew = 0
+        self.cum_existence_rew = 0
+        self.cum_approach_end_rew = 0
+        self.cum_CA_rew = 0
+
+
+
+
         #General variables being reset
         self.quadcopter = None
         self.path = None
@@ -628,10 +649,27 @@ class LV_VAE_MESH(gym.Env):
         self.info['action'] = action
         self.info['collision_rate'] = int(self.collided)
         self.info['total_path_deviance'] = np.sqrt(self.e**2 + self.h**2)
-
+        
+        #For average over episode tensorboardlogging
+        self.cum_e += self.e
+        self.cum_h += self.h
+        self.cum_path_progression += self.prog
+        self.cum_total_path_deviance += np.sqrt(self.e**2 + self.h**2)
+        self.cum_collision += int(self.collided)
+        self.cum_time += self.total_t_steps*self.step_size
+        
+        self.info['cum_e_error'] = self.cum_e
+        self.info['cum_h_error'] = self.cum_h
+        self.info['cum_path_progression'] = self.cum_path_progression
+        self.info['cum_total_path_deviance'] = self.cum_total_path_deviance
+        self.info['cum_collision'] = self.cum_collision
+        self.info['cum_time'] = self.cum_time
+        
         # Calculate reward
         step_reward = self.reward()
         self.cumulative_reward += step_reward
+        self.info['cumulative_reward'] = self.cumulative_reward
+
 
         # Make next observation
         #Such that the oberservation has access to the previous action
@@ -750,7 +788,23 @@ class LV_VAE_MESH(gym.Env):
         self.info['reach_end_reward'] = reach_end_reward
         self.info['existence_reward'] = ex_reward
         self.info['approach_end_reward'] = approach_end_reward
+
+        #Cumulative reward tensorboard logging
+        self.cum_approach_end_rew += approach_end_reward
+        self.cum_existence_rew += ex_reward
+        self.cum_reach_end_rew += reach_end_reward
+        self.cum_collision_rew += reward_collision
+        self.cum_path_progression_rew += reward_path_progression
+        self.cum_path_adherence_rew += reward_path_adherence*lambda_PA
+        self.cum_CA_rew += reward_collision_avoidance*lambda_CA
         
+        self.info['cum_collision_rew'] = self.cum_collision_rew
+        self.info['cum_CA_rew'] = self.cum_CA_rew        
+        self.info['cum_path_adherence_rew'] = self.cum_path_adherence_rew
+        self.info['cum_path_progression_rew'] = self.cum_path_progression_rew
+        self.info['cum_reach_end_rew'] = self.cum_reach_end_rew
+        self.info['cum_existence_rew'] = self.cum_existence_rew
+        self.info['cum_approach_end_rew'] = self.cum_approach_end_rew
         return tot_reward
 
 
