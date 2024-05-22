@@ -30,6 +30,7 @@ from drl_config import lv_vae_config
 train_config = lv_vae_config.copy()
 train_config["max_t_steps"] = 8000
 train_config["recap_chance"] = 0.1
+train_config["max_approach_end_rew"] = - train_config["existence_reward"]
 
 
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---###
@@ -89,9 +90,10 @@ scenarios = {   "line"                 :  0.1e6,
                 "easy_random"          :  0.33e6, 
                 "proficient"           :  1e6,
                 "intermediate"         :  1e6,
-                #"easy_perturbed"       :  0.5e6, 
-                "proficient_perturbed" :  1e6,
+                "proficient"           :  1e6,
+                "advanced"             :  1.5e6, 
                 "expert"               :  2e6,
+                "proficient_perturbed" :  2e6,
                 "expert_perturbed"     :  2e6
              }
 
@@ -124,9 +126,11 @@ PPO_hyperparams = {
 
 #VAE
 # encoder_path = None #If you want to train the encoder from scratch
-encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_7_seed1.json"
-encoder_path = None
+# encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_3000_seed1.json"
+# encoder_path = None
+encoder_path = None #f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_7_seed1.json"
 lock_params = False #True if you want to lock the encoder parameters. False to let them be trained
+lock_params_conv = False #True if you want to lock the convolutional layers of the encoder. False to let them be trained
 
 #PPO
 #From Ørjan:    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32])
@@ -140,7 +144,7 @@ policy_kwargs = dict(
                                      features_dim=train_config["latent_dim"],
                                      device = PPO_hyperparams['device'],
                                      lock_params=lock_params,
-                                     lock_params_conv = True,
+                                     lock_params_conv = lock_params_conv,
                                      pretrained_encoder_path = encoder_path),
     net_arch = ppo_pi_vf_arch
 )

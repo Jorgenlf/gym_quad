@@ -144,13 +144,14 @@ if __name__ == "__main__":
                                     drone_traj=drone_traj,
                                     initial_position=init_pos,
                                     nosave=False) 
-                    plotter.plot_only_scene(save_path=os.path.join(test_dir, "plots", f"{savename}_azi{azi}.png"),
+                    plotter.plot_only_scene(save_path=os.path.join(test_dir, "plots", f"{savename}_azi{azi}_{episode}.png"),
                                             azimuth=azi, 
                                             elevation=None,
                                             see_from_plane=None)
                     del plotter
             
             if args.episodes > 1:
+                pass
                 multiplotter = Plotter3DMultiTraj(obstacles=obstacles,
                                                 path=path,
                                                 drone_trajectories=all_drone_trajs,

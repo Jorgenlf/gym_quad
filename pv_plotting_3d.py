@@ -243,8 +243,8 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
         offset_between = 100
         legend_pos = [self.plotter.window_size[0] - offset_x, self.plotter.window_size[1] - offset_y]
 
-        #self.plotter.add_text("Obstacles", position=legend_pos, font_size=40, color=self.obstacles_color, font='times')
-        self.plotter.add_text("Path", position=[legend_pos[0], legend_pos[1] - 1*offset_between], font_size=40, color=self.path_color, font='times')
+        self.plotter.add_text("Path", position=legend_pos, font_size=40, color=self.path_color, font='times')
+        self.plotter.add_text("Obstacles", position=[legend_pos[0], legend_pos[1] - 1*offset_between], font_size=40, color=self.obstacles_color, font='times')
         self.plotter.add_text("Initial Position", position=[legend_pos[0], legend_pos[1] - 2*offset_between], font_size=40, color=self.initial_pos_color, font='times')
 
         # Camera stuff
