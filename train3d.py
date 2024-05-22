@@ -85,18 +85,18 @@ scenarios = {   "line"          :   1e5,
 #                 "expert"        :   1e6
 #              }
 
-# scenarios = {   "line"                 :  0.1e6,
-#                 "easy"                 :  0.33e6,
-#                 "easy_random"          :  0.33e6, #Randomized pos and att of quad in easy scenario 
-#                 "intermediate"         :  1e6,
-#                 "proficient"           :  1e6,
-#                 "advanced"             :  1.5e6, 
-#                 "expert"               :  2e6,
-#                 "proficient_perturbed" :  2e6,
-#                 "expert_perturbed"     :  2e6
-#              }
+scenarios = {   "line"                 :  0.1e6,
+                "easy"                 :  0.33e6,
+                "easy_random"          :  0.33e6, #Randomized pos and att of quad in easy scenario 
+                "intermediate"         :  1e6,
+                "proficient"           :  1e6,
+                "advanced"             :  1.5e6, 
+                "expert"               :  2e6,
+                "proficient_perturbed" :  2e6,
+                "expert_perturbed"     :  2e6
+             }
 
-scenarios = {"easy_random"                 :  0.1e6}
+# scenarios = {"easy_random"                 :  0.1e6}
 
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
 '''From kulkarni paper:
