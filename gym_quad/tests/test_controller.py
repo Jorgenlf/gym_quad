@@ -37,15 +37,15 @@ class TestController(unittest.TestCase):
         self.quadcopter.state[2] = 1 # Set the initial height to 1m
         
         self.s_max = 2
-        self.i_max = deg2rad(80/2) 
-        self.r_max = deg2rad(30) 
+        self.i_max = deg2rad(65/2) 
+        self.r_max = deg2rad(60) 
         
         self.total_t_steps = 0
         self.step_size = 0.01
         
-        self.kv = 1.5
-        self.kR = 0.8
-        self.kangvel = 0.5
+        self.kv = 2
+        self.kR = 2
+        self.kangvel = 0.3
         
         self.kv_noise = 0
         self.kR_noise = 0
@@ -419,7 +419,6 @@ class TestController(unittest.TestCase):
         kR = self.kR + self.kR_noise
         kangvel = self.kangvel + self.kangvel_noise
 
-        e3 = np.array([0, 0, 1]) #z-axis basis
 
         imu_meas = self.imu.measure(self.quadcopter)
         imu_quad_angvel = np.array([imu_meas[3], imu_meas[4], imu_meas[5]])
@@ -461,7 +460,8 @@ class TestController(unittest.TestCase):
                                     ss.m*ss.g*np.cos(imu_quad_att[1])*np.cos(imu_quad_att[0])])
         #Thrust command
         f = kv*ev + drag_force_body + gravity_in_body
-        thrust_command = f[2] #WE LOOSE THE DOT PRODUCT HERE WHICH HELPS BOUND THE THRUST COMMAND STABILITY MIGHT BE HURT
+        f_world = R @ f
+        thrust_command = np.dot(f_world,R[2]) #Projection of f in world on z-axis of body frame to avoid large f if quadcopter very is tilted
 
         c_phi_s_theta = f[0]
         s_phi = -f[1]
@@ -471,7 +471,7 @@ class TestController(unittest.TestCase):
         pitch_setpoint = np.arctan2(c_phi_s_theta, c_phi_c_theta)
         yaw_setpoint = imu_quad_att[2] 
         Rd = j_Rzyx(roll_setpoint, pitch_setpoint, yaw_setpoint)
-        self.att_des = np.array([roll_setpoint, pitch_setpoint, yaw_setpoint]) # Save the desired attitude for plotting during testing
+        self.att_des = np.array([-roll_setpoint, pitch_setpoint, yaw_setpoint]) # Save the desired attitude for plotting during testing
 
         eR = 1/2*(Rd.T @ R - R.T @ Rd)
         eatt = geom.vee_map(eR)
@@ -514,14 +514,20 @@ if __name__ == '__main__':
     yaw_rate_ref = []
     tot_time = 800 # 1500*0.01 = 150 seconds
     # referencetype = "z_velocity" # "hover", "x_velocity", "z_velocity", "yaw_rate", "yaw_rate_xvel", "velocity_step", "incline_step", "velx_yaw_rate_velx"
-    referencetype = "hover"
     referencetype = "velx_yaw_rate_velx"
-    referencetype = "complex"
-    referencetype = "x_velocity"
     referencetype = "yaw_rate_xvel"
+    referencetype = "x_velocity"
+    referencetype = "z_velocity"
+    referencetype = "hover"
+    referencetype = "complex"
     referencetype = "manual_input" #Mimics manual input
 
     save_forces = False #If flipped saves the forces to file so can be used in e.g. IMU
+
+    plot_cmd =          True #Plots the commanded velocity and yaw rate
+    plot_motor =        False #Plots the motor forces
+    plot_orientation =  True #Plots the orientation of the quadcopter
+    plot_pos =          False #Plots the position of the quadcopter
 
     if referencetype == "hover": # Creates reference for hovering at 1m height check initial state of the quadcopter in setUp
         for t in range(tot_time):
@@ -564,7 +570,6 @@ if __name__ == '__main__':
                 vel_ref.append(-1)
                 incline_ref.append(0)
                 yaw_rate_ref.append(0)
-
     elif referencetype == "yaw_rate_xvel": #Creates reference for moving in the x direction with a yaw rate
         for t in range(tot_time):
             if t<50: #hover
@@ -645,7 +650,6 @@ if __name__ == '__main__':
                 vel_ref.append(0.1*np.sin(0.1*t))
                 incline_ref.append(0.1*np.sin(0.1*t))
                 yaw_rate_ref.append(0.1*np.sin(0.1*t))
-    
     elif referencetype == "manual_input":
         for t in range(tot_time):
             if t<50: #hover
@@ -693,7 +697,6 @@ if __name__ == '__main__':
                 incline_ref.append(0)
                 yaw_rate_ref.append(0)
 
-           
     actual_vel_world = []
     actual_vel_body = []
     actual_yaw_rate = []
@@ -708,6 +711,8 @@ if __name__ == '__main__':
     timesteps = []
     statelog = []
     att_des = []
+
+
     for t in range(tot_time): 
         action = vel_ref[t], incline_ref[t], yaw_rate_ref[t]
         # F = Test.PID_PD_Lin_velocity_controller(action)
@@ -751,101 +756,138 @@ if __name__ == '__main__':
     #Scale timestep to be in seconds
     timesteps = np.array(timesteps)*0.01
 
-    #Subplot the velocity commanded and the actual velocity
-    actual_vel_world = np.array(actual_vel_world)    
-    actual_vel_body = np.array(actual_vel_body)
-    velxlim = (min(0, min(x_vel_cmd),np.min(actual_vel_world[:,0]), np.min(actual_vel_body[:,0]))-0.1, max(max(x_vel_cmd), np.max(actual_vel_world[:,0]), np.max(actual_vel_body[:,0])) +0.1)
-    velylim = (min(0, min(y_vel_cmd),np.min(actual_vel_world[:,1]),np.min(actual_vel_body[:,1]))-0.1, max(max(y_vel_cmd),np.max(actual_vel_world[:,1]),np.max(actual_vel_body[:,1]))+0.1)
-    velzlim = (min(0, min(z_vel_cmd),np.min(actual_vel_world[:,2]), np.min(actual_vel_body[:,2]))-0.1, max(max(z_vel_cmd),np.max(actual_vel_world[:,2]), np.max(actual_vel_body[:,2]))+0.1)
-
+    #Set plot style
     plt.style.use('ggplot')
     plt.rc('font', family='serif')
     plt.rc('xtick', labelsize=12)
     plt.rc('ytick', labelsize=12)
     plt.rc('axes', labelsize=12)
 
-    #Commanded vs actual velocity and yaw rate
-    plt.figure(1)
-    plt.suptitle(referencetype)
-    plt.subplot(2, 2, 1)
-    plt.plot(timesteps,x_vel_cmd, label='x velocity command')
-    plt.plot(timesteps,[v[0] for v in actual_vel_world], label='actual x velocity in world',linestyle='dashed')
-    plt.plot(timesteps,[v[0] for v in actual_vel_body], label='actual x velocity in body')
-    plt.ylabel('Velocity (m/s)')
-    plt.xlabel('Timesteps[s]')
-    plt.ylim(velxlim[0], velxlim[1])
-    plt.legend()
-    plt.subplot(2, 2, 2)
-    plt.plot(timesteps,y_vel_cmd, label='y velocity command')
-    plt.plot(timesteps,[v[1] for v in actual_vel_world], label='actual y velocity in world',linestyle='dashed')
-    plt.plot(timesteps,[v[1] for v in actual_vel_body], label='actual y velocity in body')
-    plt.ylabel('Velocity (m/s)')
-    plt.xlabel('Timesteps[s]')
-    plt.ylim(velylim[0], velylim[1])
-    plt.legend()
-    plt.subplot(2, 2, 3)
-    plt.plot(timesteps,z_vel_cmd, label='z velocity command')
-    plt.plot(timesteps,[v[2] for v in actual_vel_world], label='actual z velocity in world',linestyle='dashed')
-    plt.plot(timesteps,[v[2] for v in actual_vel_body], label='actual z velocity in body')
-    plt.ylabel('Velocity (m/s)')
-    plt.xlabel('Timesteps[s]')
-    plt.ylim(velzlim[0], velzlim[1])
-    plt.legend()
-    plt.subplot(2, 2, 4)
-    yaw_rate_cmd = np.array(yaw_rate_cmd)
-    actual_yaw_rate = np.array(actual_yaw_rate)
-    plt.plot(timesteps,yaw_rate_cmd*180/np.pi, label='yaw rate command')
-    plt.plot(timesteps,actual_yaw_rate*180/np.pi, label='yaw rate actual')
-    plt.ylim(-90, 90)
-    plt.ylabel('Yaw rate (deg/s)')
-    plt.xlabel('Timesteps[s]')
-    plt.legend()
+    # #Mellow green color and light purple 
+    # custom_colors = ['#77dd77', '#b19cd9']
+    #Tested them, but Too mellow for ggplot background color
 
-    #Plot the force of each motor in subplot 
-    plt.figure(2)
-    plt.suptitle(referencetype)
-    plt.subplot(2, 2, 1)
-    plt.plot(timesteps, [f[0] for f in forces], label='motor 1')
-    plt.ylabel('Force (N)')
-    plt.xlabel('Timesteps[s]')
-    plt.legend()
-    plt.subplot(2, 2, 2)
-    plt.plot(timesteps, [f[1] for f in forces], label='motor 2')
-    plt.ylabel('Force (N)')
-    plt.xlabel('Timesteps[s]')
-    plt.legend()
-    plt.subplot(2, 2, 3)
-    plt.plot(timesteps, [f[2] for f in forces], label='motor 3')
-    plt.ylabel('Force (N)')
-    plt.xlabel('Timesteps[s]')
-    plt.legend()
-    plt.subplot(2, 2, 4)
-    plt.plot(timesteps, [f[3] for f in forces], label='motor 4')
-    plt.ylabel('Force (N)')
-    plt.xlabel('Timesteps[s]')
-    plt.legend()
+    if plot_cmd:
+        actual_vel_world = np.array(actual_vel_world)    
+        actual_vel_body = np.array(actual_vel_body)
+        velxlim = (min(0, min(x_vel_cmd),np.min(actual_vel_world[:,0]), np.min(actual_vel_body[:,0]))-0.1, max(max(x_vel_cmd), np.max(actual_vel_world[:,0]), np.max(actual_vel_body[:,0])) +0.1)
+        velylim = (min(0, min(y_vel_cmd),np.min(actual_vel_world[:,1]),np.min(actual_vel_body[:,1]))-0.1, max(max(y_vel_cmd),np.max(actual_vel_world[:,1]),np.max(actual_vel_body[:,1]))+0.1)
+        velzlim = (min(0, min(z_vel_cmd),np.min(actual_vel_world[:,2]), np.min(actual_vel_body[:,2]))-0.1, max(max(z_vel_cmd),np.max(actual_vel_world[:,2]), np.max(actual_vel_body[:,2]))+0.1)
+        #Commanded vs actual velocity and yaw rate
+        plt.figure(1)
+        # plt.suptitle(referencetype)
+        plt.subplot(2, 2, 1)
+        plt.plot(timesteps,x_vel_cmd, label='$v_x^b$ cmd',color='purple')
+        # plt.plot(timesteps,[v[0] for v in actual_vel_world], label='actual x velocity in world')
+        plt.plot(timesteps,[v[0] for v in actual_vel_body], label='$v_x^b$ actual',color='green')
+        plt.ylabel('Velocity [m/s]')
+        plt.xlabel('Timesteps [s]')
+        plt.ylim(velxlim[0], velxlim[1])
+        plt.legend(loc='lower right')
+        plt.subplot(2, 2, 2)
+        plt.plot(timesteps,y_vel_cmd, label='$v_y^b$ cmd',color='purple')
+        # plt.plot(timesteps,[v[1] for v in actual_vel_world], label='actual y velocity in world')
+        plt.plot(timesteps,[v[1] for v in actual_vel_body], label='$v_y^b$ actual',color='green')
+        plt.ylabel('Velocity [m/s]')
+        plt.xlabel('Timesteps [s]')
+        plt.ylim(velylim[0], velylim[1])
+        plt.legend(loc='lower right')
+        plt.subplot(2, 2, 3)
+        plt.plot(timesteps,z_vel_cmd, label='$v_z^b$ cmd',color='purple')
+        # plt.plot(timesteps,[v[2] for v in actual_vel_world], label='actual z velocity in world')
+        plt.plot(timesteps,[v[2] for v in actual_vel_body], label='$v_z^b$ actual',color='green')
+        plt.ylabel('Velocity [m/s]')
+        plt.xlabel('Timesteps [s]')
+        plt.ylim(velzlim[0], velzlim[1])
+        plt.legend(loc='lower right')
+        plt.subplot(2, 2, 4)
+        yaw_rate_cmd = np.array(yaw_rate_cmd)
+        actual_yaw_rate = np.array(actual_yaw_rate)
+        plt.plot(timesteps,yaw_rate_cmd*180/np.pi, label='r cmd',color='purple')
+        plt.plot(timesteps,actual_yaw_rate*180/np.pi, label='r actual',color='green')
+        plt.ylim(-90, 90)
+        plt.ylabel('r [deg/s]')
+        plt.xlabel('Timesteps [s]')
+        plt.legend(loc='lower right')
 
-    #Plot the position of the quadcopter in 3D
-    x = [s[0] for s in statelog]
-    y = [s[1] for s in statelog]
-    z = [s[2] for s in statelog]
-    plt.figure(3)
-    plt.suptitle(referencetype)
-    ax = plt.axes(projection='3d')
-    # ax.plot3D(pos_ref[:,0], pos_ref[:,1], pos_ref[:,2], 'tab:blue', label='reference path') #THIS PATH IS ONLY SOMEWHAT CORRECT AS IT INTEGRATES THE VELOCITY COMMANDS BUT DOES NOT ACCOUNT FOR DYNAMICS OR THE YAW
-    ax.plot3D(x, y, z, 'gray', label='actual path')
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_zlabel('z')
-    #place a red dot at the start position and a blue dot at the end position add a legend
-    ax.scatter3D(x[0], y[0], z[0], color='r', label='start')
-    ax.scatter3D(x[-1], y[-1], z[-1], color='b',label='end')
-    ax.legend()
-    #scale the axes such that theyre in the same scale
-    max_range = np.array([x, y, z]).max()
-    ax.set_xlim([-max_range, max_range])
-    ax.set_ylim([-max_range, max_range])
-    ax.set_zlim([0, max_range])
+        # plt.savefig("ctrl.pdf",bbox_inches='tight') #Too tight
+
+    #Plot the attitude of the quadcopter in subplot
+    if plot_orientation:
+        roll = np.array([s[3] for s in statelog])*180/np.pi
+        pitch = np.array([s[4] for s in statelog])*180/np.pi
+        yaw = np.array([s[5] for s in statelog])*180/np.pi
+        des_roll = np.array([a[0] for a in att_des])*180/np.pi
+        des_pitch = np.array([a[1] for a in att_des])*180/np.pi
+        des_yaw = np.array([a[2] for a in att_des])*180/np.pi
+        plt.figure(5)
+        # plt.suptitle(referencetype)
+        plt.subplot(3, 1, 1)
+        plt.plot(timesteps, des_roll, label='φ desired', color='purple')
+        plt.plot(timesteps, roll, label='φ actual', color='green')
+        plt.ylabel('Attitude [deg]')
+        plt.xlabel('Timesteps [s]')
+        plt.legend(loc='lower right')
+        plt.subplot(3, 1, 2)
+        plt.plot(timesteps, des_pitch, label='θ desired',color='purple')
+        plt.plot(timesteps, pitch, label='θ actual', color='green')
+        plt.ylabel('Attitude [deg]')
+        plt.xlabel('Timesteps [s]')
+        plt.legend(loc='lower right')
+        plt.subplot(3, 1, 3)
+        plt.plot(timesteps, des_yaw, label='ψ desired',color='purple')
+        plt.plot(timesteps, yaw, label='ψ actual', color='green')
+        plt.ylabel('Attitude [deg]')
+        plt.xlabel('Timesteps [s]')
+        plt.legend(loc='lower right')
+
+
+    if plot_motor:
+        plt.figure(2)
+        plt.suptitle(referencetype)
+        plt.subplot(2, 2, 1)
+        plt.plot(timesteps, [f[0] for f in forces], label='motor 1')
+        plt.ylabel('Force (N)')
+        plt.xlabel('Timesteps[s]')
+        plt.legend()
+        plt.subplot(2, 2, 2)
+        plt.plot(timesteps, [f[1] for f in forces], label='motor 2')
+        plt.ylabel('Force (N)')
+        plt.xlabel('Timesteps[s]')
+        plt.legend()
+        plt.subplot(2, 2, 3)
+        plt.plot(timesteps, [f[2] for f in forces], label='motor 3')
+        plt.ylabel('Force (N)')
+        plt.xlabel('Timesteps[s]')
+        plt.legend()
+        plt.subplot(2, 2, 4)
+        plt.plot(timesteps, [f[3] for f in forces], label='motor 4')
+        plt.ylabel('Force (N)')
+        plt.xlabel('Timesteps[s]')
+        plt.legend()
+
+    if plot_pos:
+        #Plot the position of the quadcopter in 3D
+        x = [s[0] for s in statelog]
+        y = [s[1] for s in statelog]
+        z = [s[2] for s in statelog]
+        plt.figure(3)
+        plt.suptitle(referencetype)
+        ax = plt.axes(projection='3d')
+        # ax.plot3D(pos_ref[:,0], pos_ref[:,1], pos_ref[:,2], 'tab:blue', label='reference path') #THIS PATH IS ONLY SOMEWHAT CORRECT AS IT INTEGRATES THE VELOCITY COMMANDS BUT DOES NOT ACCOUNT FOR DYNAMICS OR THE YAW
+        ax.plot3D(x, y, z, 'gray', label='actual path')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+        ax.set_zlabel('z')
+        #place a red dot at the start position and a blue dot at the end position add a legend
+        ax.scatter3D(x[0], y[0], z[0], color='r', label='start')
+        ax.scatter3D(x[-1], y[-1], z[-1], color='b',label='end')
+        ax.legend()
+        #scale the axes such that theyre in the same scale
+        max_range = np.array([x, y, z]).max()
+        ax.set_xlim([-max_range, max_range])
+        ax.set_ylim([-max_range, max_range])
+        ax.set_zlim([0, max_range])
 
     # #Plot the actual incline angle and the reference incline angle if upsilon is the inclination angle
     # plt.figure(4)
@@ -861,34 +903,6 @@ if __name__ == '__main__':
     # plt.ylabel('Incline angle (degrees)')
     # plt.xlabel('Timesteps[s]')
     # plt.legend()
-
-    #Plot the attitude of the quadcopter in subplot
-    roll = np.array([s[3] for s in statelog])*180/np.pi
-    pitch = np.array([s[4] for s in statelog])*180/np.pi
-    yaw = np.array([s[5] for s in statelog])*180/np.pi
-    des_roll = np.array([a[0] for a in att_des])*180/np.pi
-    des_pitch = np.array([a[1] for a in att_des])*180/np.pi
-    des_yaw = np.array([a[2] for a in att_des])*180/np.pi
-    plt.figure(5)
-    plt.suptitle(referencetype)
-    plt.subplot(2, 2, 1)
-    plt.plot(timesteps, des_roll, label='roll desired')
-    plt.plot(timesteps, roll, label='roll actual')
-    plt.ylabel('Attitude (degrees)')
-    plt.xlabel('Timesteps[s]')
-    plt.legend()
-    plt.subplot(2, 2, 2)
-    plt.plot(timesteps, des_pitch, label='pitch desired')
-    plt.plot(timesteps, pitch, label='pitch actual')
-    plt.ylabel('Attitude (degrees)')
-    plt.xlabel('Timesteps[s]')
-    plt.legend()
-    plt.subplot(2, 2, 3)
-    plt.plot(timesteps, des_yaw, label='yaw desired')
-    plt.plot(timesteps, yaw, label='yaw actual')
-    plt.ylabel('Attitude (degrees)')
-    plt.xlabel('Timesteps[s]')
-    plt.legend()
 
     plt.show()
 

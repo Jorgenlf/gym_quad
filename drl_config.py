@@ -43,19 +43,19 @@ lv_vae_config = {
     "s_max"                     : 2,             # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  #Speed 1 is nice in house
     "i_max"                     : deg2rad(65/2), # Maximum inclination angle of commanded velocity wrt x-axis #Approx half of vertical FOV restricts drone to fly where it can see
     "r_max"                     : deg2rad(60),   # Maximum commanded yaw rate rad/s
-    "kv"                        : 1.5,           # Velocity proportional gain             All tuned in test_controller.py 2.5, 0.8, 0.8 used a lot
-    "kangvel"                   : 0.8,           # Angular velocity damping gain 
-    "kR"                        : 0.5,           # Attitude proportional gain             
+    "kv"                        : 2,   #1.5,     # Velocity proportional gain             All tuned in test_controller.py 2.5, 0.8, 0.8 used a lot
+    "kR"                        : 2,   #0.5,     # Attitude proportional gain             
+    "kangvel"                   : 0.3, #0.8,     # Angular velocity damping gain 
 #Reward parameters
     "min_reward"                : -1.5e4,        # Minimum reward before the simulation is terminated
     
     #Path adherence reward
     'PA_band_edge'              : 4,             # edge of Path adherence band
-    'PA_scale'                  : 2.8,           # scale of Path adherence reward [-PA_scale, PA_scale]
+    'PA_scale'                  : 2.8,         # scale of Path adherence reward [-PA_scale, PA_scale]
     
     #Path progression reward
     'PP_rew_max'                : 2,             # maximum reward for path progression
-    'PP_rew_min'                : -1,          # minimum reward for path progression
+    'PP_rew_min'                : -1,            # minimum reward for path progression
     
     #Collision reward
     'rew_collision'             : -60,           # reward (penalty) for collision
@@ -64,22 +64,22 @@ lv_vae_config = {
     'rew_reach_end'             : 200,           # reward for reaching the end of the path
 
     #Approach_end reward
-    "approach_end_sigma"        : 0.8,           # Sigma of the gaussian for the approach end reward
-    "max_approach_end_rew"      : 1,             # Maximum reward for the approach end reward. #TODO check if this is nice: Make it even out the existence reward
+    # "approach_end_sigma"        : 0.8,           # Sigma of the gaussian for the approach end reward #RATHER TUNE DOWN CA WHEN CLOSE TO END. ASSUME GOAL SAFE.
+    # "max_approach_end_rew"      : 1,             # Maximum reward for the approach end reward. Is set equal to - ex penalty.
+    'approach_end_range'          : 3,             # Dist[m] between goal and drone where Lambda CA and Lambda PA interpolate such that pa>ca
     
     #Existence reward
-    'existence_reward'          : -1.5,            # reward (penalty) for existing
+    'existence_reward'          : -5.0,          # reward (penalty) for existing
     
     #Collision avoidance                         #Think the new one is superior
-    'use_old_CA_rew'            : False,         # Wether to use the old or new collision avoidance reward function
-        #Collision avoidance "old"
-        'danger_range'              : 10,        # Range between quadcopter and obstacle within which the quadcopter is in danger
-        'abs_inv_CA_min_rew'        : 1/16,      # 1/x -> -x is min reward per CA fcn range and angle --> rangefcn + anglefcn = -2*x 
-    
-        #Collision avoidance "new"
-        'CA_scale'                  : 1/1000,    # Scaling of the collision avoidance reward Found via tuning
-        'CA_epsilon'                : 0.0001,    # Small number to avoid division by zero
-        'TwoDgauss_sigma'           : 30,        # Sigma of the 2D gaussian for the collision avoidance reward
-        'TwoDgauss_peak'            : 1.5,         # Peak value at the center of the 2D gaussian
-        'min_CA_rew'                : -16.0,     # Minimum reward for collision avoidance #-20 is too penalizing I think
+    'CA_scale'                  : 1/1000,    # Scaling of the collision avoidance reward Found via tuning
+    'CA_epsilon'                : 0.0001,    # Small number to avoid division by zero
+    'TwoDgauss_sigma'           : 30,        # Sigma of the 2D gaussian for the collision avoidance reward
+    'TwoDgauss_peak'            : 1.5,         # Peak value at the center of the 2D gaussian
+    'min_CA_rew'                : -16.0,     # Minimum reward for collision avoidance #-20 is too penalizing I think
 }
+
+'''
+Logge reward komponentene under trening og se hvilke som bidrar til terning og hvilke som er counter productive
+
+'''

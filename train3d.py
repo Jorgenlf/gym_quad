@@ -90,12 +90,13 @@ scenarios = {   "line"                 :  0.1e6,
                 "easy_random"          :  0.33e6, 
                 "proficient"           :  1e6,
                 "intermediate"         :  1e6,
-                "proficient"           :  1e6,
                 "advanced"             :  1.5e6, 
                 "expert"               :  2e6,
                 "proficient_perturbed" :  2e6,
                 "expert_perturbed"     :  2e6
              }
+
+# scenarios = {"easy_random"                 :  0.1e6}
 
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
 '''From kulkarni paper:
