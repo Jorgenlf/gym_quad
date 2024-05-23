@@ -621,7 +621,7 @@ class LV_VAE_MESH(gym.Env):
         if end_cond_1 or end_cond_2 or self.collided or end_cond_3:
             if end_cond_1:
                 print("Quadcopter reached target!")
-                print("Endpoint position", self.path.waypoints[-1], "\tquad position:", self.quadcopter.position) #might need the format line?
+                print("Endpoint position", self.path.waypoints[-1], "\tquad position:", self.quadcopter.position)
                 print("At timestep: ",self.total_t_steps, "  Which equates to: ", self.total_t_steps*self.step_size, "s")
                 self.success = True
             elif self.collided:
@@ -631,10 +631,14 @@ class LV_VAE_MESH(gym.Env):
             elif end_cond_2:
                 print("Exceeded time limit")
                 print("At timestep: ",self.total_t_steps, "  Which equates to: ", self.total_t_steps*self.step_size, "s")
+                self.success = False
+                timeout = True
             elif end_cond_3:
                 print("Acumulated reward less than", self.min_reward)
                 print("At timestep: ",self.total_t_steps, "  Which equates to: ", self.total_t_steps*self.step_size, "s")
-            print("\nTERMINAL STATE REACHED IN SCENARIO: ", self.scenario)
+                self.success = False
+                reach_min_rew = True
+            print("TERMINAL STATE REACHED IN SCENARIO: ", self.scenario)
             self.done = True
 
         # Save sim time info
@@ -654,7 +658,7 @@ class LV_VAE_MESH(gym.Env):
         self.info['min_rew_reached'] = int(reach_min_rew)
         self.info['success'] = int(self.success)
         
-        #For average over episode tensorboardlogging divides by number of steps in the episode in logger
+        #For average over episode tensorboardlogging divides by number of steps in the episode in logger.py
         self.cum_e += self.e
         self.cum_h += self.h
         self.cum_path_progression += self.prog
@@ -693,8 +697,8 @@ class LV_VAE_MESH(gym.Env):
         Calculates the reward function for one time step. 
         """
         tot_reward = 0
-        lambda_PA = 1
-        lambda_CA = 1
+        lambda_PA = self.lambda_PA_max
+        lambda_CA = self.lambda_CA_max
 
         #Path adherence reward
         dist_from_path = np.linalg.norm(self.path(self.prog) - self.quadcopter.position)
@@ -719,11 +723,11 @@ class LV_VAE_MESH(gym.Env):
                 obs_cpp_in_body = np.transpose(geom.Rzyx(*self.quadcopter.attitude)).dot(obs_cpp - self.quadcopter.position)
                 if np.linalg.norm(obs_cpp - self.quadcopter.position) < self.max_depth and obs_cpp_in_body[0] > 0:
                     lambda_PA = (drone_closest_obs_dist/danger_range)/2
-                    if lambda_PA < 0.10 : lambda_PA = 0.10
+                    if lambda_PA < self.lambda_PA_min : lambda_PA = self.lambda_PA_min
                     lambda_CA = 1-lambda_PA
 
             if (drone_closest_obs_dist < danger_range):
-                reward_collision_avoidance = np.clip(self.scaled_CA_reward_pre_clip, self.min_CA_rew, 0) #This value is calculated in observe to save time moving from GPU to CPU
+                reward_collision_avoidance = np.clip(self.scaled_CA_reward_pre_clip, self.min_CA_rew, self.max_CA_rew) #This value is calculated in observe to save time moving from GPU to CPU
 
             # print("Collision avoidance reward clipped:", np.round(reward_collision_avoidance,2),                 
             #         "    Collision avoidance reward unclipped:", np.round(scaled_reward_pre_clip,2),\
@@ -734,9 +738,9 @@ class LV_VAE_MESH(gym.Env):
 
         #Path progression reward 
         reward_path_progression = 0
-        reward_path_progression1 = np.cos(self.chi_error)*self.PP_rew_max
-        reward_path_progression2 = np.cos(self.upsilon_error)*self.PP_rew_max
-        reward_path_progression = reward_path_progression1/2 + reward_path_progression2/2
+        reward_path_progression1 = np.cos(self.chi_error)
+        reward_path_progression2 = np.cos(self.upsilon_error)
+        reward_path_progression = (reward_path_progression1 + reward_path_progression2)*self.PP_rew_scale/2
         reward_path_progression = np.clip(reward_path_progression, self.PP_rew_min, self.PP_rew_max) 
 
         #Approach end reward 
@@ -750,7 +754,7 @@ class LV_VAE_MESH(gym.Env):
             dist_to_end = np.linalg.norm(self.quadcopter.position - self.path.get_endpoint())
             if dist_to_end < self.approach_end_range:
                 lambda_CA = (dist_to_end/self.approach_end_range)/2
-                if lambda_CA < 0.10 : lambda_CA = 0.10
+                if lambda_CA < self.lambda_CA_min : lambda_CA = self.lambda_CA_min
                 lambda_PA = 1-lambda_CA
                 # print("Lambda_CA:", lambda_CA, "  Lambda_PA:", lambda_PA)
 
@@ -801,6 +805,7 @@ class LV_VAE_MESH(gym.Env):
         self.info['cum_approach_end_rew'] = self.cum_approach_end_rew
         self.info['cum_lambda_CA'] = self.cum_lambda_CA
         self.info['cum_lambda_PA'] = self.cum_lambda_PA
+
         return tot_reward
 
 
@@ -1197,7 +1202,7 @@ class LV_VAE_MESH(gym.Env):
 
     def scenario_intermediate(self):
         initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
-        self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos=initial_state[0:3])
+        self.generate_obstacles(n = 1, rmin=0.5, rmax=2, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos=initial_state[0:3])
         
         n_prev_scenarios = 3
         if np.random.uniform(0,1) < self.recap_chance:
@@ -1208,7 +1213,7 @@ class LV_VAE_MESH(gym.Env):
     def scenario_proficient(self): #NOTE THAT PROFICENT HAS BEEN RUN BEFORE INTERMEDIATE FOR MANY TRAINING SESSIONS TRY TO FLIP IT NOW
         initial_state = self.scenario_3d_new(random_attitude=True,random_pos=True)
         #One obs near/ on path:
-        self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 0.01, onPath=True, quad_pos=initial_state[0:3])
+        self.generate_obstacles(n = 1, rmin=0.5, rmax=2, path = self.path, mean = 0, std = 0.01, onPath=True, quad_pos=initial_state[0:3])
         # One away from path
         self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 3, onPath=False, quad_pos=initial_state[0:3])
 
@@ -1220,7 +1225,7 @@ class LV_VAE_MESH(gym.Env):
 
     def scenario_advanced(self):
         initial_state = self.scenario_3d_up_down_plane(random_attitude=True,random_pos=True,e_angle_range=(np.pi/6,np.pi/3))        
-        self.generate_obstacles(n = 1, rmin=1, rmax=3, path = self.path, mean = 0, std = 0.01, onPath=True, quad_pos=initial_state[0:3])
+        self.generate_obstacles(n = 1, rmin=0.5, rmax=2, path = self.path, mean = 0, std = 0.01, onPath=True, quad_pos=initial_state[0:3])
         self.generate_obstacles(n = 3, rmin=1, rmax=3, path = self.path, mean = 0, std = 4, onPath=False, quad_pos=initial_state[0:3])
 
         n_prev_scenarios = 5
@@ -1231,7 +1236,7 @@ class LV_VAE_MESH(gym.Env):
 
     def scenario_expert(self):        
         initial_state = self.scenario_3d_up_down_plane(random_attitude=True,random_pos=True,e_angle_range=(np.pi/4,deg2rad(75)))
-        self.generate_obstacles(n = 1, rmin=0.4, rmax=3, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos=initial_state[0:3])
+        self.generate_obstacles(n = 1, rmin=0.4, rmax=2, path = self.path, mean = 0, std = 0.2, onPath=True, quad_pos=initial_state[0:3])
         self.generate_obstacles(n = 5, rmin=0.4, rmax=3, path = self.path, mean = 0, std = 4.5, onPath=False, quad_pos=initial_state[0:3])
 
         n_prev_scenarios = 6

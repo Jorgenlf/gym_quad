@@ -23,7 +23,7 @@ lv_vae_config = {
     "perturb_depth_map"         : False,         # Perturb the depth map with noise
     "perturb_camera_pose"       : False,         # Perturb the camera pose
     "perturb_ctrl_gains"        : False,         # Perturb the control gains
-    "perturb_latency"           : False,         # Perturb the latency of the sensors
+    "perturb_latency"           : False,         # Perturb the latency of the depth camera sensor
 #Depth camera parameters    
     "FOV_horizontal"            : 75,            # Horizontal field of view of the depth camera
     "FOV_vertical"              : 62,            # Vertical field of view of the depth camera
@@ -34,8 +34,8 @@ lv_vae_config = {
     "compressed_depth_map_size" : 224,           # Size of depth map after compression
     "latent_dim"                : 64,            # Dimension of the latent space
 #Path related parameters
-    "la_dist"                   : 2.8,           # Look ahead distance aka distance to the point on path to be followed. old:20  #LAidst 0.5 is nice in house
-    "accept_rad"                : 0.5,           # Acceptance radius for the quadcopter to consider the end as reached old:5     
+    "la_dist"                   : 3.5,           # Look ahead distance aka distance to the point on path to be followed. #LAidst 0.5 is nice in house
+    "accept_rad"                : 0.25,          # Acceptance radius for the quadcopter to consider the end as reached    
     "n_waypoints"               : 6,             # Number of waypoints to be generated
     "segment_length"            : 5,             # Length of the segments between waypoints
     "relevant_dist_to_path"     : 8,             # Distance to the path where the observation will yield values between -1 and 1
@@ -47,7 +47,8 @@ lv_vae_config = {
     "kR"                        : 2,   #0.5,     # Attitude proportional gain             
     "kangvel"                   : 0.3, #0.8,     # Angular velocity damping gain 
 #Reward parameters
-    "min_reward"                : -1.5e4,        # Minimum reward before the simulation is terminated
+    "min_reward"                : -3e4,          # Minimum reward before the simulation is terminated 
+                                                 #In expert i often accumulates less than 2000 when existence is -8 and min ca is -16
     
     #Path adherence reward
     'PA_band_edge'              : 4,             # edge of Path adherence band
@@ -56,12 +57,13 @@ lv_vae_config = {
     #Path progression reward
     'PP_rew_max'                : 2,             # maximum reward for path progression
     'PP_rew_min'                : -1,            # minimum reward for path progression
+    'PP_rew_scale'              : 2,             # scale of path progression reward
     
     #Collision reward
-    'rew_collision'             : -60,           # reward (penalty) for collision
+    'rew_collision'             : -1000,           # reward (penalty) for collision
     
     #reach end reward
-    'rew_reach_end'             : 200,           # reward for reaching the end of the path
+    'rew_reach_end'             : 1000,           # reward for reaching the end of the path
 
     #Approach_end reward
     # "approach_end_sigma"        : 0.8,           # Sigma of the gaussian for the approach end reward #RATHER TUNE DOWN CA WHEN CLOSE TO END. ASSUME GOAL SAFE.
@@ -69,17 +71,20 @@ lv_vae_config = {
     'approach_end_range'          : 3,             # Dist[m] between goal and drone where Lambda CA and Lambda PA interpolate such that pa>ca
     
     #Existence reward
-    'existence_reward'          : -2.3,          # reward (penalty) for existing
+    'existence_reward'          : -8,          # reward (penalty) for existing
     
-    #Collision avoidance                         #Think the new one is superior
+    #Collision avoidance                         
     'CA_scale'                  : 1/1000,    # Scaling of the collision avoidance reward Found via tuning
     'CA_epsilon'                : 0.0001,    # Small number to avoid division by zero
     'TwoDgauss_sigma'           : 30,        # Sigma of the 2D gaussian for the collision avoidance reward
-    'TwoDgauss_peak'            : 1.5,         # Peak value at the center of the 2D gaussian
+    'TwoDgauss_peak'            : 1.5,       # Peak value at the center of the 2D gaussian (Amplitude)
     'min_CA_rew'                : -16.0,     # Minimum reward for collision avoidance #-20 is too penalizing I think
+    'max_CA_rew'                : 0,         # Max reward for collision avoidance 
+
+    #Lambda interpolation
+    'lambda_PA_max'             : 1,         # Maximum lambda value for path adherence
+    'lambda_CA_max'             : 1,         # Maximum lambda value for collision avoidance
+    
+    'lambda_PA_min'             : 0.1,       # Minimum lambda value for path adherence
+    'lambda_CA_min'             : 0.1,       # Minimum lambda value for collision avoidance
 }
-
-'''
-Logge reward komponentene under trening og se hvilke som bidrar til terning og hvilke som er counter productive
-
-'''
