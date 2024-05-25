@@ -34,16 +34,30 @@ train_config["recap_chance"] = 0.1
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---### 
 scenarios = {   #"line"                 :  0.1e6,
                 "line"                 :  1e6,
-                "easy"                 :  0.33e6,
-                "easy_random"          :  0.33e6, #Randomized pos and att of quad in easy scenario 
-                "intermediate"         :  1e6,
-                "proficient"           :  1e6,
-                "advanced"             :  1.5e6, 
+                "easy"                 :  1e6,
+                "easy_random"          :  1e6, #Randomized pos and att of quad in easy scenario 
+                "intermediate"         :  1.5e6,
+                "proficient"           :  1.5e6,
+                "advanced"             :  2e6, 
                 "expert"               :  2e6,
                 "proficient_perturbed" :  2e6,
                 "expert_perturbed"     :  2e6
              }
 
+scenario_success_threshold = {  "line"                 :  0.6, #TODO make the dict above a list of tuples instead #This is a quick fix
+                                "easy"                 :  0.6,
+                                "easy_random"          :  0.6,
+                                "intermediate"         :  0.8,
+                                "proficient"           :  0.8,
+                                "advanced"             :  0.9,
+                                "expert"               :  0.9,
+                                "proficient_perturbed" :  0.9,
+                                "expert_perturbed"     :  0.9
+                            }
+
+k = 3   # Number of consecutive episode successes that must be above the threshold to move to the next scenario
+        # (This is later multiplied by the number of environments to get the total number of successes needed to move on)
+        
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
 PPO_hyperparams = {
     'n_steps': 2048, 
@@ -183,7 +197,7 @@ if __name__ == '__main__':
         
         if i == 0 and continual_step != 0: #First scenario but not first training
             print("CONTINUING TRAINING FROM", continual_step*num_envs, "TIMESTEPS")
-            continual_model = os.path.join(experiment_dir, scenario_list[i-1], "agents", f"model_{continual_step}.zip")
+            continual_model = os.path.join(experiment_dir, scen, "agents", f"model_{continual_step}.zip")
             agent = PPO.load(continual_model, _init_setup_model=True, env=env, **PPO_hyperparams)
 
         if i > 0 and continual_step == 0: #Switching to new scenario using the last model from previous scenario
@@ -211,8 +225,7 @@ if __name__ == '__main__':
         #             progress_bar=True)
         
         #NEW
-        k = 5  # Number of consecutive successes that must be above the threshold to move to the next scenario
-        success_threshold = 0.8  # Success rate threshold to move to the next scenario #TODO map success to scenario dict so each scenario can have its own threshold
+        success_threshold = scenario_success_threshold[scen] # Success rate threshold to move to the next scenario 
         callback = TensorboardLogger(agents_dir=agents_dir, 
                                      log_freq=PPO_hyperparams["n_steps"], 
                                      save_freq=10000, 
