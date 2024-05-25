@@ -162,7 +162,8 @@ result_config = lv_vae_config.copy()
 result_config["max_t_steps"] = 3500
 result_config["recap_chance"] = 0
 result_config["perturb_sim"] = True
-result_config["accept_rad"] = 1 #Make it larger than during training to avoid agent harvesting reach end rewards
+result_config["accept_rad"] = 0.25
+result_config["min_reward"] = -300e4
  
 if __name__ == "__main__":
     _, _, args = parse_experiment_info()
@@ -185,7 +186,7 @@ if __name__ == "__main__":
                 tasks.append((trained_scen, agent, test_scen, result_config.copy(), args, base_experiment_dir))
 
     # Define batch size and split tasks into batches
-    batch_size = 12  # Adjust the batch size based on your system's capacity
+    batch_size = 8  # Adjust the batch size based on your system's capacity
     num_batches = len(tasks) // batch_size + int(len(tasks) % batch_size > 0)
 
     for batch_idx in range(num_batches):

@@ -64,8 +64,8 @@ def visualize_results(avg_results,trained_scen):
 
 if __name__ == "__main__":
 
-    exp_id = 4001
-    trained_scen = "expert"
+    exp_id = 7000
+    trained_scen = "proficient_perturbed"
 
     base_dir = f'log/LV_VAE_MESH-v0/Experiment {exp_id}/{trained_scen}/results_gen'  # Base directory containing test scenario directories
     results = collect_results(base_dir)

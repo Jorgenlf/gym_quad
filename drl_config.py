@@ -60,7 +60,7 @@ lv_vae_config = {
     #Path progression reward
     'PP_rew_max'                : 2,             # maximum reward for path progression
     'PP_rew_min'                : -1,            # minimum reward for path progression
-    'PP_rew_scale'              : 2,             # scale of path progression reward
+    'PP_rew_scale'              : 0.75,             # scale of path progression reward
     
     #Collision reward
     'rew_collision'             : -1000,           # reward (penalty) for collision

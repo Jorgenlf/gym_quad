@@ -41,6 +41,7 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
 
         self.meshes, self.room_mesh, self.house_mesh = self.obstacles_to_pyvista_meshes(obstacles)
         self.quadratic_path = self.dash_path(self.get_path_as_arr(path))
+        #self.quadratic_path = self.get_path_as_arr(path)
         # if any of the obstacles are imported mesh obstacle, set padding to negative value
         padding = 2 if any([isinstance(o, ImportedMeshObstacle) for o in obstacles]) else 0
         self.bounds, self.scaled_bounds = self.get_scene_bounds(obstacles, path, drone_traj, padding=0)
@@ -68,9 +69,10 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
         }
     
     def dash_path(self, path: np.ndarray, n=100):
-        """Makes the path equal zeros except for evety nth element"""
-        new_path = np.zeros_like(path)
-        new_path[::n] = path[::n]
+        """Creates a new path which just consists of every nth element of the original path"""
+        new_path = np.ndarray((0,3))
+        for i in range(0, len(path), n):
+            new_path = np.vstack((new_path, path[i]))
         return new_path
 
     def get_path_as_arr(self, path: QPMI):

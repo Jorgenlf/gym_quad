@@ -388,10 +388,11 @@ def generate_random_waypoints(nwaypoints, scen, segmentlength=5, select_house_pa
     waypoints = [np.array([0,0,0])]
 
     if scen == "house": 
-        waypoints.pop(0)  # remove the initial waypoint
+        #waypoints.pop(0)  # remove the initial waypoint
+        waypoints = []
 
         # Define the subpaths
-        path_1 = house_paths["bedroom_to_kitchen"]
+        path_1 = house_paths["bedroom_to_kitchen"]          # Hard path
 
         path_2 = concatenate_paths(
             house_paths["leisure_room_to_corridor"],
@@ -418,8 +419,13 @@ def generate_random_waypoints(nwaypoints, scen, segmentlength=5, select_house_pa
             house_paths["living_room_to_kitchen"]
         )
 
+        path_6 = concatenate_paths(                         # Easy path
+            house_paths["main_bedroom_to_corridor"],
+            house_paths["corridor_to_guest_room"]
+        )
+
         # Select one of the paths based on random choice or a specific selection
-        paths = [path_1, path_2, path_3, path_4, path_5]
+        paths = [path_1, path_2, path_3, path_4, path_5, path_6]
         selected_path = select_house_path - 1 if select_house_path is not None else np.random.randint(len(paths))
         waypoints.extend(map(np.array, paths[selected_path]))    
         
@@ -562,7 +568,7 @@ if __name__ == "__main__":
                     np.array([80,80,60]), np.array([50,80,20]), np.array([20,60,15]), np.array([20,40,10]), np.array([0,0,0])])
     #wps = np.array([np.array([0,0,0]), np.array([20,25,22]), np.array([50,40,30]), np.array([90,55,60]), np.array([130,95,110]), np.array([155,65,86])])
     #wps = generate_random_waypoints(10)
-    wps = generate_random_waypoints(nwaypoints=6,segmentlength=5, scen='3d_up', select_house_path=5)
+    wps = generate_random_waypoints(nwaypoints=6,segmentlength=5, scen='house',select_house_path=6)
     path = QPMI(wps)
    
     # point = path(20)
