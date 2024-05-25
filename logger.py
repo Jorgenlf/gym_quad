@@ -46,7 +46,6 @@ class TensorboardLogger(BaseCallback):
             self.logger.record('time/episodes', self.n_episodes)
             infos = np.array(self.locals["infos"])[done_array]
 
-
             #The np.mean covers the rare case of several agents being done at the same time
             
             #Average over all agents last time step (done by record_mean function)
@@ -91,7 +90,7 @@ class TensorboardLogger(BaseCallback):
             #Cumulative errors divided by the number of steps to get averages per episode
             #Reward metrics
             avg_episode_avg_agent_reward = np.mean([info["cumulative_reward"]/info["env_steps"] for info in infos])
-            avg_agent_reward = np.mean([info["cumulative_reward"] for info in infos])
+            avg_agent_cum_reward = np.mean([info["cumulative_reward"] for info in infos])
             avg_episode_avg_agent_CA_reward = np.mean([info["cum_CA_rew"]/info["env_steps"] for info in infos])
             avg_episode_avg_agent_path_adherence = np.mean([info["cum_path_adherence_rew"]/info["env_steps"] for info in infos])
             avg_episode_avg_agent_path_progression = np.mean([info["cum_path_progression_rew"]/info["env_steps"] for info in infos])
@@ -100,7 +99,7 @@ class TensorboardLogger(BaseCallback):
             avg_episode_avg_agent_reach_end_reward = np.mean([info["cum_reach_end_rew"]/info["env_steps"] for info in infos])
             avg_episode_avg_agent_lambda_PA = np.mean([info["cum_lambda_PA"]/info["env_steps"] for info in infos]) 
             avg_episode_avg_agent_lambda_CA = np.mean([info["cum_lambda_CA"]/info["env_steps"] for info in infos])
-            self.logger.record_mean("1_reward/a_avg_reward", avg_agent_reward)
+            self.logger.record_mean("1_reward/a_avg_cum_reward", avg_agent_cum_reward)
             self.logger.record_mean("1_reward/ep_&_a_avg_reward", avg_episode_avg_agent_reward)
             self.logger.record_mean("1_reward/ep_&_a_avg_CA_reward", avg_episode_avg_agent_CA_reward)
             self.logger.record_mean("1_reward/ep_&_a_avg_path_adherence", avg_episode_avg_agent_path_adherence)

@@ -4,7 +4,6 @@ import gymnasium as gym
 import gym_quad
 import numpy as np
 import multiprocessing
-from  multiprocessing.pool import Pool as pool
 import glob
 import re
 import time
@@ -21,70 +20,18 @@ from train_run_utils import parse_experiment_info
 
 import warnings
 # Filter out the specific warning
-#NB this is a temporary fix to avoid the warning from pytorch3d #Need the mtl file if we want actual images.
+#NB this is a temporary fix to avoid the warning from pytorch3d #Need the mtl file if we want actual images and not just depth.
 warnings.filterwarnings("ignore", message="No mtl file provided", category=UserWarning, module="pytorch3d.io.obj_io")
 
 
 ###---###---### IMPORT THE DRL_CONFIG AND MODIFY IF NEEDED ###---###---###
 from drl_config import lv_vae_config
 train_config = lv_vae_config.copy()
-train_config["max_t_steps"] = 8000
+train_config["max_t_steps"] = 6000
 train_config["recap_chance"] = 0.1
-train_config["max_approach_end_rew"] = - train_config["existence_reward"]
 
 
-###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---###
-# total_timesteps = 10e6 #15e6
-# scenarios = {"line"         :   2.5e5, #Experimental result see Exp 4 on "Jørgen PC"
-#              "3d_new"       :   2.5e5,
-#              "intermediate" :   total_timesteps*0.2,
-#              "proficient"   :   total_timesteps*0.3,
-#              "expert"       :   total_timesteps*0.3}
-
-# scenarios = {"3d_new"         :   2048,
-#              "proficient"     :   2048,
-#              "expert"     :   2048}
-             
-
-# #THIS CONFIG GAVE AN AGENT THAT MANAGED EVERYTHING EXCEPT DEADEND (4.27.24) BEFORE INTRODUCTION OF BOX 
-#See exp dir 2 on jørgen pc or exp dir 2 in the good experiments folder. 
-scenarios = {   "line"          :   1e5,
-                "easy"          :   1e6,
-                "proficient"    :   1e6,
-                "intermediate"  :   1e6,
-                "expert"        :   1e6
-             }
-
-
-#This config which is similar to the one above (see exp dir 3 on jørgen pc)
-#except that intermediate and proficient is flipped (which according to their names would make more sense)
-#Does NOT work. I think this comes from the intermediate scenario only having 1 obstacle resulting in less obsatcle information per run
-#Which might lead the agent to focus on path following instead as this yields most rewards in this scenario.
-# scenarios = {   "line"          :   2e5,
-#                 "easy"          :   1e6,
-#                 "intermediate"  :   1e6,
-#                 "proficient"    :   1e6,
-#                 "expert"        :   1e6
-#              }
-
-#I think that doing line-easy-proficient-expert with more time in easy proficient and expert is the way to go. 
-#DID NOT WORK ACCORDING TO ONE TEST RUN See "Magnus PC" exp dir 6
-# scenarios = {   "line"          :   2e5,
-#                 "easy"          :   1.5e6,
-#                 "proficient"    :   2e6,
-#                 "expert"        :   2.5e6
-#             }
-
-#Newest config using the sameish setup as the one succesful one,
-#but added easy_random which randomizes the position and attitude of the quad
-# scenarios = {   "line"          :   1e5,
-#                 "easy"          :   1e6,
-#                 "easy_random"   :   1e6, #Randomized pos and att of quad in easy scenario
-#                 "proficient"    :   1e6,
-#                 "intermediate"  :   1e6,
-#                 "expert"        :   1e6
-#              }
-
+###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---### 
 scenarios = {   "line"                 :  0.1e6,
                 "easy"                 :  0.33e6,
                 "easy_random"          :  0.33e6, 
@@ -99,14 +46,6 @@ scenarios = {   "line"                 :  0.1e6,
 # scenarios = {"easy_random"                 :  0.1e6}
 
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
-'''From kulkarni paper:
-The neural network is trained with an adaptive learning rate initialized at lr = 10−4. 
-The discount factor is set to γ = 0.98. 
-The neural network is trained with 1024 environments simulated in parallel with an average time step of 0.1s 
-and rollout buffer size set to 32. 
-We train this policy for approximately 26 × 10^6 environment steps aggregated over all agents.
-'''
-#TODO implement the above hyperparameters????
 PPO_hyperparams = {
     'n_steps': 2048, 
     'batch_size': 128,
@@ -122,22 +61,14 @@ PPO_hyperparams = {
     #"optimizer_kwargs":{"lr": 10e-4}
 }
 
-
 ###---###---### SELECT POLICYKWARGS HERE - FEATUREEXTRACTOR AND PPO NETWORK ACRHITECTURE ###---###---###
-
 #VAE
-# encoder_path = None #If you want to train the encoder from scratch
-# encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_3000_seed1.json"
-# encoder_path = None
 encoder_path = None #f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_7_seed1.json"
 lock_params = False #True if you want to lock the encoder parameters. False to let them be trained
 lock_params_conv = False #True if you want to lock the convolutional layers of the encoder. False to let them be trained
 
 #PPO
-#From Ørjan:    net_arch = dict(pi=[128, 64, 32], vf=[128, 64, 32])
-#SB3 default:   net_arch = dict(pi=[64, 64], vf=[64, 64])
-#From Kulkarni: net_arch = dict(pi=[512, 256, 64], vf=[512, 256, 64]) #NB: GRU is not included in this probs overkill though
-ppo_pi_vf_arch = dict(pi = [128,64,32], vf = [128,64,32]) #The PPO network architecture policy and value function
+ppo_pi_vf_arch = dict(pi = [128,64,32], vf = [128,64,32])
 
 policy_kwargs = dict(
     features_extractor_class = PerceptionIMUDomainExtractor,
@@ -150,9 +81,11 @@ policy_kwargs = dict(
     net_arch = ppo_pi_vf_arch
 )
 
-
 """
-To train the agent, run the following command in terminal exchange x for the experiment id you want to train:
+To train the agent, run the following command in terminal select 
+the number of cores to use for training with the --n_cpu flag
+the expirment id with the --exp_id flag
+
 python train3d.py --exp_id x --n_cpu x
 """
 
