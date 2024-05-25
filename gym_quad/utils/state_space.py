@@ -15,7 +15,7 @@ g = 9.81
 '''#-#-#-# NEW THOMAS DRONE #-#-#-#'''
 m = 1.262   #kg
 W = m*g     #N
-l = 0.25    #m length from rotors to center of mass
+l = 0.25    #m length from rotors to center of mass (quad height is 0.21m)
 
 thrust_min = 0 #N #TODO this not being able to go negative might cause issues
 thrust_max = 16.9655045  #N

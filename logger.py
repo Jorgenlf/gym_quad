@@ -16,7 +16,7 @@ class TensorboardLogger(BaseCallback):
     tensorboard --logdir 'log/LV_VAE_MESH-v0/Experiment x'
     '''
 
-    def __init__(self, agents_dir=None, verbose=0, log_freq=1024, save_freq=10000):
+    def __init__(self, agents_dir=None, verbose=0, log_freq=1024, save_freq=10000, success_buffer_size=5, n_cpu = 1 , success_threshold=0.8, use_success_as_stopping_criterion=False):
         super().__init__(verbose)
         self.agents_dir = agents_dir
         self.n_episodes = 0
@@ -24,6 +24,10 @@ class TensorboardLogger(BaseCallback):
         self.n_calls = 0
         self.log_freq = log_freq
         self.save_freq = save_freq
+        self.success_buffer_size = success_buffer_size * n_cpu
+        self.prev_successes = []
+        self.success_threshold = success_threshold
+        self.use_success_as_stopping_criterion = use_success_as_stopping_criterion
         self.state_names = ["x", "y", "z", "roll", "pitch", "yaw", "u", "v", "w", "p", "q", "r"]
         self.error_names = ["e", "h"]
 
@@ -120,6 +124,15 @@ class TensorboardLogger(BaseCallback):
             self.logger.record_mean("2_terminal_metrics/min_rew_reached_rate", avg_agent_min_rew_reached)
             self.logger.record_mean("2_terminal_metrics/success_rate", avg_agent_success)
 
+            #Using success rate as stopping criterion
+            if self.use_success_as_stopping_criterion:
+                if len(self.prev_successes) > self.success_buffer_size:
+                    self.prev_successes.pop(0)
+                self.prev_successes.append(avg_agent_success)
+                print("Avg successes across last n_cpu agents times k: ", np.mean(self.prev_successes))
+                if np.mean(self.prev_successes) > self.success_threshold:
+                    return False #Stop training and let train3d.py save the model
+
             #Metrics for report plotting
             avg_episode_avg_agent_path_prog = np.mean([info["progression"] for info in infos])
             avg_episode_avg_agent_time = np.mean([info["time"] for info in infos])
@@ -137,7 +150,6 @@ class TensorboardLogger(BaseCallback):
             avg_ep_a_speed = np.mean([info["cum_speed"]/info["env_steps"] for info in infos])
 
             self.logger.record_mean("4_quadcopter_state/ep_&_a_avg_speed", avg_ep_a_speed)
-
 
 
         if self.n_steps % self.log_freq == 0:
