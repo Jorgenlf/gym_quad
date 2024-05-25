@@ -1,5 +1,4 @@
 import numpy as np
-import gym_quad.utils.geomutils as geom
 from numpy.linalg import inv
 from math import cos, sin
 
@@ -12,32 +11,77 @@ I3 = np.identity(3)
 zero3= 0 * I3
 g = 9.81
 
-# Quad parameters
-m = 0.5 #kg
-W = m*g #N
 
-thrust_min = -6 #N
-thrust_max = 6  #N
+'''#-#-#-# NEW THOMAS DRONE #-#-#-#'''
+m = 1.262   #kg
+W = m*g     #N
+l = 0.25    #m length from rotors to center of mass
 
-# Moments of inertia
-I_x = 0.005
+thrust_min = 0 #N #TODO this not being able to go negative might cause issues
+thrust_max = 16.9655045  #N
+
+# Moments of inertia found assuming quad is a solid disc
+I_x = 0.01971875
 I_y = I_x
-I_z = 0.01
+I_z = 0.0394375
 Ig = np.vstack([
     np.hstack([I_x, 0, 0]),
     np.hstack([0, I_y, 0]),
     np.hstack([0, 0, I_z])])
 
-lamb = 0.08 # inflow ratio
-l = 0.5 # length from rotors to center of mass
+lamb = 0.13695 # Torque Thrust Ratio found using (C_q/C_T)*D and https://m-selig.ae.illinois.edu/props/volume-2/propDB-volume-2.html
 
+#Keep the old values for now
+# Aerodynamic friction Coefficients
+d_u = 0.3729
+d_v = 0.3729
+d_w = 0.3729
+
+# Rotational drag Coefficients
+d_p = 5.56e-4
+d_q = 5.56e-4
+d_r = 5.56e-4
+
+
+'''#-#-#-# OLD (ØRJAN) DRONE #-#-#-#'''
+# Quad parameters
+# m = 0.5 #kg
+# W = m*g #N
+
+# thrust_min = -6 #N
+# thrust_max = 6  #N
+
+# # Moments of inertia
+# I_x = 0.005
+# I_y = I_x
+# I_z = 0.01
+# Ig = np.vstack([
+#     np.hstack([I_x, 0, 0]),
+#     np.hstack([0, I_y, 0]),
+#     np.hstack([0, 0, I_z])])
+
+# lamb = 0.08 # inflow ratio
+# l = 0.5 # length from rotors to center of mass
+
+# # Aerodynamic friction Coefficients
+# d_u = 0.3729
+# d_v = 0.3729
+# d_w = 0.3729
+
+# # Rotational drag Coefficients
+# d_p = 5.56e-4
+# d_q = 5.56e-4
+# d_r = 5.56e-4
+
+'''#-#-#-# ANOTHER DRONE PLACEHOLDER #-#-#-#'''
+
+#####################
 def M_RB():
     M_RB_CG = np.vstack([
         np.hstack([m * I3, zero3]),
         np.hstack([zero3, Ig])
     ])
 
-    #M_RB_CO = geom.move_to_CO(M_RB_CG, r_G)
     return M_RB_CG
 
 
@@ -80,18 +124,6 @@ def G(eta):
         0
     ])
     return G
-
-##############################################################
-
-# Aerodynamic friction Coefficients
-d_u = 0.3729
-d_v = 0.3729
-d_w = 0.3729
-
-# Rotational drag Coefficients
-d_p = 5.56e-4
-d_q = 5.56e-4
-d_r = 5.56e-4
 
 def d(nu):
     u = nu[0]

@@ -137,7 +137,7 @@ class LV_VAE_MESH(gym.Env):
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu") #Attempt to use GPU if available
 
         #Init the quadcopter mesh for collison detection only needed to be done once so it is done here
-        self.tri_quad_mesh = trimesh.load("gym_quad/meshes/sphere.obj")
+        self.tri_quad_mesh = trimesh.load("gym_quad/meshes/sphere.obj") #TODO This should be a cylinder instead, need to know height then
         r = self.drone_radius_for_collision
         self.tri_quad_mesh.apply_scale(r)
 

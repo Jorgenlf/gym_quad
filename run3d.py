@@ -47,7 +47,6 @@ if __name__ == "__main__":
     run_config["recap_chance"] = 0.0 # No recapitulation when running
     run_config["max_t_steps"] = 6000 # Maximum number of timesteps in the DRL simulation before it is terminated
 
-    register_lv_vae_envs(run_config)
     
     experiment_dir, agent_path, args = parse_experiment_info()
 
@@ -56,15 +55,17 @@ if __name__ == "__main__":
     os.makedirs(experiment_dir, exist_ok=True)
 
     #----#----#For running of file without the need of command line arguments#----#----#
-
     # args = Namespace(manual_control=True, env = "LV_VAE_MESH-v0", save_depth_maps=False) 
-    manual_scenario = "proficient" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash", "easy"
+    manual_scenario = "line" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash", "easy"
+    # if args.manual_control == True:
+    #     run_config["enclose_scene"] = False
     
-    #Temp variables for debugging
-    quad_pos_log = []
-    quad_mesh_pos_log = []
+    # #Temp variables for debugging
+    # quad_pos_log = []
+    # quad_mesh_pos_log = []
     #----#----#NB uncomment when running actual agents#----#----#
 
+    register_lv_vae_envs(run_config)
     if args.manual_control == False:
         tests = glob.glob(os.path.join(experiment_dir, "test*"))
         if tests == []:
@@ -91,7 +92,7 @@ if __name__ == "__main__":
             for episode in range(args.episodes):
                 try:
                     episode_df, env = simulate_environment(episode, env, agent, test_dir, args.save_depth_maps)
-                    sim_df = pd.concat([sim_df, episode_df], ignore_index=True) #TODO make it work with several episodes
+                    sim_df = pd.concat([sim_df, episode_df], ignore_index=True) 
                 except NameError:
                     sim_df = episode_df
 

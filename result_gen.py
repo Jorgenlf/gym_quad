@@ -81,20 +81,6 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
         summary.to_csv(summary_path, index=False)
 
     env = gym.make(args.env, scenario=test_scen)
-    #TODO Low pri possible improvement run several envs in parallel to speed up testing, 
-    # will require refactoring of how data is saved and handled in the fcns below:
-    # def make_env(env_id, scenario, rank, seed=0):
-    #     def _init():
-    #         register_lv_vae_envs(train_config)  # Register the env in the subprocess
-    #         env = gym.make(env_id, scenario=scenario)
-    #         env.reset(seed=seed + rank)  # Set the seed here via reset
-    #         return Monitor(env)
-    #     set_random_seed(seed)
-    #     return _init
-
-    # n_envs = min(args.episodes, 4)  # Adjust number of parallel environments based on available resources
-    # env = SubprocVecEnv([make_env() for _ in range(n_envs)])
-
     agent_model = PPO.load(agent)
 
     cum_rewards = {}
@@ -162,7 +148,7 @@ result_config = lv_vae_config.copy()
 result_config["max_t_steps"] = 3500
 result_config["recap_chance"] = 0
 result_config["perturb_sim"] = True
-result_config["accept_rad"] = 1 #Make it larger than during training to avoid agent harvesting reach end rewards
+result_config["min_reward"] = -100e4 #TODO decide if this should be done (I think so) Minus 100k to avoid early termination due to reward when testing
  
 if __name__ == "__main__":
     _, _, args = parse_experiment_info()

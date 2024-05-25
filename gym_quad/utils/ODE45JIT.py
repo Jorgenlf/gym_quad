@@ -7,30 +7,78 @@ import numba as nb
 #ENSURE THAT IT MATCHES THE ONE IN THIS FILE (ODE45JIT.PY)
 
 #STATE SPACE AS JIT FUNCTIONS
+
 I3 = np.identity(3)
 zero3= 0 * I3
 g = np.float64(9.81)
 
-# Quad parameters
-m = np.float64(0.5) #kg #IF YOU CHANGE THIS YOU NEED TO CHANGE THE INVERSE MASS MATRIX AT LINE 65ish
-W = np.float64(m*g) #N
+'''#-#-#-# NEW THOMAS DRONE #-#-#-#'''
+m = np.float64(1.262)   #kg
+W = m*g                 #N
+l = np.float64(0.25)    #m length from rotors to center of mass
 
-thrust_min = np.float64(-6) #N
-thrust_max = np.float64(6)  #N
+thrust_min = np.float64(0) #N #TODO this not being able to go negative might cause issues
+thrust_max = np.float64(16.9655045)  #N
 
-# Moments of inertia
-I_x = np.float64(0.005) #IF YOU CHANGE THIS YOU NEED TO CHANGE THE INVERSE MASS MATRIX AT LINE 65ish
-I_y = I_x               #IF YOU CHANGE THIS YOU NEED TO CHANGE THE INVERSE MASS MATRIX AT LINE 65ish
-I_z = np.float64(0.01)  #IF YOU CHANGE THIS YOU NEED TO CHANGE THE INVERSE MASS MATRIX AT LINE 65ish
-Ig = np.vstack([        #IF YOU CHANGE THIS YOU NEED TO CHANGE THE INVERSE MASS MATRIX AT LINE 65ish
+# Moments of inertia found assuming quad is a solid disc
+I_x = np.float64(0.01971875)
+I_y = I_x
+I_z = np.float64(0.0394375)
+Ig = np.vstack([
     np.hstack([I_x, 0, 0]),
     np.hstack([0, I_y, 0]),
-    np.hstack([0, 0, I_z])],dtype=np.float64)
+    np.hstack([0, 0, I_z])])
+
+lamb = np.float64(0.13695) # Torque Thrust Ratio found using (C_q/C_T)*D and https://m-selig.ae.illinois.edu/props/volume-2/propDB-volume-2.html
+
+#Keep the old values for now
+# Aerodynamic Linear friction Coefficients 
+d_u = np.float64(0.3729)
+d_v = np.float64(0.3729)
+d_w = np.float64(0.3729)
+
+# Rotational drag Coefficients
+d_p = np.float64(5.56e-4)
+d_q = np.float64(5.56e-4)
+d_r = np.float64(5.56e-4)
 
 
-lamb = np.float64(0.08) # inflow ratio
-l = np.float64(0.5) # length from rotors to center of mass
+'''#-#-#-# OLD (ØRJAN) DRONE #-#-#-#'''
+# # Quad parameters
+# m = np.float64(0.5) #kg #IF YOU CHANGE THIS YOU NEED TO CHANGE THE INVERSE MASS MATRIX
+# W = np.float64(m*g) #N
 
+# thrust_min = np.float64(-6) #N
+# thrust_max = np.float64(6)  #N
+
+# # Moments of inertia
+# I_x = np.float64(0.005) #IF YOU CHANGE THIS YOU NEED TO CHANGE THE INVERSE MASS MATRIX
+# I_y = I_x               #IF YOU CHANGE THIS YOU NEED TO CHANGE THE INVERSE MASS MATRIX
+# I_z = np.float64(0.01)  #IF YOU CHANGE THIS YOU NEED TO CHANGE THE INVERSE MASS MATRIX
+# Ig = np.vstack([        #IF YOU CHANGE THIS YOU NEED TO CHANGE THE INVERSE MASS MATRIX
+#     np.hstack([I_x, 0, 0]),
+#     np.hstack([0, I_y, 0]),
+#     np.hstack([0, 0, I_z])],dtype=np.float64)
+
+# lamb = np.float64(0.08) # inflow ratio
+# l = np.float64(0.5) # length from rotors to center of mass
+
+# # Aerodynamic friction Coefficients
+# d_u = np.float64(0.3729)
+# d_v = np.float64(0.3729)
+# d_w = np.float64(0.3729)
+
+# # Rotational drag Coefficients
+# d_p = np.float64(5.56e-4)
+# d_q = np.float64(5.56e-4)
+# d_r = np.float64(5.56e-4)
+
+'''#-#-#-# ANOTHER DRONE PLACEHOLDER #-#-#-#'''
+
+
+
+
+####################
 B = np.array([[0, 0, 0, 0],
                 [0, 0, 0, 0],
                 [1, 1, 1, 1],
@@ -60,14 +108,27 @@ def j_M_inv()->np.ndarray:
 # print("\nInverse of M:",j_M_inv())
 
 #AND ASK E.G. GPT TO WRITE IT AS np.array OR MANUALLY WRITE IT
+
+#-#-#-# NEW THOMAS DRONE M_inv #-#-#-#
 M_inv = np.array([
-    [2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-    [0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
-    [0.0, 0.0, 2.0, 0.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0, 200.0, 0.0, 0.0],
-    [0.0, 0.0, 0.0, 0.0, 200.0, 0.0],
-    [0.0, 0.0, 0.0, 0.0, 0.0, 100.0]
-], dtype=np.float64)
+    [ 0.79239303,  0.        ,  0.        ,  0.        ,  0.        ,  0.        ],
+    [ 0.        ,  0.79239303,  0.        ,  0.        ,  0.        ,  0.        ],
+    [ 0.        ,  0.        ,  0.79239303,  0.        ,  0.        ,  0.        ],
+    [ 0.        ,  0.        ,  0.        , 50.71315372,  0.        ,  0.        ],
+    [ 0.        ,  0.        ,  0.        ,  0.        , 50.71315372,  0.        ],
+    [ 0.        ,  0.        ,  0.        ,  0.        ,  0.        , 25.35657686]
+],dtype=np.float64)
+
+
+#-#-#-# OLD (ØRJAN) DRONE M_inv #-#-#-#
+# M_inv = np.array([
+#     [2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+#     [0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+#     [0.0, 0.0, 2.0, 0.0, 0.0, 0.0],
+#     [0.0, 0.0, 0.0, 200.0, 0.0, 0.0],
+#     [0.0, 0.0, 0.0, 0.0, 200.0, 0.0],
+#     [0.0, 0.0, 0.0, 0.0, 0.0, 100.0]
+# ], dtype=np.float64)
 
 # print("Determinant of invM:", np.linalg.det(M_inv))
 # print("Condition number of invM:", np.linalg.cond(M_inv))
@@ -103,15 +164,6 @@ def j_G(eta:np.ndarray)->np.ndarray:
     return G
 
 
-# Aerodynamic friction Coefficients
-d_u = np.float64(0.3729)
-d_v = np.float64(0.3729)
-d_w = np.float64(0.3729)
-
-# Rotational drag Coefficients
-d_p = np.float64(5.56e-4)
-d_q = np.float64(5.56e-4)
-d_r = np.float64(5.56e-4)
 
 @nb.jit
 def j_d(nu:np.ndarray)->np.ndarray:
