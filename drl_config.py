@@ -35,9 +35,9 @@ lv_vae_config = {
     "latent_dim"                : 64,               # Dimension of the latent space
 #Path related parameters    
     "la_dist"                   : 3.5,              # Look ahead distance aka distance to the point on path to be followed. #LAidst 0.5 is nice in house
-    "accept_rad"                : 0.3,             # Acceptance radius for the quadcopter to consider the end as reached    
-    "n_waypoints"               : 6,                # Number of waypoints to be generated
-    "segment_length"            : 5,                # Length of the segments between waypoints
+    "accept_rad"                : 0.3,              # Acceptance radius for the quadcopter to consider the end as reached    
+    "n_waypoints"               : 12,               # Number of waypoints to be generated
+    "segment_length"            : 2.5,              # Length of the segments between waypoints
     "relevant_dist_to_path"     : 8,                # Distance to the path where the observation will yield values between -1 and 1
 #Drone controller parameters    
     "s_max"                     : 2,                # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  #Speed 1 is nice in house
@@ -47,7 +47,7 @@ lv_vae_config = {
     "kR"                        : 2.5,   #ØD 2,     # Attitude proportional gain             
     "kangvel"                   : 0.35,  #ØD 0.3,   # Angular velocity damping gain 
 #Reward parameters
-    "min_reward"                : -3e4,             # Minimum reward before the simulation is terminated 
+    "min_reward"                : -4e4,             # Minimum reward before the simulation is terminated 
                                                     #In expert i often accumulates less than 2000 when existence is -8 and min ca is -16
     
     #Path adherence reward
@@ -57,7 +57,7 @@ lv_vae_config = {
     #Path progression reward
     'PP_rew_max'                : 2,                # maximum reward for path progression
     'PP_rew_min'                : -1,               # minimum reward for path progression
-    'PP_rew_scale'              : 0.5,              # scale of path progression reward
+    'PP_rew_scale'              : 0.5,                # scale of path progression reward
     
     #Collision reward
     'rew_collision'             : -1000,            # reward (penalty) for collision
@@ -65,11 +65,15 @@ lv_vae_config = {
     #reach end reward
     'rew_reach_end'             : 1000,             # reward for reaching the end of the path
 
+    #pass wp reward
+    'rew_pass_wp'               : 1000/11,          # reward for passing a waypoint
+                                #=rew_reach_end/n_wps-1 #TODO decide what the reward should be for passing a waypoint maybe rew_reach_end/3 or 4 or something else hmh
+
     #Approach end lambda interpolation
     'approach_end_range'        : 3,                # Dist[m] between goal and drone where Lambda CA and Lambda PA interpolate such that pa>ca
 
     #Existence reward   
-    'existence_reward'          : -8,               # reward (penalty) for existing
+    'existence_reward'          : -9,               # reward (penalty) for existing
     
     #Collision avoidance                         
     'CA_scale'                  : 1/1000,           # Scaling of the collision avoidance reward Found via tuning

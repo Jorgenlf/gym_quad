@@ -103,6 +103,8 @@ class TensorboardLogger(BaseCallback):
             avg_episode_avg_agent_reach_end_reward = np.mean([info["cum_reach_end_rew"]/info["env_steps"] for info in infos])
             avg_episode_avg_agent_lambda_PA = np.mean([info["cum_lambda_PA"]/info["env_steps"] for info in infos]) 
             avg_episode_avg_agent_lambda_CA = np.mean([info["cum_lambda_CA"]/info["env_steps"] for info in infos])
+            avg_episode_avg_agent_pass_wp_reward = np.mean([info["cum_pass_wp_rew"]/info["env_steps"] for info in infos])
+
             self.logger.record_mean("1_reward/a_avg_cum_reward", avg_agent_cum_reward)
             self.logger.record_mean("1_reward/ep_&_a_avg_reward", avg_episode_avg_agent_reward)
             self.logger.record_mean("1_reward/ep_&_a_avg_CA_reward", avg_episode_avg_agent_CA_reward)
@@ -113,6 +115,7 @@ class TensorboardLogger(BaseCallback):
             self.logger.record_mean("1_reward/ep_&_a_avg_reach_end_reward", avg_episode_avg_agent_reach_end_reward)
             self.logger.record_mean("1_reward/ep_&_a_avg_lambda_PA", avg_episode_avg_agent_lambda_PA)
             self.logger.record_mean("1_reward/ep_&_a_avg_lambda_CA", avg_episode_avg_agent_lambda_CA)
+            self.logger.record_mean("1_reward/ep_&_a_avg_pass_wp_reward", avg_episode_avg_agent_pass_wp_reward)
 
             #Terminal metrics
             avg_agent_collision = np.mean([info["collision_rate"] for info in infos])
