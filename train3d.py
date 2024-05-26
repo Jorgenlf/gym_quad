@@ -55,7 +55,7 @@ scenario_success_threshold = {  "line"                 :  0.6, #TODO make the di
                                 "expert_perturbed"     :  0.9
                             }
 
-k = 3   # Number of consecutive episode successes that must be above the threshold to move to the next scenario
+k = 4   # Number of consecutive episode successes that must be above the threshold to move to the next scenario
         # (This is later multiplied by the number of environments to get the total number of successes needed to move on)
         
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
@@ -218,13 +218,6 @@ if __name__ == '__main__':
         timesteps = scenarios[scen] - num_envs*continual_step
         print("\nTRAINING FOR", timesteps, "TIMESTEPS", "IN", scen.upper())
 
-        #OLD
-        # agent.learn(total_timesteps=timesteps, 
-        #             tb_log_name="PPO",
-        #             callback=TensorboardLogger(agents_dir=agents_dir, log_freq=PPO_hyperparams["n_steps"], save_freq=10000),
-        #             progress_bar=True)
-        
-        #NEW
         success_threshold = scenario_success_threshold[scen] # Success rate threshold to move to the next scenario 
         callback = TensorboardLogger(agents_dir=agents_dir, 
                                      log_freq=PPO_hyperparams["n_steps"], 

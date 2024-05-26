@@ -57,7 +57,7 @@ lv_vae_config = {
     #Path progression reward
     'PP_rew_max'                : 2,                # maximum reward for path progression
     'PP_rew_min'                : -1,               # minimum reward for path progression
-    'PP_rew_scale'              : 0.5,                # scale of path progression reward
+    'PP_rew_scale'              : 0.75,             # scale of path progression reward
     
     #Collision reward
     'rew_collision'             : -1000,            # reward (penalty) for collision
@@ -73,7 +73,7 @@ lv_vae_config = {
     'approach_end_range'        : 3,                # Dist[m] between goal and drone where Lambda CA and Lambda PA interpolate such that pa>ca
 
     #Existence reward   
-    'existence_reward'          : -9,               # reward (penalty) for existing
+    'existence_reward'          : -8,               # reward (penalty) for existing
     
     #Collision avoidance                         
     'CA_scale'                  : 1/1000,           # Scaling of the collision avoidance reward Found via tuning
