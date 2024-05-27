@@ -201,6 +201,9 @@ class LV_VAE_MESH(gym.Env):
         self.prog = 0
         self.passed_waypoints = np.zeros((1, 3), dtype=np.float32)
 
+        # Toggle for sparse waypoint passing reward
+        self.add_wp_reward = False 
+
         self.e = None
         self.h = None
         self.chi_error = None
@@ -625,6 +628,7 @@ class LV_VAE_MESH(gym.Env):
             print("At timestep: ",self.total_t_steps, "  Which equates to: ", self.total_t_steps*self.step_size, "s")
             self.passed_waypoints = np.vstack((self.passed_waypoints, self.path.waypoints[k]))
             self.waypoint_index = k
+            self.add_wp_reward = True
 
 
         end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad
@@ -777,12 +781,20 @@ class LV_VAE_MESH(gym.Env):
         if self.collided:
             reward_collision = self.rew_collision
             # print("Collision Reward:", reward_collision)
-
+        """
         #Pass wp reward (sparse)
         reward_pass_wp = 0
+        print(self.path.get_u_index(self.prog))
+        print(self.waypoint_index)
         if self.path.get_u_index(self.prog)> self.waypoint_index:
             reward_pass_wp = self.rew_pass_wp
-            # print("Passed waypoint reward:", reward_pass_wp)
+            print("Passed waypoint reward:", reward_pass_wp)"""
+
+        reward_pass_wp = 0
+        if self.add_wp_reward:
+            reward_pass_wp = self.rew_pass_wp
+            print("Passed waypoint reward:", reward_pass_wp)
+            self.add_wp_reward = False
 
         #Reach end reward (sparse)
         reach_end_reward = 0
