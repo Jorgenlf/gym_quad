@@ -76,7 +76,8 @@ class LV_VAE_MESH(gym.Env):
         self.domain_space = gym.spaces.Box(
             low = -1,
             high = 1,
-            shape = (19,),
+            # shape = (19,),
+            shape = (22,),
             dtype = np.float32
         )
 
@@ -484,7 +485,8 @@ class LV_VAE_MESH(gym.Env):
         quad_pos = self.quadcopter.position + quad_pos_noise #Do this once here and use them in the domain_observation below
         quad_att = self.quadcopter.attitude + quad_att_noise
 
-        domain_obs = np.zeros(19, dtype=np.float32)
+        # domain_obs = np.zeros(19, dtype=np.float32)
+        domain_obs = np.zeros(22, dtype=np.float32)
 
         # Heading angle error wrt. the path
         domain_obs[0] = np.sin(self.chi_error+chi_error_noise)
@@ -551,6 +553,12 @@ class LV_VAE_MESH(gym.Env):
         domain_obs[16] = self.prev_action[0]    
         domain_obs[17] = self.prev_action[1]
         domain_obs[18] = self.prev_action[2]
+        
+        #The velocity of quadcopter in body frame #TODO add noise to this if letting the agent observe body velocity helps
+        vel_body = np.transpose(geom.Rzyx(*quad_att)).dot(self.quadcopter.velocity)
+        domain_obs[19] = m1to1(vel_body[0], -self.s_max, self.s_max)
+        domain_obs[20] = m1to1(vel_body[1], -self.s_max, self.s_max)
+        domain_obs[21] = m1to1(vel_body[2], -self.s_max, self.s_max)
 
 
         #List of the observations before min-max scaling
@@ -565,6 +573,7 @@ class LV_VAE_MESH(gym.Env):
             distance_to_end,
             *lookahead_body,
             *self.prev_action
+            *vel_body
         ]
 
         self.info['pure_obs'] = pure_obs
@@ -572,9 +581,9 @@ class LV_VAE_MESH(gym.Env):
         #The min max normalized domain observation
         self.info['domain_obs'] = domain_obs
 
-        return {'perception':self.sensor_readings,   #Noise from camera 
-                'IMU':self.imu_measurement,     #Noise from IMU
-                'domain':domain_obs}            #Noise perturbations
+        return {'perception':self.sensor_readings,      #Noise from camera 
+                'IMU':self.imu_measurement,             #Noise from IMU
+                'domain':domain_obs}                    #Noise perturbations
 
 
     def step(self, action):
@@ -781,19 +790,12 @@ class LV_VAE_MESH(gym.Env):
         if self.collided:
             reward_collision = self.rew_collision
             # print("Collision Reward:", reward_collision)
-        """
-        #Pass wp reward (sparse)
-        reward_pass_wp = 0
-        print(self.path.get_u_index(self.prog))
-        print(self.waypoint_index)
-        if self.path.get_u_index(self.prog)> self.waypoint_index:
-            reward_pass_wp = self.rew_pass_wp
-            print("Passed waypoint reward:", reward_pass_wp)"""
 
+        #Passed waypoint reward (sparse)
         reward_pass_wp = 0
         if self.add_wp_reward:
             reward_pass_wp = self.rew_pass_wp
-            print("Passed waypoint reward:", reward_pass_wp)
+            # print("Passed waypoint reward:", reward_pass_wp)
             self.add_wp_reward = False
 
         #Reach end reward (sparse)

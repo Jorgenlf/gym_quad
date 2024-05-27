@@ -20,7 +20,7 @@ l = 0.25    #m length from rotors to center of mass (quad height is 0.21m)
 thrust_min = 0 #N #TODO this not being able to go negative might cause issues
 thrust_max = 16.9655045  #N
 
-# Moments of inertia found assuming quad is a solid disc
+# Moments of inertia found assuming quad is a cylinder I_x = I_y = 1/12*m*(3*r^2 + h^2) I_z = 1/2*m*r^2 
 I_x = 0.0243566
 I_y = I_x
 I_z = 0.0394375
