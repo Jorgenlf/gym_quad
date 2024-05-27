@@ -53,12 +53,12 @@ lv_vae_config = {
     #Path adherence reward
     'PA_band_edge'              : 4,                # edge of Path adherence band
     'PA_scale'                  : 2.5,              # scale of Path adherence reward [-PA_scale, PA_scale]
-    
+                                #2.8 might be better? see exp25 proficient_perturbed    
     #Path progression reward
     'PP_rew_max'                : 2,                # maximum reward for path progression
     'PP_rew_min'                : -1,               # minimum reward for path progression
     'PP_rew_scale'              : 0.75,             # scale of path progression reward
-    
+                                #2 might be better? see exp25 proficient_perturbed
     #Collision reward
     'rew_collision'             : -1000,            # reward (penalty) for collision
     

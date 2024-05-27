@@ -54,15 +54,16 @@ if __name__ == "__main__":
     experiment_dir = os.path.join(experiment_dir, "tests")
     os.makedirs(experiment_dir, exist_ok=True)
 
+    manual_scenario = "line" # "line", "horizontal", "helix", "intermediate", "proficient", "expert", "crash", "easy"
     #----#----#For running of file without the need of command line arguments#----#----#
-    # args = Namespace(manual_control=True, env = "LV_VAE_MESH-v0", save_depth_maps=False) 
-    manual_scenario = "horizontal" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash", "easy"
-    # if args.manual_control == True:
-    #     run_config["enclose_scene"] = False
+    #line scenario is most reliable for manual control
+    args = Namespace(manual_control=True, env = "LV_VAE_MESH-v0", save_depth_maps=False) 
+    if args.manual_control == True:
+        run_config["enclose_scene"] = False
     
-    # #Temp variables for debugging
-    # quad_pos_log = []
-    # quad_mesh_pos_log = []
+    #Temp variables for debugging
+    quad_pos_log = []
+    quad_mesh_pos_log = []
     #----#----#NB uncomment when running actual agents#----#----#
 
     register_lv_vae_envs(run_config)
