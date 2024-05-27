@@ -790,19 +790,12 @@ class LV_VAE_MESH(gym.Env):
         if self.collided:
             reward_collision = self.rew_collision
             # print("Collision Reward:", reward_collision)
-        """
-        #Pass wp reward (sparse)
-        reward_pass_wp = 0
-        print(self.path.get_u_index(self.prog))
-        print(self.waypoint_index)
-        if self.path.get_u_index(self.prog)> self.waypoint_index:
-            reward_pass_wp = self.rew_pass_wp
-            print("Passed waypoint reward:", reward_pass_wp)"""
 
+        #Passed waypoint reward (sparse)
         reward_pass_wp = 0
         if self.add_wp_reward:
             reward_pass_wp = self.rew_pass_wp
-            print("Passed waypoint reward:", reward_pass_wp)
+            # print("Passed waypoint reward:", reward_pass_wp)
             self.add_wp_reward = False
 
         #Reach end reward (sparse)
