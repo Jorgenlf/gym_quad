@@ -137,13 +137,16 @@ class LV_VAE_MESH(gym.Env):
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu") #Attempt to use GPU if available
 
         #Init the quadcopter mesh for collison detection only needed to be done once so it is done here
-        #TODO get a hold of the actual mesh of the quadcopter and use instead
-        self.tri_quad_mesh = advanced_create_cylinder(radius=self.drone_radius_for_collision, height=0.21, sections=16, rot90=True, inverted=False) 
+
+        self.tri_quad_mesh = advanced_create_cylinder(radius=self.drone_radius_for_collision, height=0.21, sections=8, rot90=True, inverted=False) 
         
-        #Old using sphere
-        #self.tri_quad_mesh = trimesh.load("gym_quad/meshes/sphere.obj")
-        # r = self.drone_radius_for_collision
-        # self.tri_quad_mesh.apply_scale(r)
+        #Dont use the actual quad as it is too detailed and will slow down the collision detection
+        # self.tri_quad_mesh = trimesh.load("gym_quad/meshes/drone_TRI.obj") 
+        # #Move mesh to origin to rotate it correctly
+        # self.tri_quad_mesh.apply_translation(np.array([0, 0, 0]))
+        # #Rotate -90 degrees about trimesh y axis
+        # self.tri_quad_mesh.apply_transform(trimesh.transformations.rotation_matrix(-np.pi/2, [0, 1, 0]))
+
 
         #The 2D gaussian which is multiplied with the depth map to create the collision avoidance reward
         #Only needs to be inited once so it is done here
