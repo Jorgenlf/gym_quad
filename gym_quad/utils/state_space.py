@@ -21,7 +21,7 @@ thrust_min = 0 #N #TODO this not being able to go negative might cause issues
 thrust_max = 16.9655045  #N
 
 # Moments of inertia found assuming quad is a solid disc
-I_x = 0.01971875
+I_x = 0.0243566
 I_y = I_x
 I_z = 0.0394375
 Ig = np.vstack([
