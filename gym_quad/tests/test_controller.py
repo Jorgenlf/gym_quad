@@ -43,9 +43,9 @@ class TestController(unittest.TestCase):
         self.total_t_steps = 0
         self.step_size = 0.01
         
-        self.kv = 2
-        self.kR = 2
-        self.kangvel = 0.3
+        self.kv = 2.5
+        self.kR = 2.5
+        self.kangvel = 0.35
         
         self.kv_noise = 0
         self.kR_noise = 0

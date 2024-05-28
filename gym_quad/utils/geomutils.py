@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from trimesh.transformations import rotation_matrix
 
 ### Helper functions to transform between ENU and trimesh/pytorch3D coordinate systems
 def enu_to_pytorch3d(enu_position: torch.Tensor,device) -> torch.Tensor:
@@ -24,6 +25,20 @@ def tri_to_enu(tri_pos: np.ndarray):
     '''ENU is x-east, y-north, z-up.
     Trimesh is similar to pytroch3D, x-left, y-up, z-forward.'''
     return np.array([tri_pos[2], tri_pos[0], tri_pos[1]])
+
+def tri_Rotmat(roll_enu,pitch_enu,yaw_enu):
+    '''Creates a rotationmatrix for changing the attidude of a mesh given the roll, pitch, yaw in ENU coordinates.
+    does yzx rotation as trimesh is x-left(north), y-up, z-forward(east). matches ENU zxy being x-east, y-north, z-up.'''
+    body_y_tri = np.array([0, 1, 0]) 
+    body_z_tri = np.array([0, 0, 1]) 
+    body_x_tri = np.array([1, 0, 0]) 
+
+    rot_about_tri_y = rotation_matrix(yaw_enu, body_y_tri)
+    rot_about_tri_z = rotation_matrix(roll_enu, body_z_tri)
+    rot_about_tri_x = rotation_matrix(pitch_enu, body_x_tri)
+    
+    R_tri = np.dot(rot_about_tri_y, np.dot(rot_about_tri_z, rot_about_tri_x))
+    return R_tri
 
 
 def deg2rad(deg):

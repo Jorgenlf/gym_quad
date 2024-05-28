@@ -45,9 +45,8 @@ if __name__ == "__main__":
 
     run_config = lv_vae_config.copy()
     run_config["recap_chance"] = 0.0 # No recapitulation when running
-    run_config["max_t_steps"] = 10 #6000 # Maximum number of timesteps in the DRL simulation before it is terminated
+    run_config["max_t_steps"] = 6000 # Maximum number of timesteps in the DRL simulation before it is terminated
 
-    register_lv_vae_envs(run_config)
     
     experiment_dir, agent_path, args = parse_experiment_info()
 
@@ -55,16 +54,19 @@ if __name__ == "__main__":
     experiment_dir = os.path.join(experiment_dir, "tests")
     os.makedirs(experiment_dir, exist_ok=True)
 
+    manual_scenario = "line" # "line", "horizontal", "helix", "intermediate", "proficient", "expert", "crash", "easy"
     #----#----#For running of file without the need of command line arguments#----#----#
-
+    # #line scenario is most reliable for manual control
     # args = Namespace(manual_control=True, env = "LV_VAE_MESH-v0", save_depth_maps=False) 
-    manual_scenario = "proficient" # "line", "horizontal", "3d", "helix", "intermediate", "proficient", "expert", "crash", "easy"
+    # if args.manual_control == True:
+    #     run_config["enclose_scene"] = False
     
-    #Temp variables for debugging
-    quad_pos_log = []
-    quad_mesh_pos_log = []
+    # #Temp variables for debugging
+    # quad_pos_log = []
+    # quad_mesh_pos_log = []
     #----#----#NB uncomment when running actual agents#----#----#
 
+    register_lv_vae_envs(run_config)
     if args.manual_control == False:
         tests = glob.glob(os.path.join(experiment_dir, "test*"))
         if tests == []:
@@ -91,7 +93,7 @@ if __name__ == "__main__":
             for episode in range(args.episodes):
                 try:
                     episode_df, env = simulate_environment(episode, env, agent, test_dir, args.save_depth_maps)
-                    sim_df = pd.concat([sim_df, episode_df], ignore_index=True) #TODO make it work with several episodes
+                    sim_df = pd.concat([sim_df, episode_df], ignore_index=True) 
                 except NameError:
                     sim_df = episode_df
 
@@ -125,30 +127,30 @@ if __name__ == "__main__":
                 del plotter
                 
                 # Save the 3D plot: #Ghetto fix calling the same class twice but works.
-                # plotter = Plotter3D(obstacles=obstacles, 
-                #                     path=path, 
-                #                     drone_traj=drone_traj,
-                #                     initial_position=init_pos,
-                #                     nosave=False) 
-                #plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
-                #                            azimuth=90, # 90 or 0 is best angle for the 3D plot 
-                #                            elevation=None,
-                #                            see_from_plane=None)
-                
-                # For plotting the scenarios
-                savename = "expert"
-                azis = [0, 90, 180, 270]
-                for azi in azis:
-                    plotter = Plotter3D(obstacles=obstacles, 
+                plotter = Plotter3D(obstacles=obstacles, 
                                     path=path, 
                                     drone_traj=drone_traj,
                                     initial_position=init_pos,
                                     nosave=False) 
-                    plotter.plot_only_scene(save_path=os.path.join(test_dir, "plots", f"{savename}_azi{azi}_{episode}.png"),
-                                            azimuth=azi, 
-                                            elevation=None,
-                                            see_from_plane=None)
-                    del plotter
+                plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
+                                           azimuth=90, # 90 or 0 is best angle for the 3D plot 
+                                           elevation=None,
+                                           see_from_plane=None)
+                
+                # For plotting the scenarios
+                # savename = "vertical"
+                # azis = [0, 90, 180, 270]
+                # for azi in azis:
+                #     plotter = Plotter3D(obstacles=obstacles, 
+                #                     path=path, 
+                #                     drone_traj=drone_traj,
+                #                     initial_position=init_pos,
+                #                     nosave=False) 
+                #     plotter.plot_only_scene(save_path=os.path.join(test_dir, "plots", f"{savename}_azi{azi}_{episode}.png"),
+                #                             azimuth=azi, 
+                #                             elevation=None,
+                #                             see_from_plane=None)
+                #     del plotter
             
             if args.episodes > 1:
                 pass

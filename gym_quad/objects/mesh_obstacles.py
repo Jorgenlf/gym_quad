@@ -16,10 +16,10 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(script_dir)
 grand_parent_dir = os.path.dirname(parent_dir)
 sys.path.append(grand_parent_dir)
-from gym_quad.utils.geomutils import pytorch3d_to_enu, enu_to_pytorch3d, enu_to_tri 
+from gym_quad.utils.geomutils import pytorch3d_to_enu, enu_to_pytorch3d, enu_to_tri, Rzyx, tri_Rotmat 
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 
-#Utility funcition to get the bounds of the scene given the obstacles and the path
+#Utility funcition to get the bounds of the scene given the obstacles and the path used to enclose the scene in a box
 def get_scene_bounds(obstacles: list, path: QPMI, padding=10):
     """
     Input:
@@ -81,6 +81,14 @@ def create_cube(width=1, height=1, depth=1, inverted=True):
     return cube
 
 #Create a unit cylinder mesh with inwards facing normals
+def advanced_create_cylinder(radius=1, height=1, sections=8, rot90 =False, inverted=True):
+    cylinder = trimesh.creation.cylinder(radius=radius, height=height, sections=sections)
+    if inverted:
+        cylinder.invert()
+    if rot90:
+        cylinder.apply_transform(trimesh.transformations.rotation_matrix(np.pi/2, [1, 0, 0]))
+    return cylinder
+
 def create_cylinder():
     cylinder = trimesh.creation.cylinder(radius=1, height=1, sections=8)
     cylinder.invert()
@@ -153,7 +161,6 @@ class SphereMeshObstacle: #TODO can make the mesh here as done in cubemehsobstac
 
         return [x,y,z]
     
-
 class CylinderMeshObstacle:
     def __init__(self,
                  device: torch.device,
@@ -219,9 +226,6 @@ class CylinderMeshObstacle:
 
         return Meshes(verts=[verts], faces=[faces])
     
-
-
-
 class CubeMeshObstacle:
     def __init__(self,
                  device: torch.device,
@@ -368,8 +372,6 @@ class ImportedMeshObstacle:
         max_vals, _ = torch.max(vertices, dim=0)
         return min_vals, max_vals
     
-
-
 #OUR SCENE CLASS
 class Scene:
     def __init__(self,
@@ -404,18 +406,17 @@ class Scene:
             m.set_device(new_device)
 
 
-
-
 if __name__ == "__main__":
 
-    #"Mesh" creation and display (trimesh)
-    #"Camera" how to use the obstacle classes for camera (pytorch3d)
-    # "Collision" how to use the obstacle classes for collision checking (trimesh)
-    # "Line_path_collision" how to use the obstacle classes for collision checking with a room generated depending on path (trimesh)
-    # "convert_to_obj" how to convert e.g. dae files to obj files
-    # "rotate_mesh_ENU_to_TRI" how to rotate and save a mesh from ENU to TRI/PT3D frame
-    mode = "rotate_mesh_ENU_to_TRI" 
-    mode= "mesh"
+    ''' # "Mesh" creation and display (trimesh)
+        # "Camera" how to use the obstacle classes for camera (pytorch3d)
+        # "Collision" how to use the obstacle classes for collision checking (trimesh)
+        # "Line_path_collision" how to use the obstacle classes for collision checking with a room generated depending on path (trimesh)
+        # "convert_to_obj" how to convert e.g. dae files to obj files
+        # "rotate_mesh_ENU_to_TRI" how to rotate and save a mesh from ENU to TRI/PT3D frame
+    '''
+    # mode = "rotate_mesh_ENU_to_TRI" 
+    mode = "collision"
 
     if mode == "mesh":
         ## MESH CREATION ### 
@@ -463,13 +464,12 @@ if __name__ == "__main__":
         obs_scene_for_camera = Scene(device=torch.device("cuda"), obstacles=obs)
         ####
 
-
     elif mode == "collision":
         ###TRIMESH FOR COLLISION
         #THE OBSTACLES
         device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         s1 = SphereMeshObstacle(device=torch.device("cuda"), path="gym_quad/meshes/sphere.obj", radius=0.25, center_position=torch.tensor([0, 4, 0]))
-        cu1 = CubeMeshObstacle(device=torch.device("cuda"), path="gym_quad/meshes/cube.obj", side_length=8, center_position=torch.tensor([0, 0, 0]))
+        cu1 = CubeMeshObstacle(device=torch.device("cuda"), width=8, height=8, depth=8 , center_position=torch.tensor([0, 0, 0]))
 
         obs = [s1, cu1]
         #Converting the pytorch3d meshes to trimesh meshes
@@ -484,12 +484,16 @@ if __name__ == "__main__":
         tri_joined_obs_mesh.fix_normals() #NB This will make the normals point outwards so cant use this for the camera only collision handling
 
         #THE QUADCOPTER
-        #Create a quadcopter mesh which is a sphere with radius 1 and at position [0, 0, 0] to do collision checking with
-        tri_quad_mesh = trimesh.load("gym_quad/meshes/sphere.obj")
+        #OLD
+        #Create a quadcopter mesh as a sphere with r=0.25 at position [0, 0, 0] to do collision checking
+        # tri_quad_mesh = trimesh.load("gym_quad/meshes/sphere.obj")
+        # #resize the quadcopter sphere to have radius 0.25
+        # tri_quad_mesh.apply_scale(0.25)
 
-        #resize the quadcopter sphere mesh to have radius r
-        r = 1
-        tri_quad_mesh.apply_scale(r)
+        #NEW #TODO low pri make this work. Per now just use sphere
+        #Create a quadcopter mesh as a cylinder with r=0.25 and h=0.21 at position [0, 0, 0] to do collision checking
+        tri_quad_mesh = advanced_create_cylinder(radius=0.25, height=0.21, sections=16, rot90=True, inverted=False)
+
 
         #Move the quadcopter mesh to start at the quadcopter initial position
         quadcopter_initial_position = np.array([0, 0, 0]) #ENU
@@ -509,23 +513,39 @@ if __name__ == "__main__":
         
         if ref == "move_enu_x":
             quad_pos_ref = [quadcopter_initial_position + np.array([i, 0, 0]) for i in range(n_steps)]
+            quad_att_ref = [np.array([0, np.pi/4, 0]) for i in range(n_steps)]
         elif ref == "move_enu_y":
             quad_pos_ref = [quadcopter_initial_position + np.array([0, i, 0]) for i in range(n_steps)]
+            quad_att_ref = [np.array([0, np.pi/4, 0]) for i in range(n_steps)]
         elif ref == "move_enu_z":
             quad_pos_ref = [quadcopter_initial_position + np.array([0, 0, i]) for i in range(n_steps)] 
+            quad_att_ref = [np.array([0, np.pi/4, 0]) for i in range(n_steps)]
         
         quad_pos_ref = np.array(quad_pos_ref) #ENU
 
         
         tri_translation = None
-        for i in range(n_steps):
-            #Finding the translation of the quadcopter mesh
-            if i == 0:
-                tri_translation = enu_to_tri(quad_pos_ref[i] - quadcopter_initial_position)
-            else:
-                tri_translation = enu_to_tri(quad_pos_ref[i] - quad_pos_ref[i-1])
+        # Save the initial mesh
+        initial_mesh = tri_quad_mesh.copy()
 
-            tri_quad_mesh.apply_translation(tri_translation)
+        for i in range(n_steps):
+            # Get the desired position and attitude (roll, pitch, yaw) for this timestep
+            current_pos_enu = quad_pos_ref[i]
+            roll_enu, pitch_enu, yaw_enu = quad_att_ref[i]  # ENU Rzyx
+
+            # Reset the mesh to the initial state (pos and att)
+            tri_quad_mesh = initial_mesh.copy()
+            #move tri_quad_mesh to the origin Such that the rotation is around the center of the mesh
+            tri_quad_mesh.apply_translation(-tri_quad_mesh.centroid)
+
+            # Generate the rotation matrix using Euler angles
+            R = tri_Rotmat(roll_enu, pitch_enu, yaw_enu)
+
+            # Apply the rotation matrix
+            tri_quad_mesh.apply_transform(R)
+
+            # Translate mesh to the desired position
+            tri_quad_mesh.apply_translation(enu_to_tri(current_pos_enu))
 
             collision_detected = collision_manager.in_collision_single(tri_quad_mesh)
 
@@ -535,6 +555,27 @@ if __name__ == "__main__":
                 break
             elif i == n_steps-1:
                 print("\nNo collision detected\n")
+            
+            
+            #Trimesh visualization: PER ITERATION FOR DEBUGGING
+
+            #Color the joined obstacle mesh red
+            tri_joined_obs_mesh.visual.face_colors = (255, 0, 0, 100)
+
+            #Change the color of the quadcopter mesh to blue
+            tri_quad_mesh.visual.face_colors = (0, 0, 255, 100)
+
+            #Choose which mesh to visualize inverted box or not
+            trimesh_scene = trimesh.Scene(tri_obs_meshes) #The one with inverted box
+            # trimesh_scene = trimesh.Scene(tri_joined_obs_mesh) #The one without inverted box
+
+            # Create lines representing the axes
+            #XYZ: Red, Green, Blue
+            axis = trimesh.creation.axis(origin_size=0.1, axis_radius=0.01, axis_length=6.0)
+            trimesh_scene.add_geometry(axis)
+
+            trimesh_scene.add_geometry(tri_quad_mesh)
+            trimesh_scene.show()
 
 
         ###### #Use trimesh or pyvista to visualize the meshes

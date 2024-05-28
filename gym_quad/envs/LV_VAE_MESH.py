@@ -8,12 +8,12 @@ import torchvision.transforms as transforms
 import gym_quad.utils.geomutils as geom
 import gym_quad.utils.state_space as ss
 from gym_quad.utils.ODE45JIT import j_Rzyx
-from gym_quad.utils.geomutils import enu_to_pytorch3d, enu_to_tri, pytorch3d_to_enu
+from gym_quad.utils.geomutils import enu_to_pytorch3d, enu_to_tri, pytorch3d_to_enu, tri_Rotmat
 from gym_quad.objects.quad import Quad
 from gym_quad.objects.IMU import IMU
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.depth_camera import DepthMapRenderer, FoVPerspectiveCameras, RasterizationSettings, PerspectiveCameras
-from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle, get_scene_bounds, ImportedMeshObstacle
+from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle, get_scene_bounds, ImportedMeshObstacle, advanced_create_cylinder
 
 #Helper functions
 def deg2rad(deg):
@@ -77,6 +77,7 @@ class LV_VAE_MESH(gym.Env):
             low = -1,
             high = 1,
             shape = (19,),
+            #shape = (22,),
             dtype = np.float32
         )
 
@@ -137,13 +138,16 @@ class LV_VAE_MESH(gym.Env):
             "dev_obsgen_plane"  : self.scenario_dev_test_obs_gen_plane,
         }
 
-        #New init values for sensor using depth camera, mesh and pt3d
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu") #Attempt to use GPU if available
 
         #Init the quadcopter mesh for collison detection only needed to be done once so it is done here
-        self.tri_quad_mesh = trimesh.load("gym_quad/meshes/sphere.obj")
-        r = self.drone_radius_for_collision
-        self.tri_quad_mesh.apply_scale(r)
+        #TODO get a hold of the actual mesh of the quadcopter and use instead
+        self.tri_quad_mesh = advanced_create_cylinder(radius=self.drone_radius_for_collision, height=0.21, sections=16, rot90=True, inverted=False) 
+        
+        #Old using sphere
+        #self.tri_quad_mesh = trimesh.load("gym_quad/meshes/sphere.obj")
+        # r = self.drone_radius_for_collision
+        # self.tri_quad_mesh.apply_scale(r)
 
         #The 2D gaussian which is multiplied with the depth map to create the collision avoidance reward
         #Only needs to be inited once so it is done here
@@ -190,10 +194,9 @@ class LV_VAE_MESH(gym.Env):
         self.cum_CA_rew = 0
         self.cum_lambda_CA = 0
         self.cum_lambda_PA = 0
+        self.cum_pass_wp_rew = 0
         #State
         self.cum_speed = 0
-
-
 
 
         #General variables being reset
@@ -202,6 +205,9 @@ class LV_VAE_MESH(gym.Env):
         self.waypoint_index = 0
         self.prog = 0
         self.passed_waypoints = np.zeros((1, 3), dtype=np.float32)
+
+        # Toggle for sparse waypoint passing reward
+        self.add_wp_reward = False 
 
         self.e = None
         self.h = None
@@ -389,8 +395,12 @@ class LV_VAE_MESH(gym.Env):
         self.prev_quad_pos = self.quadcopter.position
         #Move the mesh to the position of the quadcopter
         tri_quad_init_pos = enu_to_tri(self.quadcopter.position)
-        #First move the tri_quad_mesh to the origin and then apply the translation
+        #First move the tri_quad_mesh to the origin and then apply Rotation, then Translation (Iguess one could do both at once if concated R and t to T)
         self.tri_quad_mesh.apply_translation(-self.tri_quad_mesh.centroid)
+        #Rotate the quadcopter mesh to the orientation of the quadcopter
+        self.tri_quad_mesh.apply_transform(tri_Rotmat(*self.quadcopter.attitude))
+        self.initial_tri_quad_mesh = self.tri_quad_mesh.copy() #Save the Mesh when it is at the origin and has been rotated to the initial orientation, will be used to update the mesh in the step function
+        #Move the quadcopter mesh to the position of the quadcopter
         self.tri_quad_mesh.apply_translation(tri_quad_init_pos)
         
 
@@ -480,6 +490,7 @@ class LV_VAE_MESH(gym.Env):
         quad_att = self.quadcopter.attitude + quad_att_noise
 
         domain_obs = np.zeros(19, dtype=np.float32)
+        #domain_obs = np.zeros(22, dtype=np.float32)
 
         # Heading angle error wrt. the path
         domain_obs[0] = np.sin(self.chi_error+chi_error_noise)
@@ -546,6 +557,12 @@ class LV_VAE_MESH(gym.Env):
         domain_obs[16] = self.prev_action[0]    
         domain_obs[17] = self.prev_action[1]
         domain_obs[18] = self.prev_action[2]
+        
+        #The velocity of quadcopter in body frame #TODO add noise to this if letting the agent observe body velocity helps
+        # vel_body = np.transpose(geom.Rzyx(*quad_att)).dot(self.quadcopter.velocity)
+        # domain_obs[19] = m1to1(vel_body[0], -self.s_max, self.s_max)
+        # domain_obs[20] = m1to1(vel_body[1], -self.s_max, self.s_max)
+        # domain_obs[21] = m1to1(vel_body[2], -self.s_max, self.s_max)
 
 
         #List of the observations before min-max scaling
@@ -560,6 +577,7 @@ class LV_VAE_MESH(gym.Env):
             distance_to_end,
             *lookahead_body,
             *self.prev_action
+            #*vel_body
         ]
 
         self.info['pure_obs'] = pure_obs
@@ -567,9 +585,9 @@ class LV_VAE_MESH(gym.Env):
         #The min max normalized domain observation
         self.info['domain_obs'] = domain_obs
 
-        return {'perception':self.sensor_readings,   #Noise from camera 
-                'IMU':self.imu_measurement,     #Noise from IMU
-                'domain':domain_obs}            #Noise perturbations
+        return {'perception':self.sensor_readings,      #Noise from camera 
+                'IMU':self.imu_measurement,             #Noise from IMU
+                'domain':domain_obs}                    #Noise perturbations
 
 
     def step(self, action):
@@ -597,14 +615,22 @@ class LV_VAE_MESH(gym.Env):
 
         #Check for collisions Done in drl sim to save time not in physics sim
         if self.obstacles != []: #Only check collision if there are obstacles
-            translation = enu_to_tri(self.quadcopter.position - self.prev_quad_pos)
-            self.tri_quad_mesh.apply_translation(translation)
+            quad_pos = self.quadcopter.position
+            quad_att = self.quadcopter.attitude
+            #Reset the mesh to the ORIGIN and initial orientation
+            self.tri_quad_mesh = self.initial_tri_quad_mesh.copy() 
+            # Generate the rotation matrix using Euler angles
+            R = tri_Rotmat(quad_att[0], quad_att[1], quad_att[2])
+            # Apply the rotation matrix
+            self.tri_quad_mesh.apply_transform(R)
+            # Translate mesh to the desired position
+            self.tri_quad_mesh.apply_translation(enu_to_tri(quad_pos))
+            #Check for collision
             collision_manager_detect = self.collision_manager.in_collision_single(self.tri_quad_mesh)
             if collision_manager_detect: 
                 self.collided = True
                 #TODO maybe find what obstacle the quadcopter collided with to log
-        
-        self.prev_quad_pos = self.quadcopter.position #For translation of the tri_quad_mesh in the next step
+        # self.prev_quad_pos = self.quadcopter.position #For translation of the tri_quad_mesh in the next step
 
 
         # Check if a waypoint is passed
@@ -615,6 +641,7 @@ class LV_VAE_MESH(gym.Env):
             print("At timestep: ",self.total_t_steps, "  Which equates to: ", self.total_t_steps*self.step_size, "s")
             self.passed_waypoints = np.vstack((self.passed_waypoints, self.path.waypoints[k]))
             self.waypoint_index = k
+            self.add_wp_reward = True
 
 
         end_cond_1 = np.linalg.norm(self.path.get_endpoint() - self.quadcopter.position) < self.accept_rad
@@ -768,6 +795,13 @@ class LV_VAE_MESH(gym.Env):
             reward_collision = self.rew_collision
             # print("Collision Reward:", reward_collision)
 
+        #Passed waypoint reward (sparse)
+        reward_pass_wp = 0
+        if self.add_wp_reward:
+            reward_pass_wp = self.rew_pass_wp
+            # print("Passed waypoint reward:", reward_pass_wp)
+            self.add_wp_reward = False
+
         #Reach end reward (sparse)
         reach_end_reward = 0
         if self.success:
@@ -776,7 +810,7 @@ class LV_VAE_MESH(gym.Env):
         #Existential reward (penalty for being alive to encourage the quadcopter to reach the end of the path quickly) (continous)
         ex_reward = self.existence_reward 
 
-        tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression + reach_end_reward + ex_reward 
+        tot_reward = reward_path_adherence*lambda_PA + reward_collision_avoidance*lambda_CA + reward_collision + reward_path_progression + reach_end_reward + ex_reward + reward_pass_wp
 
         self.info['reward'] = tot_reward
         self.info['collision_avoidance_reward'] = reward_collision_avoidance*lambda_CA
@@ -787,6 +821,7 @@ class LV_VAE_MESH(gym.Env):
         self.info['existence_reward'] = ex_reward
         self.info['lambda_CA'] = lambda_CA
         self.info['lambda_PA'] = lambda_PA
+        self.info['pass_wp_reward'] = reward_pass_wp
         # self.info['approach_end_reward'] = approach_end_reward
 
         #Cumulative reward tensorboard logging # Could do moving averages if we want
@@ -799,7 +834,8 @@ class LV_VAE_MESH(gym.Env):
         self.cum_CA_rew += reward_collision_avoidance*lambda_CA
         self.cum_lambda_CA += lambda_CA
         self.cum_lambda_PA += lambda_PA
-        
+        self.cum_pass_wp_rew += reward_pass_wp
+
         self.info['cum_collision_rew'] = self.cum_collision_rew
         self.info['cum_CA_rew'] = self.cum_CA_rew        
         self.info['cum_path_adherence_rew'] = self.cum_path_adherence_rew
@@ -809,6 +845,7 @@ class LV_VAE_MESH(gym.Env):
         self.info['cum_approach_end_rew'] = self.cum_approach_end_rew
         self.info['cum_lambda_CA'] = self.cum_lambda_CA
         self.info['cum_lambda_PA'] = self.cum_lambda_PA
+        self.info['cum_pass_wp_rew'] = self.cum_pass_wp_rew
 
         return tot_reward
 
@@ -884,6 +921,7 @@ class LV_VAE_MESH(gym.Env):
         return F
 
       #### UPDATE FUNCTION####
+    
     def update_errors(self):
         '''Updates the cross track and vertical track errors, as well as the course and elevation errors.'''
         self.e = 0.0 #Cross track error
@@ -970,7 +1008,6 @@ class LV_VAE_MESH(gym.Env):
 
 
     #### SCENARIOS #### 
-    
     #Utility function for scenarios
     def recap_previous_scenario(self,n_prev_scenarios): #TODO low pri make this update based on the curriculum_config
         '''

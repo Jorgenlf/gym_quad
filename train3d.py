@@ -32,19 +32,32 @@ train_config["recap_chance"] = 0.1
 
 
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---### 
-scenarios = {   "line"                 :  0.1e6,
-                "easy"                 :  0.33e6,
-                "easy_random"          :  0.33e6, 
-                "proficient"           :  1e6,
-                "intermediate"         :  1e6,
-                "advanced"             :  1.5e6, 
+scenarios = {   #"line"                 :  0.1e6,
+                "line"                 :  1e6,
+                "easy"                 :  1e6,
+                "easy_random"          :  1e6, #Randomized pos and att of quad in easy scenario 
+                "intermediate"         :  1.5e6,
+                "proficient"           :  1.5e6,
+                "advanced"             :  2e6, 
                 "expert"               :  2e6,
                 "proficient_perturbed" :  2e6,
                 "expert_perturbed"     :  2e6
              }
 
-# scenarios = {"easy_random"                 :  0.1e6}
+scenario_success_threshold = {  "line"                 :  0.6, #TODO make the dict above a list of tuples instead #This is a quick fix
+                                "easy"                 :  0.6,
+                                "easy_random"          :  0.6,
+                                "intermediate"         :  0.8,
+                                "proficient"           :  0.8,
+                                "advanced"             :  0.9,
+                                "expert"               :  0.9,
+                                "proficient_perturbed" :  0.9,
+                                "expert_perturbed"     :  0.9
+                            }
 
+k = 4   # Number of consecutive episode successes that must be above the threshold to move to the next scenario
+        # (This is later multiplied by the number of environments to get the total number of successes needed to move on)
+        
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
 PPO_hyperparams = {
     'n_steps': 2048, 
@@ -143,7 +156,6 @@ if __name__ == '__main__':
             json.dump(policy_kwargs['features_extractor_kwargs'], file)
 
 
-
         PPO_hyperparams["tensorboard_log"] = tensorboard_dir
 
         seed=np.random.randint(0,10000)
@@ -185,7 +197,7 @@ if __name__ == '__main__':
         
         if i == 0 and continual_step != 0: #First scenario but not first training
             print("CONTINUING TRAINING FROM", continual_step*num_envs, "TIMESTEPS")
-            continual_model = os.path.join(experiment_dir, scenario_list[i-1], "agents", f"model_{continual_step}.zip")
+            continual_model = os.path.join(experiment_dir, scen, "agents", f"model_{continual_step}.zip")
             agent = PPO.load(continual_model, _init_setup_model=True, env=env, **PPO_hyperparams)
 
         if i > 0 and continual_step == 0: #Switching to new scenario using the last model from previous scenario
@@ -206,11 +218,17 @@ if __name__ == '__main__':
         timesteps = scenarios[scen] - num_envs*continual_step
         print("\nTRAINING FOR", timesteps, "TIMESTEPS", "IN", scen.upper())
 
-        agent.learn(total_timesteps=timesteps, 
-                    tb_log_name="PPO",
-                    callback=TensorboardLogger(agents_dir=agents_dir, log_freq=PPO_hyperparams["n_steps"], save_freq=10000),
-                    progress_bar=True)
+        success_threshold = scenario_success_threshold[scen] # Success rate threshold to move to the next scenario 
+        callback = TensorboardLogger(agents_dir=agents_dir, 
+                                     log_freq=PPO_hyperparams["n_steps"], 
+                                     save_freq=10000, 
+                                     success_buffer_size=k,
+                                     n_cpu=args.n_cpu,
+                                     success_threshold=success_threshold,
+                                     use_success_as_stopping_criterion=True)
         
+        agent.learn(total_timesteps=int(timesteps), reset_num_timesteps=False, tb_log_name="PPO", callback=callback, progress_bar=True)
+
         print("FINISHED TRAINING AGENT IN", scen.upper())
         save_path = os.path.join(agents_dir, "last_model.zip")
         agent.save(save_path)
