@@ -138,14 +138,17 @@ class LV_VAE_MESH(gym.Env):
 
         #Init the quadcopter mesh for collison detection only needed to be done once so it is done here
 
-        self.tri_quad_mesh = advanced_create_cylinder(radius=self.drone_radius_for_collision, height=0.21, sections=8, rot90=True, inverted=False) 
+        #Dont use the actual quad for training as it is too detailed and will slow down the collision detection
+        self.tri_quad_mesh = None
+        if self.use_drone_mesh:
+            self.tri_quad_mesh = trimesh.load("gym_quad/meshes/drone_TRI.obj") 
+            #Move mesh to origin to rotate it correctly
+            self.tri_quad_mesh.apply_translation(np.array([0, 0, 0]))
+            #Rotate -90 degrees about trimesh y axis
+            self.tri_quad_mesh.apply_transform(trimesh.transformations.rotation_matrix(-np.pi/2, [0, 1, 0]))
+        else:
+            self.tri_quad_mesh = advanced_create_cylinder(radius=self.drone_radius_for_collision, height=self.drone_height_for_collision, sections=8, rot90=True, inverted=False) 
         
-        #Dont use the actual quad as it is too detailed and will slow down the collision detection
-        # self.tri_quad_mesh = trimesh.load("gym_quad/meshes/drone_TRI.obj") 
-        # #Move mesh to origin to rotate it correctly
-        # self.tri_quad_mesh.apply_translation(np.array([0, 0, 0]))
-        # #Rotate -90 degrees about trimesh y axis
-        # self.tri_quad_mesh.apply_transform(trimesh.transformations.rotation_matrix(-np.pi/2, [0, 1, 0]))
 
 
         #The 2D gaussian which is multiplied with the depth map to create the collision avoidance reward
@@ -1446,7 +1449,7 @@ class LV_VAE_MESH(gym.Env):
 
         obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-        self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI.obj", center_position=pt3d_obs_coords))
+        self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI_new.obj", center_position=pt3d_obs_coords))
         return initial_state
 
 

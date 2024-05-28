@@ -148,7 +148,7 @@ def save_depth_maps(env, test_dir):
 
     empty_depth_map = torch.zeros((env.unwrapped.depth_map_size[0], env.unwrapped.depth_map_size[1]), dtype=torch.float32, device=env.unwrapped.device)
 
-    if env.unwrapped.closest_measurement < env.unwrapped.danger_range: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
+    if env.unwrapped.closest_measurement < env.unwrapped.max_depth: #Only save depth maps if there is a nearby obstacle else we get a large amount of empty depth maps
         
         if not torch.equal(env.unwrapped.noisy_depth_map, empty_depth_map):
             env.unwrapped.renderer.save_depth_map(f"{path}/noisy_depth_map_{env.unwrapped.total_t_steps}", env.unwrapped.noisy_depth_map)

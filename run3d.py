@@ -46,7 +46,13 @@ if __name__ == "__main__":
     run_config = lv_vae_config.copy()
     run_config["recap_chance"] = 0.0 # No recapitulation when running
     run_config["max_t_steps"] = 6000 # Maximum number of timesteps in the DRL simulation before it is terminated
+    
+    run_config["padding"] = 4 #To see how padding affects the test scenarios. 1.5 is the standard
 
+    run_config["use_drone_mesh"] = True # Use the drone mesh for collision detection if not a cylinder is used
+    #Uncomment these if running in house:
+    run_config["la_dist"] = 0.8
+    run_config["s_max"] = 1
     
     experiment_dir, agent_path, args = parse_experiment_info()
 
