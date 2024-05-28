@@ -469,9 +469,10 @@ if __name__ == "__main__":
         #THE OBSTACLES
         device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         s1 = SphereMeshObstacle(device=torch.device("cuda"), path="gym_quad/meshes/sphere.obj", radius=0.25, center_position=torch.tensor([0, 4, 0]))
+        s2 = SphereMeshObstacle(device=torch.device("cuda"), path="gym_quad/meshes/sphere.obj", radius=0.4, center_position=torch.tensor([0, 0, 3.5]))
         cu1 = CubeMeshObstacle(device=torch.device("cuda"), width=8, height=8, depth=8 , center_position=torch.tensor([0, 0, 0]))
 
-        obs = [s1, cu1]
+        obs = [s1, s2, cu1]
         #Converting the pytorch3d meshes to trimesh meshes
         obs_meshes = [o.mesh for o in obs] #extract the meshes from the obstacles
 
@@ -490,15 +491,19 @@ if __name__ == "__main__":
         # #resize the quadcopter sphere to have radius 0.25
         # tri_quad_mesh.apply_scale(0.25)
 
-        #NEW #TODO low pri make this work. Per now just use sphere
+
         #Create a quadcopter mesh as a cylinder with r=0.25 and h=0.21 at position [0, 0, 0] to do collision checking
         tri_quad_mesh = advanced_create_cylinder(radius=0.25, height=0.21, sections=16, rot90=True, inverted=False)
+        #Create quadcopter as the actual quadcopter mesh! #Keep using cylinder in sim as drone mesh is comp heavy.
+        tri_quad_mesh = trimesh.load("gym_quad/meshes/drone_TRI.obj")
 
 
         #Move the quadcopter mesh to start at the quadcopter initial position
         quadcopter_initial_position = np.array([0, 0, 0]) #ENU
         tri_quad_init_pos = enu_to_tri(quadcopter_initial_position)
         tri_quad_mesh.apply_translation(tri_quad_init_pos)
+        #Rotate 90 degrees about y axis
+        tri_quad_mesh.apply_transform(trimesh.transformations.rotation_matrix(-np.pi/2, [0, 1, 0]))
 
         #PROCESSING THEM
         #Add the joined obstacle mesh and the quadcopter mesh to the collision manager
@@ -558,24 +563,23 @@ if __name__ == "__main__":
             
             
             #Trimesh visualization: PER ITERATION FOR DEBUGGING
+            # #Color the joined obstacle mesh red
+            # tri_joined_obs_mesh.visual.face_colors = (255, 0, 0, 100)
 
-            #Color the joined obstacle mesh red
-            tri_joined_obs_mesh.visual.face_colors = (255, 0, 0, 100)
+            # #Change the color of the quadcopter mesh to blue
+            # tri_quad_mesh.visual.face_colors = (0, 0, 255, 100)
 
-            #Change the color of the quadcopter mesh to blue
-            tri_quad_mesh.visual.face_colors = (0, 0, 255, 100)
+            # #Choose which mesh to visualize inverted box or not
+            # trimesh_scene = trimesh.Scene(tri_obs_meshes) #The one with inverted box
+            # # trimesh_scene = trimesh.Scene(tri_joined_obs_mesh) #The one without inverted box
 
-            #Choose which mesh to visualize inverted box or not
-            trimesh_scene = trimesh.Scene(tri_obs_meshes) #The one with inverted box
-            # trimesh_scene = trimesh.Scene(tri_joined_obs_mesh) #The one without inverted box
+            # # Create lines representing the axes
+            # #XYZ: Red, Green, Blue
+            # axis = trimesh.creation.axis(origin_size=0.1, axis_radius=0.01, axis_length=6.0)
+            # trimesh_scene.add_geometry(axis)
 
-            # Create lines representing the axes
-            #XYZ: Red, Green, Blue
-            axis = trimesh.creation.axis(origin_size=0.1, axis_radius=0.01, axis_length=6.0)
-            trimesh_scene.add_geometry(axis)
-
-            trimesh_scene.add_geometry(tri_quad_mesh)
-            trimesh_scene.show()
+            # trimesh_scene.add_geometry(tri_quad_mesh)
+            # trimesh_scene.show()
 
 
         ###### #Use trimesh or pyvista to visualize the meshes

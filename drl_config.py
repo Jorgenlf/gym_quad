@@ -15,6 +15,8 @@ lv_vae_config = {
     "enclose_scene"             : True,             # Enclose the scene with a box thats scaled to the scene size
     "padding"                   : 1.5,              # Padding of the box that encloses the scene [m] #usually 1.5m for indoor training
     "drone_radius_for_collision": 0.25,             # Radius of the drone for collision detection [m] #Actual armlength is 0.25m heigh is 0.21m
+    "drone_height_for_collision": 0.21,             # Height of the drone for collision detection [m]
+    "use_drone_mesh"            : False,            # Use the drone mesh for collision detection if not a cylinder is used using r and h above
     "recap_chance"              : 0.1,              # Chance of recapitulating a previous trainig scenario
 #Noise parameters #TODO add the noise values here as well?    
     "perturb_sim"               : False,            # Activates all the noise below. Also, the "perturb" scenarios inside LV_VAE_MESH.py sets this to True

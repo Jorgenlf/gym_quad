@@ -1,7 +1,8 @@
 import imageio.v2 as imageio
+import imageio.v3 as iio
 import glob
 import re
-
+from PIL import Image
 
 # Define filetype of source images:
 extension = '.png'
@@ -25,9 +26,9 @@ if option == 'A':
 elif option == 'B':
     #Choose which depth maps to use:    
     ###---###---###---###
-    exp_id = 19
-    test_id = 2
-    scenario = "random_corridor"
+    exp_id = 28
+    test_id = 5
+    scenario = "house"
     ###---###---###---###
 
     # Regular expression to extract numbers from filenames:
@@ -46,7 +47,7 @@ if create_gif:
     print("There are ", len(filenames), " images in the folder\nBeginning to create gif... ",end="")
     
     #Frame duration (max 50 for gif):
-    frame_duration = 1 / 30
+    frame_duration = 1 / 50
 
     # Read, compose and write images to .gif:
     with imageio.get_writer('my_image_animation.gif', mode='I', duration=frame_duration, loop=0) as writer:
@@ -59,13 +60,30 @@ elif not create_gif:
     print("There are ", len(filenames), " images in the folder\nBeginning to create webp animation... ",end="")
 
     # Frame duration set for 90 FPS:
-    frame_duration = 1 / 90  # seconds per frame
+    frame_duration = 1 / 100  # seconds per frame #TODO changing duration seemingly does nothing...
 
+    #IMAGEIOv2
     # Read, compose and write images to .webp:
     with imageio.get_writer('my_image_animation.webp', mode='I', duration=frame_duration, loop=0, quality=100) as writer:
         for filename in filenames:
             image = imageio.imread(filename)
             writer.append_data(image)
+    
+    #IMAGEIOv3
+    # # Load images
+    # images = [iio.imread(filename) for filename in filenames]
+    # # Set duration (10 ms per frame for 100 FPS)
+    # duration_per_frame = 10
+    # # Save as WebP animation
+    # iio.imwrite('my_image_animation.webp', images, duration=duration_per_frame, loop=0)
+
+
+    #PILLOW
+    # images = [Image.open(filename) for filename in filenames]
+
+    # # Save as WebP animation
+    # images[0].save('my_image_animation.webp',
+    #             save_all=True, append_images=images[1:], duration=10, loop=0, quality=100)
 
     print("WebP animation created successfully!")        
 
