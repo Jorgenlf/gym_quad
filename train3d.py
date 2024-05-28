@@ -63,7 +63,7 @@ PPO_hyperparams = {
     'n_steps': 2048, 
     'batch_size': 128,
     'gae_lambda': 0.95,
-    'gamma': 0.98, #old:0.99,
+    'gamma': 0.99, #old:0.99,
     'n_epochs': 10,
     'ent_coef': 0.001, 
     'verbose': 2,

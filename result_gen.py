@@ -173,7 +173,7 @@ if __name__ == "__main__":
                 tasks.append((trained_scen, agent, test_scen, result_config.copy(), args, base_experiment_dir))
 
     # Define batch size and split tasks into batches
-    batch_size = 12  # Adjust the batch size based on your system's capacity
+    batch_size = 8  # Adjust the batch size based on your system's capacity
     num_batches = len(tasks) // batch_size + int(len(tasks) % batch_size > 0)
 
     for batch_idx in range(num_batches):

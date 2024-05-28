@@ -129,6 +129,7 @@ if __name__ == "__main__":
                                             azimuth=90, # 90 or 0 is best angle for the 3D plot 
                                             elevation=None,
                                             see_from_plane=None)
+                
                 del plotter
                 
                 # Save the 3D plot: #Ghetto fix calling the same class twice but works.
@@ -138,12 +139,27 @@ if __name__ == "__main__":
                                     initial_position=init_pos,
                                     nosave=False) 
                 plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
-                                            azimuth=90, # 90 or 0 is best angle for the 3D plot 
-                                            elevation=None,
-                                            see_from_plane=None)
-                del plotter
+                                           azimuth=90, # 90 or 0 is best angle for the 3D plot 
+                                           elevation=None,
+                                           see_from_plane=None)
+                
+                # For plotting the scenarios
+                # savename = "vertical"
+                # azis = [0, 90, 180, 270]
+                # for azi in azis:
+                #     plotter = Plotter3D(obstacles=obstacles, 
+                #                     path=path, 
+                #                     drone_traj=drone_traj,
+                #                     initial_position=init_pos,
+                #                     nosave=False) 
+                #     plotter.plot_only_scene(save_path=os.path.join(test_dir, "plots", f"{savename}_azi{azi}_{episode}.png"),
+                #                             azimuth=azi, 
+                #                             elevation=None,
+                #                             see_from_plane=None)
+                #     del plotter
             
             if args.episodes > 1:
+                pass
                 multiplotter = Plotter3DMultiTraj(obstacles=obstacles,
                                                 path=path,
                                                 drone_trajectories=all_drone_trajs,

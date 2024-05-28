@@ -76,8 +76,8 @@ class LV_VAE_MESH(gym.Env):
         self.domain_space = gym.spaces.Box(
             low = -1,
             high = 1,
-            # shape = (19,),
-            shape = (22,),
+            shape = (19,),
+            #shape = (22,),
             dtype = np.float32
         )
 
@@ -118,13 +118,17 @@ class LV_VAE_MESH(gym.Env):
             "random_corridor"       : self.scenario_random_corridor,
             # Testing scenarios
             #Agent testing
-            "helix"             : self.scenario_helix,
-            "test_path"         : self.scenario_test_path,
-            "test"              : self.scenario_test,
-            "house"             : self.scenario_house,
-            "horizontal"        : self.scenario_horizontal_test,
-            "vertical"          : self.scenario_vertical_test,
-            "deadend"           : self.scenario_deadend_test,
+            "helix"                 : self.scenario_helix,
+            "test_path"             : self.scenario_test_path,
+            "test"                  : self.scenario_test,
+            "house"                 : self.scenario_house,
+            "house_easy"            : self.scenario_house_easy,
+            "house_hard"            : self.scenario_house_hard,
+            "house_easy_obstacles"  : self.scenario_house_easy_obstacles,
+            "house_hard_obstacles"  : self.scenario_house_hard_obstacles,
+            "horizontal"            : self.scenario_horizontal_test,
+            "vertical"              : self.scenario_vertical_test,
+            "deadend"               : self.scenario_deadend_test,
             #Dev testing
             "crash"             : self.scenario_dev_test_crash,
             "crash_cube"        : self.scenario_dev_test_cube_crash,
@@ -491,8 +495,8 @@ class LV_VAE_MESH(gym.Env):
         quad_pos = self.quadcopter.position + quad_pos_noise #Do this once here and use them in the domain_observation below
         quad_att = self.quadcopter.attitude + quad_att_noise
 
-        # domain_obs = np.zeros(19, dtype=np.float32)
-        domain_obs = np.zeros(22, dtype=np.float32)
+        domain_obs = np.zeros(19, dtype=np.float32)
+        #domain_obs = np.zeros(22, dtype=np.float32)
 
         # Heading angle error wrt. the path
         domain_obs[0] = np.sin(self.chi_error+chi_error_noise)
@@ -561,10 +565,10 @@ class LV_VAE_MESH(gym.Env):
         domain_obs[18] = self.prev_action[2]
         
         #The velocity of quadcopter in body frame #TODO add noise to this if letting the agent observe body velocity helps
-        vel_body = np.transpose(geom.Rzyx(*quad_att)).dot(self.quadcopter.velocity)
-        domain_obs[19] = m1to1(vel_body[0], -self.s_max, self.s_max)
-        domain_obs[20] = m1to1(vel_body[1], -self.s_max, self.s_max)
-        domain_obs[21] = m1to1(vel_body[2], -self.s_max, self.s_max)
+        # vel_body = np.transpose(geom.Rzyx(*quad_att)).dot(self.quadcopter.velocity)
+        # domain_obs[19] = m1to1(vel_body[0], -self.s_max, self.s_max)
+        # domain_obs[20] = m1to1(vel_body[1], -self.s_max, self.s_max)
+        # domain_obs[21] = m1to1(vel_body[2], -self.s_max, self.s_max)
 
 
         #List of the observations before min-max scaling
@@ -579,7 +583,7 @@ class LV_VAE_MESH(gym.Env):
             distance_to_end,
             *lookahead_body,
             *self.prev_action
-            *vel_body
+            #*vel_body
         ]
 
         self.info['pure_obs'] = pure_obs
@@ -1435,6 +1439,7 @@ class LV_VAE_MESH(gym.Env):
         self.obstacles.append(SphereMeshObstacle(radius = 10,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
 
         return initial_state
+    
 
     def scenario_house(self):
         print("HOUSE")
@@ -1451,6 +1456,93 @@ class LV_VAE_MESH(gym.Env):
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
         self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI_new.obj", center_position=pt3d_obs_coords))
         return initial_state
+        
+
+    def scenario_house_easy(self):
+        print("HOUSE EASY")
+        initial_state = np.zeros(6)
+        waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=6) #TODO change select_house_path to what we want, None for random
+        self.path = QPMI(waypoints)
+
+        init_pos = waypoints[0]# + np.random.uniform(low=-0.25, high=0.25, size=(1,3))
+
+        init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
+        initial_state = np.hstack([np.array(init_pos), init_attitude])
+
+        obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI_new.obj", center_position=pt3d_obs_coords))
+        return initial_state
+    
+    def scenario_house_easy_obstacles(self):
+        print("HOUSE EASY OBSTACLES")
+        initial_state = np.zeros(6)
+        waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=6) #TODO change select_house_path to what we want, None for random
+        self.path = QPMI(waypoints)
+
+        init_pos = waypoints[0]# + np.random.uniform(low=-0.25, high=0.25, size=(1,3))
+
+        init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
+        initial_state = np.hstack([np.array(init_pos), init_attitude])
+
+        obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI_new.obj", center_position=pt3d_obs_coords))
+
+        # Add small cube at (1.03, 0.14, 1.12)
+        obstacle_coords = torch.tensor([1.03, 0.14, 1.12],device=self.device).float()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(CubeMeshObstacle(device=self.device, width=0.25, height=2, depth=0.25, center_position=pt3d_obs_coords, inverted=False))
+
+        # Add small sphere at ( 3.075, -2.555,   1.12)
+        obstacle_coords = torch.tensor([3.075, -2.555, 1.12],device=self.device).float()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(SphereMeshObstacle(radius = 0.25,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+        return initial_state
+
+    def scenario_house_hard(self):
+        print("HOUSE HARD")
+        initial_state = np.zeros(6)
+        waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=1) #TODO change select_house_path to what we want, None for random
+        self.path = QPMI(waypoints)
+
+        init_pos = waypoints[0]# + np.random.uniform(low=-0.25, high=0.25, size=(1,3))
+
+        init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
+        initial_state = np.hstack([np.array(init_pos), init_attitude])
+
+        obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI_new.obj", center_position=pt3d_obs_coords))
+        return initial_state
+    
+    def scenario_house_hard_obstacles(self):
+        print("HOUSE HARD OBSTACLES")
+        initial_state = np.zeros(6)
+        waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=1)
+        self.path = QPMI(waypoints)
+
+        init_pos = waypoints[0]# + np.random.uniform(low=-0.25, high=0.25, size=(1,3))
+
+        init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
+        initial_state = np.hstack([np.array(init_pos), init_attitude])
+
+        obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI_new.obj", center_position=pt3d_obs_coords))
+
+        # Add small cube at (1.973361, -1.19834, -1.20533)
+        obstacle_coords = torch.tensor([1.973361, -1.19834, -1.20533],device=self.device).float()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(CubeMeshObstacle(device=self.device, width=0.25, height=2, depth=0.25, center_position=pt3d_obs_coords, inverted=False))
+
+        # Add small sphere at (2.25, -1.95, 3.49)
+        obstacle_coords = torch.tensor([2.25, -2.5, 3.49],device=self.device).float()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(SphereMeshObstacle(radius = 0.25,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+
+        return initial_state
+
 
 
 #Development scenarios #TODO update to scale
