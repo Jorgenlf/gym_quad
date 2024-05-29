@@ -82,7 +82,7 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
                         ]
     
     done = False
-    env.reset()
+    obs = env.reset()[0]
     total_t_steps = 0
     time = []
     progression = []
@@ -95,8 +95,8 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
     normed_domain_observations = []
 
     while not done: 
-        action = agent.predict(env.unwrapped.observation, deterministic=True)[0]
-        _, _, done, _, info = env.step(action)
+        action = agent.predict(obs, deterministic=True)[0]
+        obs, _, done, _, info = env.step(action)
 
         if sdm:
             save_depth_maps(env, test_dir)  #Now this saves depthmaps online per timestep when obstacle is close, might be better to save up all then save all at once
