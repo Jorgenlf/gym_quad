@@ -53,8 +53,8 @@ lv_vae_config = {
                                                     #In expert i often accumulates less than 2000 when existence is -8 and min ca is -16
     
     #Path adherence reward
-    'PA_band_edge'              : 4,                # edge of Path adherence band
-    'PA_scale'                  : 2.5,              # scale of Path adherence reward [-PA_scale, PA_scale]
+    'PA_band_edge'              : 3,                # edge of Path adherence band
+    'PA_scale'                  : 2.8,              # scale of Path adherence reward [-PA_scale, PA_scale]
                                 #2.8 might be better? see exp25 proficient_perturbed    
     #Path progression reward
     'PP_rew_max'                : 2,                # maximum reward for path progression
@@ -65,7 +65,7 @@ lv_vae_config = {
     'rew_collision'             : -1000,            # reward (penalty) for collision
     
     #reach end reward
-    'rew_reach_end'             : 1000,             # reward for reaching the end of the path
+    'rew_reach_end'             : 1500,             # reward for reaching the end of the path
 
     #pass wp reward
     'rew_pass_wp'               : 1000/11,          # reward for passing a waypoint
@@ -75,7 +75,7 @@ lv_vae_config = {
     'approach_end_range'        : 3,                # Dist[m] between goal and drone where Lambda CA and Lambda PA interpolate such that pa>ca
 
     #Existence reward   
-    'existence_reward'          : -8,               # reward (penalty) for existing
+    'existence_reward'          : -5,               # reward (penalty) for existing
     
     #Collision avoidance                         
     'CA_scale'                  : 1/1000,           # Scaling of the collision avoidance reward Found via tuning

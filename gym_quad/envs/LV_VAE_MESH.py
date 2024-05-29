@@ -76,8 +76,8 @@ class LV_VAE_MESH(gym.Env):
         self.domain_space = gym.spaces.Box(
             low = -1,
             high = 1,
-            shape = (19,),
-            #shape = (22,),
+            #shape = (19,),
+            shape = (22,),
             dtype = np.float32
         )
 
@@ -495,8 +495,8 @@ class LV_VAE_MESH(gym.Env):
         quad_pos = self.quadcopter.position + quad_pos_noise #Do this once here and use them in the domain_observation below
         quad_att = self.quadcopter.attitude + quad_att_noise
 
-        domain_obs = np.zeros(19, dtype=np.float32)
-        #domain_obs = np.zeros(22, dtype=np.float32)
+        #domain_obs = np.zeros(19, dtype=np.float32)
+        domain_obs = np.zeros(22, dtype=np.float32)
 
         # Heading angle error wrt. the path
         domain_obs[0] = np.sin(self.chi_error+chi_error_noise)
@@ -565,10 +565,10 @@ class LV_VAE_MESH(gym.Env):
         domain_obs[18] = self.prev_action[2]
         
         #The velocity of quadcopter in body frame #TODO add noise to this if letting the agent observe body velocity helps
-        # vel_body = np.transpose(geom.Rzyx(*quad_att)).dot(self.quadcopter.velocity)
-        # domain_obs[19] = m1to1(vel_body[0], -self.s_max, self.s_max)
-        # domain_obs[20] = m1to1(vel_body[1], -self.s_max, self.s_max)
-        # domain_obs[21] = m1to1(vel_body[2], -self.s_max, self.s_max)
+        vel_body = np.transpose(geom.Rzyx(*quad_att)).dot(self.quadcopter.velocity)
+        domain_obs[19] = m1to1(vel_body[0], -self.s_max, self.s_max)
+        domain_obs[20] = m1to1(vel_body[1], -self.s_max, self.s_max)
+        domain_obs[21] = m1to1(vel_body[2], -self.s_max, self.s_max)
 
 
         #List of the observations before min-max scaling
