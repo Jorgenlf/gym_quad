@@ -45,14 +45,16 @@ if __name__ == "__main__":
 
     run_config = lv_vae_config.copy()
     run_config["recap_chance"] = 0.0 # No recapitulation when running
-    run_config["max_t_steps"] = 6000 # Maximum number of timesteps in the DRL simulation before it is terminated
+    run_config["max_t_steps"] = 3000 # Maximum number of timesteps in the DRL simulation before it is terminated
     
     run_config["padding"] = 4 #To see how padding affects the test scenarios. 1.5 is the standard
+    # run_config["enclose_scene"] = False # Enclose the scene with a box thats scaled to the scene size
+    run_config["accept_rad"] = 0.6 
 
-    run_config["use_drone_mesh"] = True # Use the drone mesh for collision detection if not a cylinder is used
+    run_config["use_drone_mesh"] = True # Use the drone mesh for collision detection if false a cylinder is used
     #Uncomment these if running in house:
-    run_config["la_dist"] = 0.8
-    run_config["s_max"] = 1
+    # run_config["la_dist"] = 0.6
+    # run_config["s_max"] = 1
     
     experiment_dir, agent_path, args = parse_experiment_info()
 
@@ -195,30 +197,28 @@ if __name__ == "__main__":
                 #     del plotter
                 
                 
+            #Path and quadcopter travel
+            # plot_3d(env, sim_df[sim_df['Episode']==episode], test_dir)
+            # plt.show()
 
-
-                #Path and quadcopter travel
-                #plot_3d(env, sim_df[sim_df['Episode']==episode], test_dir)
-                #plt.show()
-
-                # Observations
-                #normalized
-                # plot_all_normed_domain_observations(sim_df,test_dir)
-                # #original (pure)
-                # plot_observation_body_accl(sim_df,test_dir)
-                # plot_observation_body_angvel(sim_df,test_dir)
-                # plot_observation_cpp(sim_df,test_dir)
-                # plot_observation_cpp_azi_ele(sim_df,test_dir)
-                # plot_observation_e_azi_ele(sim_df,test_dir)
-                # plot_observation_dists(sim_df,test_dir)
-                # plot_observation_LA(sim_df,test_dir)
-                
-                # # States
-                # plot_angular_velocity(sim_df,test_dir)
-                # plot_attitude(sim_df,test_dir)
-                # plot_velocity(sim_df,test_dir)
-                
-                # plt.close('all')
+            # Observations
+            # normalized
+            plot_all_normed_domain_observations(sim_df,test_dir)
+            #original (pure)
+            plot_observation_body_accl(sim_df,test_dir)
+            plot_observation_body_angvel(sim_df,test_dir)
+            plot_observation_cpp(sim_df,test_dir)
+            plot_observation_cpp_azi_ele(sim_df,test_dir)
+            plot_observation_e_azi_ele(sim_df,test_dir)
+            plot_observation_dists(sim_df,test_dir)
+            plot_observation_LA(sim_df,test_dir)
+            
+            # States
+            plot_angular_velocity(sim_df,test_dir)
+            plot_attitude(sim_df,test_dir)
+            plot_velocity(sim_df,test_dir)
+            
+            plt.close('all')
 
             write_report(test_dir, sim_df, env, episode)
 
