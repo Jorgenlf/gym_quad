@@ -76,8 +76,8 @@ class LV_VAE_MESH(gym.Env):
         self.domain_space = gym.spaces.Box(
             low = -1,
             high = 1,
-            shape = (19,),
-            #shape = (22,),
+            # shape = (19,),
+            shape = (22,),
             dtype = np.float32
         )
 
@@ -260,14 +260,14 @@ class LV_VAE_MESH(gym.Env):
         
         # IMU boosted noise
         if self.perturb_sim or self.perturb_IMU:
-            self.imu.set_std(0.0015, 0.015) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
+            self.imu.set_std(deg2rad(0.01), 0.015) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
            # TODO decide on these values and wether it should be set here in reset or in the observation(each step)
         
         #Controller gains
         if self.perturb_sim or self.perturb_ctrl_gains:
             self.kv_noise = np.random.uniform(-0.2, 0.2) #Velocity gain
-            self.kangvel_noise = np.random.uniform(-0.1, 0.1) #Angular velocity gain
             self.kR_noise = np.random.uniform(-0.1, 0.1) #Attitude gain
+            self.kangvel_noise = np.random.uniform(-0.1, 0.1) #Angular velocity gain
 
         # TODORandom forces and torques maybe?
 
@@ -495,8 +495,8 @@ class LV_VAE_MESH(gym.Env):
         quad_pos = self.quadcopter.position + quad_pos_noise #Do this once here and use them in the domain_observation below
         quad_att = self.quadcopter.attitude + quad_att_noise
 
-        domain_obs = np.zeros(19, dtype=np.float32)
-        #domain_obs = np.zeros(22, dtype=np.float32)
+        # domain_obs = np.zeros(19, dtype=np.float32)
+        domain_obs = np.zeros(22, dtype=np.float32)
 
         # Heading angle error wrt. the path
         domain_obs[0] = np.sin(self.chi_error+chi_error_noise)
@@ -531,7 +531,7 @@ class LV_VAE_MESH(gym.Env):
         if self.waypoint_index+1 < len(self.path.waypoints):
             distance_to_next_wp = np.linalg.norm(self.path.waypoints[self.waypoint_index+1] - quad_pos)
         else:
-            distance_to_next_wp = np.linalg.norm(self.path.waypoints[-1] - quad_pos)
+            distance_to_next_wp = 0 # np.linalg.norm(self.path.waypoints[-1] - quad_pos) With passwp reward we dont want the agent to look for next wp reward when only the end wp is left
 
         domain_obs[11] = m1to1(distance_to_next_wp, -relevant_distance, relevant_distance)
         # print("dist_nxt_wp", np.round(distance_to_next_wp),"  normed", np.round(domain_obs[18],2))
@@ -565,10 +565,10 @@ class LV_VAE_MESH(gym.Env):
         domain_obs[18] = self.prev_action[2]
         
         #The velocity of quadcopter in body frame #TODO add noise to this if letting the agent observe body velocity helps
-        # vel_body = np.transpose(geom.Rzyx(*quad_att)).dot(self.quadcopter.velocity)
-        # domain_obs[19] = m1to1(vel_body[0], -self.s_max, self.s_max)
-        # domain_obs[20] = m1to1(vel_body[1], -self.s_max, self.s_max)
-        # domain_obs[21] = m1to1(vel_body[2], -self.s_max, self.s_max)
+        vel_body = np.transpose(geom.Rzyx(*quad_att)).dot(self.quadcopter.velocity) + quad_pos_noise/2 #Temp noise fix
+        domain_obs[19] = m1to1(vel_body[0], -self.s_max, self.s_max) 
+        domain_obs[20] = m1to1(vel_body[1], -self.s_max, self.s_max) 
+        domain_obs[21] = m1to1(vel_body[2], -self.s_max, self.s_max) 
 
 
         #List of the observations before min-max scaling
@@ -582,8 +582,8 @@ class LV_VAE_MESH(gym.Env):
             distance_to_next_wp,
             distance_to_end,
             *lookahead_body,
-            *self.prev_action
-            #*vel_body
+            *self.prev_action,
+            # *vel_body
         ]
 
         self.info['pure_obs'] = pure_obs
@@ -786,14 +786,15 @@ class LV_VAE_MESH(gym.Env):
         # if self.waypoint_index == len(self.path.waypoints)-2: 
         #     dist_to_end = np.linalg.norm(self.quadcopter.position - self.path.get_endpoint())
         #     approach_end_reward = np.exp(-((dist_to_end**2)/(2*self.approach_end_sigma**2)))*self.max_approach_end_rew
-        #Rather do this:
-        if self.waypoint_index == len(self.path.waypoints)-2:
-            dist_to_end = np.linalg.norm(self.quadcopter.position - self.path.get_endpoint())
-            if dist_to_end < self.approach_end_range:
-                lambda_CA = (dist_to_end/self.approach_end_range)/2
-                if lambda_CA < self.lambda_CA_min : lambda_CA = self.lambda_CA_min
-                lambda_PA = 1-lambda_CA
-                # print("Lambda_CA:", lambda_CA, "  Lambda_PA:", lambda_PA)
+        
+        #Rather do this: #TODO or maybe not.. decide
+        # if self.waypoint_index == len(self.path.waypoints)-2:
+        #     dist_to_end = np.linalg.norm(self.quadcopter.position - self.path.get_endpoint())
+        #     if dist_to_end < self.approach_end_range:
+        #         lambda_CA = (dist_to_end/self.approach_end_range)/2
+        #         if lambda_CA < self.lambda_CA_min : lambda_CA = self.lambda_CA_min
+        #         lambda_PA = 1-lambda_CA
+        #         # print("Lambda_CA:", lambda_CA, "  Lambda_PA:", lambda_PA)
 
         #Collision reward (sparse)
         reward_collision = 0
@@ -1374,7 +1375,7 @@ class LV_VAE_MESH(gym.Env):
 
     def scenario_horizontal_test(self):
         print("HORIZONTAL")
-        waypoints = [(0,0,0), (5,0,0), (10,0,0)]
+        waypoints = [(0,0,0), (2.5,0,0), (5,0,0), (7.5,0,0), (10,0,0)]
         self.path = QPMI(waypoints)
         self.obstacles = []
         for i in range(7):
@@ -1390,7 +1391,7 @@ class LV_VAE_MESH(gym.Env):
 
     def scenario_vertical_test(self):
         print("VERTICAL")
-        waypoints = [(0,0,0), (5,0,0), (10,0,0)]
+        waypoints = [(0,0,0), (2.5,0,0), (5,0,0), (7.5,0,0), (10,0,0)]
         self.path = QPMI(waypoints)
         self.obstacles = []
         for i in range(7):
@@ -1405,7 +1406,28 @@ class LV_VAE_MESH(gym.Env):
 
     def scenario_deadend_test(self): 
         print("DEADEND")
-        waypoints = [(0,0,0), (25,0,0), (50,0,0)]
+        waypoints = [
+            (0.0, 0.0, 0.0),
+            (2.5, 0.0, 0.0),
+            (5.0, 0.0, 0.0),
+            (7.5, 0.0, 0.0),
+            (10.0, 0.0, 0.0),
+            (12.5, 0.0, 0.0),
+            (15.0, 0.0, 0.0),
+            (17.5, 0.0, 0.0),
+            (20.0, 0.0, 0.0),
+            (22.5, 0.0, 0.0),
+            (25.0, 0.0, 0.0),
+            (27.5, 0.0, 0.0),
+            (30.0, 0.0, 0.0),
+            (32.5, 0.0, 0.0),
+            (35.0, 0.0, 0.0),
+            (37.5, 0.0, 0.0),
+            (40.0, 0.0, 0.0),
+            (42.5, 0.0, 0.0),
+            (45.0, 0.0, 0.0),
+            (47.5, 0.0, 0.0),
+            (50.0, 0.0, 0.0)]
         self.path = QPMI(waypoints)
         radius = 10
         angles = np.linspace(-90, 90, 10)*np.pi/180

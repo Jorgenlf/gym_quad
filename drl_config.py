@@ -14,7 +14,7 @@ lv_vae_config = {
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle #TODO idk if this should be here might move it
     "enclose_scene"             : True,             # Enclose the scene with a box thats scaled to the scene size
     "padding"                   : 1.5,              # Padding of the box that encloses the scene [m] #usually 1.5m for indoor training
-    "drone_radius_for_collision": 0.25,             # Radius of the drone for collision detection [m] #Actual armlength is 0.25m heigh is 0.21m
+    "drone_radius_for_collision": 0.13,             # Radius of the drone for collision detection [m] #Actual armlength to propeller is 0.13m armlength frame extremais 0.25m. height is 0.21m
     "drone_height_for_collision": 0.21,             # Height of the drone for collision detection [m]
     "use_drone_mesh"            : False,            # Use the drone mesh for collision detection if not a cylinder is used using r and h above
     "recap_chance"              : 0.1,              # Chance of recapitulating a previous trainig scenario
@@ -37,7 +37,7 @@ lv_vae_config = {
     "latent_dim"                : 64,               # Dimension of the latent space
 #Path related parameters    
     "la_dist"                   : 3.5,              # Look ahead distance aka distance to the point on path to be followed. #LAidst 0.5 is nice in house
-    "accept_rad"                : 0.3,              # Acceptance radius for the quadcopter to consider the end as reached    
+    "accept_rad"                : 0.5,              # Acceptance radius for the quadcopter to consider the end as reached    
     "n_waypoints"               : 12,               # Number of waypoints to be generated
     "segment_length"            : 2.5,              # Length of the segments between waypoints
     "relevant_dist_to_path"     : 8,                # Distance to the path where the observation will yield values between -1 and 1
@@ -59,7 +59,7 @@ lv_vae_config = {
     #Path progression reward
     'PP_rew_max'                : 2,                # maximum reward for path progression
     'PP_rew_min'                : -1,               # minimum reward for path progression
-    'PP_rew_scale'              : 0.75,             # scale of path progression reward
+    'PP_rew_scale'              : 0.9,             # scale of path progression reward
                                 #2 might be better? see exp25 proficient_perturbed
     #Collision reward
     'rew_collision'             : -1000,            # reward (penalty) for collision

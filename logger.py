@@ -25,7 +25,7 @@ class TensorboardLogger(BaseCallback):
         self.log_freq = log_freq
         self.save_freq = save_freq
         self.success_buffer_size = success_buffer_size * n_cpu
-        self.prev_successes = []
+        self.prev_successes = [0]*self.success_buffer_size
         self.success_threshold = success_threshold
         self.use_success_as_stopping_criterion = use_success_as_stopping_criterion
         self.state_names = ["x", "y", "z", "roll", "pitch", "yaw", "u", "v", "w", "p", "q", "r"]
