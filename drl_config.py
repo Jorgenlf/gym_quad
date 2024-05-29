@@ -15,7 +15,7 @@ lv_vae_config = {
     "enclose_scene"             : True,             # Enclose the scene with a box thats scaled to the scene size
     "padding"                   : 1.5,              # Padding of the box that encloses the scene [m] #usually 1.5m for indoor training
     "drone_radius_for_collision": 0.13,             # Radius of the drone for collision detection [m] #Actual armlength to propeller is 0.13m armlength frame extremais 0.25m. height is 0.21m
-    "drone_height_for_collision": 0.21,             # Height of the drone for collision detection [m]
+    "drone_height_for_collision": 0.11,             # Height of the drone for collision detection [m]
     "use_drone_mesh"            : False,            # Use the drone mesh for collision detection if not a cylinder is used using r and h above
     "recap_chance"              : 0.1,              # Chance of recapitulating a previous trainig scenario
 #Noise parameters #TODO add the noise values here as well?    
@@ -62,7 +62,7 @@ lv_vae_config = {
     #Path progression reward
     'PP_rew_max'                : 2,                # maximum reward for path progression
     'PP_rew_min'                : -1,               # minimum reward for path progression
-    'PP_rew_scale'              : 0.9,             # scale of path progression reward
+    'PP_rew_scale'              : 0.9,              # scale of path progression reward
                                 #2 might be better? see exp25 proficient_perturbed
     #Collision reward
     'rew_collision'             : -1000,            # reward (penalty) for collision
@@ -71,7 +71,7 @@ lv_vae_config = {
     'rew_reach_end'             : 1000,             # reward for reaching the end of the path
 
     #pass wp reward
-    'rew_pass_wp'               : 1000/11,          # reward for passing a waypoint
+    'rew_pass_wp'               : 1000/8,          # reward for passing a waypoint
                                 #=rew_reach_end/n_wps-1 #TODO decide what the reward should be for passing a waypoint maybe rew_reach_end/3 or 4 or something else hmh
 
     #Approach end lambda interpolation
