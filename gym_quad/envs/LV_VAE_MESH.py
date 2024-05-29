@@ -787,14 +787,14 @@ class LV_VAE_MESH(gym.Env):
         #     dist_to_end = np.linalg.norm(self.quadcopter.position - self.path.get_endpoint())
         #     approach_end_reward = np.exp(-((dist_to_end**2)/(2*self.approach_end_sigma**2)))*self.max_approach_end_rew
         
-        #Rather do this: #TODO or maybe not.. decide
-        # if self.waypoint_index == len(self.path.waypoints)-2:
-        #     dist_to_end = np.linalg.norm(self.quadcopter.position - self.path.get_endpoint())
-        #     if dist_to_end < self.approach_end_range:
-        #         lambda_CA = (dist_to_end/self.approach_end_range)/2
-        #         if lambda_CA < self.lambda_CA_min : lambda_CA = self.lambda_CA_min
-        #         lambda_PA = 1-lambda_CA
-        #         # print("Lambda_CA:", lambda_CA, "  Lambda_PA:", lambda_PA)
+        #Rather do this: #TODO or maybe not.. decide...
+        if self.waypoint_index == len(self.path.waypoints)-2:
+            dist_to_end = np.linalg.norm(self.quadcopter.position - self.path.get_endpoint())
+            if dist_to_end < self.approach_end_range:
+                lambda_CA = (dist_to_end/self.approach_end_range)/2
+                if lambda_CA < self.lambda_CA_min : lambda_CA = self.lambda_CA_min
+                lambda_PA = 1-lambda_CA
+                # print("Lambda_CA:", lambda_CA, "  Lambda_PA:", lambda_PA)
 
         #Collision reward (sparse)
         reward_collision = 0
@@ -1117,7 +1117,13 @@ class LV_VAE_MESH(gym.Env):
     #No obstacles
     def scenario_line(self):
         initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(self.n_waypoints,'line',segmentlength=self.segment_length)
+        
+        desired_length = np.random.uniform(self.line_path_range[0],self.line_path_range[1])
+        n_wps = int(desired_length//2 + 1)
+        segment_length = desired_length/(n_wps-1)
+        # print("desired lenght",desired_length ,"nwp",n_wps, "seglen",segment_length)
+
+        waypoints = generate_random_waypoints(n_wps,'line',segmentlength=segment_length)
         self.path = QPMI(waypoints)
         init_pos = [0, 0, 0]
         init_attitude=np.array([0,0,self.path.get_direction_angles(0)[0]])
@@ -1162,7 +1168,13 @@ class LV_VAE_MESH(gym.Env):
 
     def scenario_3d_new(self,random_pos=False,random_attitude=False):
         initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(self.n_waypoints,'3d_new', segmentlength=self.segment_length)
+
+        desired_length = np.random.uniform(self.new_3d_path_range[0],self.new_3d_path_range[1])
+        n_wps = int(desired_length//2 + 1)
+        segment_length = desired_length/(n_wps-1)
+        # print("desired lenght",desired_length ,"nwp",n_wps, "seglen",segment_length)
+
+        waypoints = generate_random_waypoints(n_wps,'3d_new', segmentlength=segment_length)
         self.path = QPMI(waypoints)
         
         if random_pos:
@@ -1200,14 +1212,19 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
     
     def scenario_3d_up_down_plane(self, random_pos=False, random_attitude=False, e_angle_range = (np.pi/3,np.pi/2)):
+
         initial_state = np.zeros(6)
+        desired_length = np.random.uniform(self.new_3d_up_down_path_range[0],self.new_3d_up_down_path_range[1])
+        n_wps = int(desired_length//2 + 1)
+        segment_length = desired_length/(n_wps-1)
+        # print("desired lenght",desired_length ,"nwp",n_wps, "seglen",segment_length)
         choice = np.random.uniform(0,1)
         if choice < 0.33:
-            waypoints = generate_random_waypoints(self.n_waypoints,'3d_new', segmentlength=self.segment_length)
+            waypoints = generate_random_waypoints(n_wps,'3d_new', segmentlength=segment_length)
         elif choice < 0.66:
-            waypoints = generate_random_waypoints(self.n_waypoints,'3d_up', segmentlength=self.segment_length, e_angle_range=e_angle_range)
+            waypoints = generate_random_waypoints(n_wps,'3d_up', segmentlength=segment_length, e_angle_range=e_angle_range)
         else:
-            waypoints = generate_random_waypoints(self.n_waypoints,'3d_down', segmentlength=self.segment_length, e_angle_range=e_angle_range)
+            waypoints = generate_random_waypoints(n_wps,'3d_down', segmentlength=segment_length, e_angle_range=e_angle_range)
         self.path = QPMI(waypoints)
 
         if random_pos:

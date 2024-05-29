@@ -33,11 +33,11 @@ train_config["recap_chance"] = 0.1
 
 
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---### 
-scenarios = {   #"line"                 :  0.1e6,
-                # "line"                 :  1e6,
-                # "easy"                 :  1e6,
-                # "easy_random"          :  1e6, #Randomized pos and att of quad in easy scenario 
-                # "intermediate"         :  1.5e6,
+scenarios = {   "line"                 :  0.1e6,
+                "line"                 :  1e6,
+                "easy"                 :  1e6,
+                "easy_random"          :  1e6, #Randomized pos and att of quad in easy scenario 
+                "intermediate"         :  1.5e6,
                 "proficient"           :  1.5e6,
                 "advanced"             :  2e6, 
                 "expert"               :  2e6,
@@ -45,15 +45,15 @@ scenarios = {   #"line"                 :  0.1e6,
                 "expert_perturbed"     :  2e6
              }
 
-scenario_success_threshold = {   #"line"                 :  0.6, #TODO make the dict above a list of tuples instead #This is a quick fix
-#                                 "easy"                 :  0.6,
-#                                 "easy_random"          :  0.6,
-#                                 "intermediate"         :  0.8,
+scenario_success_threshold = {  "line"                 :  0.6, #TODO make the dict above a list of tuples instead #This is a quick fix
+                                "easy"                 :  0.6,
+                                "easy_random"          :  0.6,
+                                "intermediate"         :  0.8,
                                 "proficient"           :  0.8,
                                 "advanced"             :  0.9,
-                                "expert"               :  0.95,
+                                "expert"               :  0.9,
                                 "proficient_perturbed" :  0.9,
-                                "expert_perturbed"     :  0.95
+                                "expert_perturbed"     :  0.9
                             }
 
 k = 5   # Number of consecutive episode successes that must be above the threshold to move to the next scenario

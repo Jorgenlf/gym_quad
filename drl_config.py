@@ -39,7 +39,10 @@ lv_vae_config = {
     "la_dist"                   : 3.5,              # Look ahead distance aka distance to the point on path to be followed. #LAidst 0.5 is nice in house
     "accept_rad"                : 0.5,              # Acceptance radius for the quadcopter to consider the end as reached    
     "n_waypoints"               : 12,               # Number of waypoints to be generated
-    "segment_length"            : 2.5,              # Length of the segments between waypoints
+    "segment_length"            : 2.5,              # Length of the segments between waypoints [m]
+    "line_path_range"           : (3,10),           # Range of the line path length [m] affects scenario line
+    "new_3d_path_range"         : (10,20),          # Range of the line path length [m] affects scenario easy, easy_random, intermediate, proficient
+    "new_3d_up_down_path_range" : (10,25),          # Range of the line path length [m] affects scenario advanced, expert
     "relevant_dist_to_path"     : 8,                # Distance to the path where the observation will yield values between -1 and 1
 #Drone controller parameters    
     "s_max"                     : 2,                # Maximum speed of the quadcopter m/s #2.5m/s*3.6 = 9km/h  #Speed 1 is nice in house
