@@ -49,12 +49,12 @@ if __name__ == "__main__":
     
     run_config["padding"] = 1.5 #To see how padding affects the test scenarios. 1.5 is the standard
     # run_config["enclose_scene"] = False # Enclose the scene with a box thats scaled to the scene size
-    run_config["accept_rad"] = 0.6 
+    run_config["accept_rad"] = 1
 
-    run_config["use_drone_mesh"] = True # Use the drone mesh for collision detection if false a cylinder is used
+    # run_config["use_drone_mesh"] = False # Use the drone mesh for collision detection if false a cylinder is used
     #Uncomment these if running in house:
-    # run_config["la_dist"] = 0.6
-    # run_config["s_max"] = 1
+    # run_config["la_dist"] = 1
+    # run_config["s_max"] = 2
     
     experiment_dir, agent_path, args = parse_experiment_info()
 
