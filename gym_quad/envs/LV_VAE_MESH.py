@@ -663,6 +663,7 @@ class LV_VAE_MESH(gym.Env):
                 self.success = True
             elif self.collided:
                 print("Quadcopter collided!")
+                print ("At position: ", self.quadcopter.position)
                 print("At timestep: ",self.total_t_steps, "  Which equates to: ", self.total_t_steps*self.step_size, "s")
                 self.success = False
             elif end_cond_2:
@@ -788,12 +789,12 @@ class LV_VAE_MESH(gym.Env):
         #     approach_end_reward = np.exp(-((dist_to_end**2)/(2*self.approach_end_sigma**2)))*self.max_approach_end_rew
         
         #Rather do this: #TODO or maybe not.. decide...
-        if self.waypoint_index == len(self.path.waypoints)-2:
-            dist_to_end = np.linalg.norm(self.quadcopter.position - self.path.get_endpoint())
-            if dist_to_end < self.approach_end_range:
-                lambda_CA = (dist_to_end/self.approach_end_range)/2
-                if lambda_CA < self.lambda_CA_min : lambda_CA = self.lambda_CA_min
-                lambda_PA = 1-lambda_CA
+        # if self.waypoint_index == len(self.path.waypoints)-2:
+        #     dist_to_end = np.linalg.norm(self.quadcopter.position - self.path.get_endpoint())
+        #     if dist_to_end < self.approach_end_range:
+        #         lambda_CA = (dist_to_end/self.approach_end_range)/2
+        #         if lambda_CA < self.lambda_CA_min : lambda_CA = self.lambda_CA_min
+        #         lambda_PA = 1-lambda_CA
                 # print("Lambda_CA:", lambda_CA, "  Lambda_PA:", lambda_PA)
 
         #Collision reward (sparse)
@@ -804,9 +805,10 @@ class LV_VAE_MESH(gym.Env):
 
         #Passed waypoint reward (sparse)
         reward_pass_wp = 0
+        '''Note: Does not yield reward for passing the final wp. Which is desierable :)'''
         if self.add_wp_reward:
             reward_pass_wp = self.rew_pass_wp
-            # print("Passed waypoint reward:", reward_pass_wp)
+            # print("Passed waypoint reward:", reward_pass_wp) 
             self.add_wp_reward = False
 
         #Reach end reward (sparse)
