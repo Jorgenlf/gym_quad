@@ -89,37 +89,9 @@ This is an overview of how keyboardinputs map to moving the quadcopter:
 ### Generating results 
 Copies the [gym_quad/drl_config.py] hyperparameters and changes certain hyperparam supporting resultgen in [gym_quad/result_gen.py] for mass result generation. Four modes:
 
-1. Testing all trained agents:
-    1.1. Sequentially in one terminal (slower)
-        Example:
-            python result_gen.py --exp_id 19 --episodes 10 --trained_list expert expert_perturbed --test_list horizontal vertical deadend random_corridor --test_all_agents True
-    1.2. Parallell in multiple terminals (faster)
-        Example:
-            terminal 1:
-                python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list horizontal --test_all_agents True
-            terminal 2:
-                python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list vertical --test_all_agents True
-            terminal 3:
-                python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list deadend --test_all_agents True
-            .
-            .
-            .
-
-2. Testing a specific trained agent
-    2.1. Sequentially in one terminal (slower)
-        Example:
-            python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list house --agent 170000
-    2.2. Parallell in multiple terminals (faster)
-        Example:
-            terminal 1:
-                python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list house --agent 170000
-            terminal 2:
-                python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list horizontal --agent 170000
-            terminal 3:
-                python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list vertical --agent 170000
-            .
-            .
-            .
-
+1. Testing all trained agents in the trainedlist across all scenarios in the testlist
+    ``` python result_gen.py --exp_id 19 --episodes 10 --trained_list expert expert_perturbed --test_list horizontal vertical deadend random_corridor house --test_all_agents True```
+2. Testing a specific trained agent from a specific training scenario across all scenarios in the testlist
+    ```python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list horizontal vertical deadend random_corridor house --agent "name"```
 
 
