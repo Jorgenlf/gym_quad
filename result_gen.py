@@ -113,11 +113,16 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
         init_pos = drone_traj[0]
         obstacles = env.unwrapped.obstacles
 
+        ft = False
+        if test_scen == "cave":
+            ft = True
+
         plotter = Plotter3D(obstacles=obstacles, 
                             path=path, 
                             drone_traj=drone_traj,
                             initial_position=init_pos,
-                            nosave=False)
+                            nosave=False,
+                            force_transparency=ft)
         plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
                                     azimuth=90,
                                     elevation=None,
@@ -133,7 +138,8 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
                                         path=path,
                                         drone_trajectories=all_drone_trajs,
                                         cum_rewards=cum_rewards,
-                                        nosave=False)
+                                        nosave=False,
+                                        force_transparency=ft)
         multiplotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"multiplot.png"),
                                         azimuth=90,
                                         elevation=None,
@@ -163,7 +169,7 @@ if __name__ == "__main__":
     test_scenarios = args.test_list
     trained_scenarios_to_run = args.trained_list
     expdir_string = r"Experiment {}".format(args.exp_id)
-    expdir_string = r"Best {}".format(args.exp_id) #TODO add this-> if args.best_agents else expdir_string
+    expdir_string = r"Best_final_res_gen {}".format(args.exp_id) #NB This is temp for final res gen
     base_experiment_dir = os.path.join(r"./log", r"{}".format(args.env), expdir_string)
 
     tasks = []

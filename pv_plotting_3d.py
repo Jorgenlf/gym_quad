@@ -168,7 +168,7 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
 
         opacity=1.0
         if self.force_transparency:
-            opacity = 0.25
+            opacity = 0.07
             azimuth = 0 #Hacky fix to get the right view for the cave scenario as its the only one where we use force transparency...
             self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = opacity) #Hacky fix to not plot the last obstacle in room colors..
         
@@ -439,7 +439,7 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
 
         opacity=1.0
         if self.force_transparency:
-            opacity = 0.25
+            opacity = 0.07
             azimuth = 0 #Hacky fix to get the right view for the cave scenario as its the only one where we use force transparency...
             self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = opacity) #Hacky fix to not plot the last obstacle in room colors..
 

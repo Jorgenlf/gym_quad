@@ -1607,16 +1607,15 @@ class LV_VAE_MESH(gym.Env):
         self.generate_obstacles(n = 10, rmin=1.6, rmax=2.1, path = self.path, mean = 0, std = 2, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.4, obstacle_type='cube',percentage_of_path_range=(0.15,0.18))
         self.generate_obstacles(n = 10, rmin=1.4, rmax=1.6, path = self.path, mean = 0, std = 1.6, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.3, obstacle_type='cube',percentage_of_path_range=(0.18,0.20))
         self.generate_obstacles(n = 10, rmin=1, rmax=1.4, path = self.path, mean = 0, std = 1.5, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.20,0.22))
-        #Generate the cave first half
-        self.generate_obstacles(n = 30, rmin=1, rmax=1.2, path = self.path, mean = 2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.22,0.4))
-        self.generate_obstacles(n = 30, rmin=1, rmax=1.2, path = self.path, mean = -2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.22,0.4))
-        #Generate the cave second half
-        self.generate_obstacles(n = 30, rmin=1, rmax=1.2, path = self.path, mean = 2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.45,0.90))
-        self.generate_obstacles(n = 30, rmin=1, rmax=1.2, path = self.path, mean = -2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.45,0.90))
+        #Generate the cave
+        self.generate_obstacles(n = 60, rmin=1, rmax=1.5, path = self.path, mean = 2.2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.22,0.3))
+        self.generate_obstacles(n = 60, rmin=1, rmax=1.5, path = self.path, mean = 2.2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.33,0.45))
+        self.generate_obstacles(n = 60, rmin=1, rmax=1.5, path = self.path, mean = 2.2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.48,0.6))
+        self.generate_obstacles(n = 60, rmin=1, rmax=1.5, path = self.path, mean = 2.2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.63,0.75))        #Generate the cave fourth quarter
+        self.generate_obstacles(n = 60, rmin=1, rmax=1.5, path = self.path, mean = 2.2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.78,0.86))
         #Generate the cave end
-        self.generate_obstacles(n = 15, rmin=1, rmax=1.2, path = self.path, mean = 2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.3, obstacle_type='cube',percentage_of_path_range=(0.92,1))
-        self.generate_obstacles(n = 15, rmin=1, rmax=1.2, path = self.path, mean = -2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.3, obstacle_type='cube',percentage_of_path_range=(0.92,1))
-        self.generate_obstacles(n = 10, rmin=1, rmax=1.2, path = self.path, mean = -2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.3, obstacle_type='cube',percentage_of_path_range=(0.99,1))
+        self.generate_obstacles(n = 30, rmin=1, rmax=1.5, path = self.path, mean = 2.2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.3, obstacle_type='cube',percentage_of_path_range=(0.92,1))
+        self.generate_obstacles(n = 10, rmin=1, rmax=1.5, path = self.path, mean = 2.2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.3, obstacle_type='cube',percentage_of_path_range=(0.99,1))
 
         #Manually place a big cube at the end of the cave to simulate end of cave
         obstacle_coords = self.path.waypoints[-1] 

@@ -19,7 +19,7 @@ option = 'unknown_ordered' # 'known_n_imgs' or 'unknown_ordered
 ###---###---###---###
 
 ###---### Define if you want a gif or a webp animation: ###---###
-mode = "webp" 
+mode = "webp"  # "gif" or "webp"
 ###---###---###---###
 
 if option == 'known_n_imgs':
@@ -31,8 +31,8 @@ elif option == 'unknown_ordered':
     #Choose which depth maps to use:    
     ###---###---###---###
     exp_id = 32
-    test_id = 4
-    scenario = "house_easy_obstacles"
+    test_id = 47
+    scenario = "cave"
     ###---###---###---###
 
     # Regular expression to extract numbers from filenames:

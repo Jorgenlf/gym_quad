@@ -139,7 +139,6 @@ if __name__ == "__main__":
                 
                 del plotter
                 
-
                 # Save the 3D plot: #Ghetto fix calling the same class twice but works.
                 plotter = Plotter3D(obstacles=obstacles, 
                                     path=path, 
