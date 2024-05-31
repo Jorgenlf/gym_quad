@@ -36,7 +36,9 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
     elif test_scen == "house_easy_obstacles" or test_scen == "house_hard_obstacles":
         result_config["la_dist"] = 1
         result_config["s_max"] = 2
-        result_config["max_t_steps"] = 6000 #Needs more time in the house        
+        result_config["max_t_steps"] = 6000 #Needs more time in the house
+    elif test_scen == "helix":
+        result_config["max_t_steps"] = 6000 #Needs more time in the helix        
     else:
         result_config["la_dist"] = lv_vae_config["la_dist"]
         result_config["s_max"] = lv_vae_config["s_max"]
