@@ -3,6 +3,7 @@ import gymnasium as gym
 import os
 import glob
 import re
+import time
 import pandas as pd
 from tqdm import tqdm
 from joblib import Parallel, delayed
@@ -28,10 +29,14 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
     agent_name = os.path.splitext(os.path.basename(agent))[0]
     print(f"Running test for agent {agent_name} in scenario {test_scen}")
 
-    if test_scen == "house":
+    if test_scen == "house_easy" or test_scen == "house_hard":
         result_config["la_dist"] = 0.5
         result_config["s_max"] = 1
         result_config["max_t_steps"] = 6000 #Needs more time in the house
+    elif test_scen == "house_easy_obstacles" or test_scen == "house_hard_obstacles":
+        result_config["la_dist"] = 1.1
+        result_config["s_max"] = 1
+        result_config["max_t_steps"] = 6000 #Needs more time in the house        
     else:
         result_config["la_dist"] = lv_vae_config["la_dist"]
         result_config["s_max"] = lv_vae_config["s_max"]
@@ -153,6 +158,7 @@ result_config["min_reward"] = -100e4 #TODO decide if this should be done (I thin
 #When flag added switch to the desired mesh here :)
  
 if __name__ == "__main__":
+    _s = time.time() #For tracking training time
     _, _, args = parse_experiment_info()
     test_scenarios = args.test_list
     trained_scenarios_to_run = args.trained_list
@@ -183,3 +189,5 @@ if __name__ == "__main__":
             delayed(run_test)(*task) for task in tqdm(batch_tasks, desc=f"Batch {batch_idx + 1}/{num_batches}")
         )
         print(f"Completed batch {batch_idx + 1}/{num_batches}")
+    
+    print(f"WHOLE RESULTGEN TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")

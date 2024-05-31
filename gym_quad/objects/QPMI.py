@@ -74,6 +74,8 @@ class QPMI():
     def calculate_ur(self, u):
         n = self.get_u_index(u)
         # ur = (u - self.us[n]) / (self.us[n+1] - self.us[n])
+        if n == len(self.us) - 1:  # if u is at the end
+            return 1.0
         try:
             ur = (u - self.us[n]) / (self.us[n+1] - self.us[n])
         except IndexError:
@@ -86,11 +88,15 @@ class QPMI():
 
     def calculate_uf(self, u):
         n = self.get_u_index(u)
+        if n == len(self.us) - 1:  # if u is at the end
+            return 0.0
         uf = (self.us[n+1]-u)/(self.us[n+1] - self.us[n])
         return uf        
 
 
     def __call__(self, u):
+        if u >= self.length: #Ensure that the path does not go beyond the last waypoint
+            u = self.length
         if u >= self.us[0] and u <= self.us[1]: # first stretch
             ax = self.x_params[0][0]
             ay = self.y_params[0][0]
