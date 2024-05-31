@@ -47,7 +47,7 @@ if __name__ == "__main__":
     run_config["recap_chance"] = 0.0 # No recapitulation when running
     run_config["max_t_steps"] = 3000 # Maximum number of timesteps in the DRL simulation before it is terminated
     
-    run_config["padding"] = 1.5 #To see how padding affects the test scenarios. 1.5 is the standard
+    # run_config["padding"] = 3 #To see how padding affects the test scenarios. 1.5 is the standard
     # run_config["enclose_scene"] = False # Enclose the scene with a box thats scaled to the scene size
     run_config["accept_rad"] = 1
 
