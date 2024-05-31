@@ -30,14 +30,16 @@ def polyline_from_points(points):
     poly.lines = the_cell
     return poly
 
-
+#TODO make these classes inherit from a common class to avoid code duplication
+#TODO make them take in a flag of what scene was used as this givs more flexibility in plotting
 class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
-    def __init__(self, obstacles, path: QPMI, drone_traj: np.ndarray, initial_position: np.ndarray, nosave=False):
+    def __init__(self, obstacles, path: QPMI, drone_traj: np.ndarray, initial_position: np.ndarray, nosave=False, force_transparency = False):
         self.obstacles = obstacles
         self.path = path
         self.drone_traj = drone_traj
         self.initial_position = initial_position
         self.nosave = nosave
+        self.force_transparency = force_transparency
 
         self.meshes, self.room_mesh, self.house_mesh = self.obstacles_to_pyvista_meshes(obstacles)
         self.quadratic_path = self.dash_path(self.get_path_as_arr(path))
@@ -164,15 +166,22 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
         self.plotter.add_mesh(pv.Cube(bounds=self.scaled_bounds), opacity=0.0)
         backface_params = dict(opacity=0.0) #  To see through outer walls of enclosing room 
 
+        opacity=1.0
+        if self.force_transparency:
+            opacity = 0.25
+            azimuth = 0 #Hacky fix to get the right view for the cave scenario as its the only one where we use force transparency...
+            self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = opacity) #Hacky fix to not plot the last obstacle in room colors..
+        
+
         # Add all obstacles
         for i, mesh in enumerate(self.meshes):
             if i == 0:
-                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params)
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params, opacity = opacity)
             else:
-                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params)
-        
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = opacity)
+
         # Add the room, only plot if not house scenario
-        if self.room_mesh != None and self.house_mesh == None:
+        if self.room_mesh != None and self.house_mesh == None and not self.force_transparency: #hacky fix here as well
             self.plotter.add_mesh(self.room_mesh, color=self.room_color, show_edges=False, backface_params=backface_params)
         
         if self.house_mesh != None:
@@ -274,12 +283,13 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
 
 
 class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for improved code quality
-    def __init__(self, obstacles, path: QPMI, drone_trajectories: dict, cum_rewards: dict, nosave=False):
+    def __init__(self, obstacles, path: QPMI, drone_trajectories: dict, cum_rewards: dict, nosave=False, force_transparency = False):
         self.obstacles = obstacles
         self.path = path
         self.drone_trajectories = drone_trajectories 
         self.cum_rewards = cum_rewards
         self.nosave = nosave
+        self.force_transparency = force_transparency
 
         self.meshes, self.room_mesh, self.house_mesh = self.obstacles_to_pyvista_meshes(obstacles)
         self.quadratic_path = self.dash_path(self.get_path_as_arr(path))
@@ -427,15 +437,22 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
         self.plotter.add_mesh(pv.Cube(bounds=self.scaled_bounds), opacity=0.0)
         backface_params = dict(opacity=0.0) #  To see through outer walls of enclosing room 
 
+        opacity=1.0
+        if self.force_transparency:
+            opacity = 0.25
+            azimuth = 0 #Hacky fix to get the right view for the cave scenario as its the only one where we use force transparency...
+            self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = opacity) #Hacky fix to not plot the last obstacle in room colors..
+
+
         # Add all obstacles
         for i, mesh in enumerate(self.meshes):
             if i == 0:
-                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params)
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params, opacity=opacity)
             else:
-                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params)
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity=opacity)
 
         # Add the room, only plot if not house scenario
-        if self.room_mesh != None and self.house_mesh == None:
+        if self.room_mesh != None and self.house_mesh == None and not self.force_transparency: #hacky fix here as well
             self.plotter.add_mesh(self.room_mesh, color=self.room_color, show_edges=False, backface_params=backface_params)
         
         if self.house_mesh != None:

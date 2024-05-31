@@ -121,12 +121,17 @@ if __name__ == "__main__":
                 init_pos = drone_traj[0]
                 obstacles = env.unwrapped.obstacles
 
+                ft = False
+                if args.run_scenario == "cave":
+                    ft = True
+
                 #Make the interactive 3D plot            
                 plotter = Plotter3D(obstacles=obstacles, 
                                     path=path, 
                                     drone_traj=drone_traj,
                                     initial_position=init_pos,
-                                    nosave=True) 
+                                    nosave=True,
+                                    force_transparency= ft) 
                 plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
                                             azimuth=90, # 90 or 0 is best angle for the 3D plot 
                                             elevation=None,
@@ -134,12 +139,14 @@ if __name__ == "__main__":
                 
                 del plotter
                 
+
                 # Save the 3D plot: #Ghetto fix calling the same class twice but works.
                 plotter = Plotter3D(obstacles=obstacles, 
                                     path=path, 
                                     drone_traj=drone_traj,
                                     initial_position=init_pos,
-                                    nosave=False) 
+                                    nosave=False,
+                                    force_transparency= ft) 
                 plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
                                            azimuth=90, # 90 or 0 is best angle for the 3D plot 
                                            elevation=None,
@@ -166,7 +173,8 @@ if __name__ == "__main__":
                                                 path=path,
                                                 drone_trajectories=all_drone_trajs,
                                                 cum_rewards=cum_rewards,
-                                                nosave=False)
+                                                nosave=False,
+                                                force_transparency= ft)
                 multiplotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"multiplot.png"),
                                                 azimuth=90,
                                                 elevation=None,
