@@ -1505,13 +1505,10 @@ class LV_VAE_MESH(gym.Env):
         print("HOUSE EASY")
         initial_state = np.zeros(6)
         waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=6) 
-        print("waypoints",waypoints)
         waypoints = waypoints[::-1]
-        print("waypointsafter flip",waypoints)
         self.path = QPMI(waypoints)
-        print("wps of 0", waypoints[0])
         init_pos = waypoints[0] + np.random.uniform(low=-0.75, high=0.75, size=(1,3))
-        print("init_pos",init_pos)
+        init_pos = init_pos[0]
 
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([np.array(init_pos), init_attitude])
@@ -1527,8 +1524,8 @@ class LV_VAE_MESH(gym.Env):
         waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=6) 
         waypoints = waypoints[::-1]
         self.path = QPMI(waypoints)
-
         init_pos = waypoints[0] + np.random.uniform(low=-0.75, high=0.75, size=(1,3))
+        init_pos = init_pos[0]
 
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([np.array(init_pos), init_attitude])
