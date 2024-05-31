@@ -1348,6 +1348,8 @@ class LV_VAE_MESH(gym.Env):
         initial_state = self.scenario_3d_new()
         #Many cubes 1m away from path
         #TODO Make this not random while still allowing the other tests that are running in parallell be random
+        #TOOD Turn this into "CAVE" scenario
+        np.random.seed(0)
         self.generate_obstacles(n = 40, rmin=0.8, rmax=1, path = self.path, mean = 2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube')
         self.generate_obstacles(n = 40, rmin=0.8, rmax=1, path = self.path, mean = -2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube')
         return initial_state
