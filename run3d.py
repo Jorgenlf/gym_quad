@@ -53,8 +53,8 @@ if __name__ == "__main__":
 
     # run_config["use_drone_mesh"] = False # Use the drone mesh for collision detection if false a cylinder is used
     #Uncomment these if running in house:
-    # run_config["la_dist"] = 1
-    # run_config["s_max"] = 2
+    run_config["la_dist"] = 1.1
+    run_config["s_max"] = 2
     
     experiment_dir, agent_path, args = parse_experiment_info()
 
