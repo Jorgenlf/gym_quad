@@ -19,7 +19,7 @@ option = 'unknown_ordered' # 'known_n_imgs' or 'unknown_ordered
 ###---###---###---###
 
 ###---### Define if you want a gif or a webp animation: ###---###
-mode = "webp"  # "gif" or "webp"
+mode = "gif"  # "gif" or "webp"
 ###---###---###---###
 
 if option == 'known_n_imgs':
@@ -51,10 +51,18 @@ if mode == "gif":
     frame_duration = 1 / 50
 
     # Read, compose and write images to .gif:
-    with imageio.get_writer('my_image_animation.gif', mode='I', duration=frame_duration, loop=0) as writer:
-        for filename in filenames:
-            image = imageio.imread(filename)
-            writer.append_data(image)
+    # with imageio.get_writer('my_image_animation.gif', mode='I', duration=frame_duration, loop=0) as writer:
+    #     for filename in filenames:
+    #         image = imageio.imread(filename)
+    #         writer.append_data(image)
+
+    format = ".gif" 
+    output_path = "animated" + format
+    iio.imwrite(output_path, [iio.imread(fp) for fp in filenames],
+                    fps=30,  # Frames per second
+                    loop=0,  # 0 = infinite loop, 1 = no loop
+                    quantizer="nq",
+                    )
     print("GIF created successfully!")
 
 elif mode == "webp":
