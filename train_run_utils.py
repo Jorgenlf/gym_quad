@@ -535,7 +535,7 @@ def plot_collision_reward_function():
 
 
 def write_report(test_dir: str, sim_df: pd.DataFrame, env, episode: int) -> None:
-    sim_df.to_csv(os.path.join(test_dir, 'test_sim.csv'), index=False)
+    # sim_df.to_csv(os.path.join(test_dir, 'test_sim.csv'), index=False)
     episode_df = sim_df.loc[sim_df['Episode'] == episode]
 
     timesteps = episode_df.shape[0]

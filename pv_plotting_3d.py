@@ -4,7 +4,6 @@ import numpy as np
 import torch
 import trimesh
 
-
 from gym_quad.objects.mesh_obstacles import SphereMeshObstacle, CubeMeshObstacle, Scene, ImportedMeshObstacle
 from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.utils.geomutils import enu_to_tri, tri_to_enu
@@ -31,15 +30,13 @@ def polyline_from_points(points):
     return poly
 
 #TODO make these classes inherit from a common class to avoid code duplication
-#TODO make them take in a flag of what scene was used as this givs more flexibility in plotting
 class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
-    def __init__(self, obstacles, path: QPMI, drone_traj: np.ndarray, initial_position: np.ndarray, nosave=False, force_transparency = False):
+    def __init__(self, obstacles, path: QPMI, drone_traj: np.ndarray, initial_position: np.ndarray, nosave=False):
         self.obstacles = obstacles
         self.path = path
         self.drone_traj = drone_traj
         self.initial_position = initial_position
         self.nosave = nosave
-        self.force_transparency = force_transparency
 
         self.meshes, self.room_mesh, self.house_mesh = self.obstacles_to_pyvista_meshes(obstacles)
         self.quadratic_path = self.dash_path(self.get_path_as_arr(path))
@@ -167,12 +164,10 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
         backface_params = dict(opacity=0.0) #  To see through outer walls of enclosing room 
 
         opacity=1.0
-        if self.force_transparency:
-            opacity = 0.07
-
         if scene == "cave":
             opacity = 0.07
-            self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = opacity) #Hacky fix to not plot the last obstacle in room colors..
+            azimuth = 0
+            self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = opacity) 
 
         # Add all obstacles
         for i, mesh in enumerate(self.meshes):
@@ -181,7 +176,7 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
             else:
                 self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = opacity)
 
-        # Add the room, only plot if not house scenario
+        # Add the room, only plot if not house scenario or cave scenario
         if self.room_mesh != None and self.house_mesh == None and not scene == "cave":
             self.plotter.add_mesh(self.room_mesh, color=self.room_color, show_edges=False, backface_params=backface_params)
         
@@ -292,13 +287,12 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
 
 
 class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for improved code quality
-    def __init__(self, obstacles, path: QPMI, drone_trajectories: dict, cum_rewards: dict, nosave=False, force_transparency = False):
+    def __init__(self, obstacles, path: QPMI, drone_trajectories: dict, cum_rewards: dict, nosave=False):
         self.obstacles = obstacles
         self.path = path
         self.drone_trajectories = drone_trajectories 
         self.cum_rewards = cum_rewards
         self.nosave = nosave
-        self.force_transparency = force_transparency
 
         self.meshes, self.room_mesh, self.house_mesh = self.obstacles_to_pyvista_meshes(obstacles)
         self.quadratic_path = self.dash_path(self.get_path_as_arr(path))
@@ -315,7 +309,7 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
 
         # Plotting parameters
         self.clim = [self.min_rew, self.max_rew]
-        self.cmap = custom_cmap # OLD 'YlGn'
+        self.cmap = custom_cmap # Old map was 'YlGn'
         self.flip_scalars = True # To invert the colorbar
         self.path_color = '#4780ff' # blueish
         self.obstacles_color = '#ff3400' # redish
@@ -355,9 +349,10 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
         return min_reward, max_reward
     
     def dash_path(self, path: np.ndarray, n=100):
-        """Makes the path equal zeros except for evety nth element"""
-        new_path = np.zeros_like(path)
-        new_path[::n] = path[::n]
+        """Creates a new path which just consists of every nth element of the original path"""
+        new_path = np.ndarray((0,3))
+        for i in range(0, len(path), n):
+            new_path = np.vstack((new_path, path[i]))
         return new_path
 
     def get_path_as_arr(self, path: QPMI):
@@ -447,11 +442,10 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
         backface_params = dict(opacity=0.0) #  To see through outer walls of enclosing room 
 
         opacity=1.0
-        if self.force_transparency:
+        if scene == "cave":
             opacity = 0.07
-            azimuth = 0 #Hacky fix to get the right view for the cave scenario as its the only one where we use force transparency...
-            self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = opacity) #Hacky fix to not plot the last obstacle in room colors..
-
+            azimuth = 0
+            self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = opacity)
 
         # Add all obstacles
         for i, mesh in enumerate(self.meshes):
@@ -460,8 +454,8 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
             else:
                 self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity=opacity)
 
-        # Add the room, only plot if not house scenario
-        if self.room_mesh != None and self.house_mesh == None and not self.force_transparency: #hacky fix here as well
+        # Add the room, only plot if not house scenario or cave scenario
+        if self.room_mesh != None and self.house_mesh == None and not scene == "cave": 
             self.plotter.add_mesh(self.room_mesh, color=self.room_color, show_edges=False, backface_params=backface_params)
         
         if self.house_mesh != None:
