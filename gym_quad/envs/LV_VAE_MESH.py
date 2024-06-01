@@ -237,7 +237,7 @@ class LV_VAE_MESH(gym.Env):
         self.imu = IMU()
         self.imu_measurement = np.zeros((6,), dtype=np.float32) 
         #IMU noise #LET THERE ALWAYS BE SOME NOISE ON THE IMU AS IT IS USED IN THE CONTROLLER (AND ALSO IN THE OBSERVATION)
-        self.imu.set_std(0.001, 0.01) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
+        self.imu.set_std(0.001, 0.01) #Angular rate noise, linear acceleration noise standard deviation a normal dist draws from
 
         
         #Noise variables
@@ -261,7 +261,7 @@ class LV_VAE_MESH(gym.Env):
         
         # IMU boosted noise
         if self.perturb_sim or self.perturb_IMU:
-            self.imu.set_std(deg2rad(0.01), 0.015) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
+            self.imu.set_std(deg2rad(0.015), 0.015) #Angular rate noise, linear acceleration noise standard deviation a normal dist draws from
            # TODO decide on these values and wether it should be set here in reset or in the observation(each step)
         
         #Controller gains

@@ -158,7 +158,7 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
             meshes.append(pv_mesh)
         return meshes, room, house
     
-    def plot_scene_and_trajs(self, save_path=None, azimuth=90, elevation=None, see_from_plane=None): # TODO fix
+    def plot_scene_and_trajs(self, save_path=None, azimuth=90, elevation=None, see_from_plane=None, scene="none"): # TODO fix
         """Azimuth is the angle of the camera around the scene, + is anti-clockwise rotation about scene center, 0, 90, 180, 270 are the best angles (from each corner)
            elevation is the angle of the camera above the scene, + makes you see the scene from higher above, default is fine for corner angles so need not change
            see_from_plane is the plane to see the scene from (only if no azimuth is given), can be "xy", "xz" or "yz"
@@ -169,9 +169,10 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
         opacity=1.0
         if self.force_transparency:
             opacity = 0.07
-            azimuth = 0 #Hacky fix to get the right view for the cave scenario as its the only one where we use force transparency...
+
+        if scene == "cave":
+            opacity = 0.07
             self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = opacity) #Hacky fix to not plot the last obstacle in room colors..
-        
 
         # Add all obstacles
         for i, mesh in enumerate(self.meshes):
@@ -181,7 +182,7 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
                 self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = opacity)
 
         # Add the room, only plot if not house scenario
-        if self.room_mesh != None and self.house_mesh == None and not self.force_transparency: #hacky fix here as well
+        if self.room_mesh != None and self.house_mesh == None and not scene == "cave":
             self.plotter.add_mesh(self.room_mesh, color=self.room_color, show_edges=False, backface_params=backface_params)
         
         if self.house_mesh != None:
@@ -226,23 +227,31 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
         if save_path and not self.nosave:
             self.plotter.screenshot(save_path, scale=40, window_size = [1000, 1000])
         
-    def plot_only_scene(self, save_path=None, azimuth=90, elevation=None, see_from_plane=None):
+    def plot_only_scene(self, save_path=None, azimuth=90, elevation=None, see_from_plane=None, scene = "none"):
         self.plotter.add_mesh(pv.Cube(bounds=self.scaled_bounds), opacity=0.0)
         backface_params = dict(opacity=0.0)
+        opacity=1.0
+        if self.force_transparency:
+            opacity = 0.07
+
+        
+        if scene == "cave":
+            self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = opacity) #Hacky fix to not plot the last obstacle in room colors..
+
         # Add all obstacles
         for i, mesh in enumerate(self.meshes):
             if i == 0:
-                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params)
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params, opacity = opacity)
             else:
-                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params)
-        
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = opacity)
+
         # Add the room, only plot if not house scenario
-        if self.room_mesh != None and self.house_mesh == None:
+        if self.room_mesh != None and self.house_mesh == None and not scene == "cave":
             self.plotter.add_mesh(self.room_mesh, color=self.room_color, show_edges=False, backface_params=backface_params)
         
         if self.house_mesh != None:
             self.plotter.add_mesh(self.house_mesh, color=self.room_color, show_edges=False, opacity=0.25)
-        
+
         # Add drone traj and path
         self.plotter.add_points(self.quadratic_path, color=self.path_color, point_size=20, label="Path", render_points_as_spheres=True)
         self.plotter.add_points(self.initial_position, color="black", point_size=30, label="Initial Position", render_points_as_spheres=True)
@@ -433,7 +442,7 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
             meshes.append(pv_mesh)
         return meshes, room, house
     
-    def plot_scene_and_trajs(self, save_path=None, azimuth=90, elevation=None, see_from_plane=None): 
+    def plot_scene_and_trajs(self, save_path=None, azimuth=90, elevation=None, see_from_plane=None, scene="none"): 
         self.plotter.add_mesh(pv.Cube(bounds=self.scaled_bounds), opacity=0.0)
         backface_params = dict(opacity=0.0) #  To see through outer walls of enclosing room 
 
