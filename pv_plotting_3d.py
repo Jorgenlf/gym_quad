@@ -336,11 +336,13 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
         return min_reward, max_reward
     
     def dash_path(self, path: np.ndarray, n=100):
-        """Makes the path equal zeros except for evety nth element"""
-        new_path = np.zeros_like(path)
-        new_path[::n] = path[::n]
+        """Creates a new path which just consists of every nth element of the original path"""
+        new_path = np.ndarray((0,3))
+        for i in range(0, len(path), n):
+            new_path = np.vstack((new_path, path[i]))
         return new_path
-
+    
+    
     def get_path_as_arr(self, path: QPMI):
         u = np.linspace(path.us[0], path.us[-1], 10000)
         quadratic_path = []

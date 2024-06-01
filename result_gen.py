@@ -32,6 +32,7 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
     if test_scen == "house_easy" or test_scen == "house_hard":
         result_config["la_dist"] = 0.5
         result_config["s_max"] = 2
+        result_config["s_max"] = 2
         result_config["max_t_steps"] = 6000 #Needs more time in the house
     elif test_scen == "house_easy_obstacles" or test_scen == "house_hard_obstacles":
         result_config["la_dist"] = 1
@@ -163,7 +164,7 @@ if __name__ == "__main__":
     test_scenarios = args.test_list
     trained_scenarios_to_run = args.trained_list
     expdir_string = r"Experiment {}".format(args.exp_id)
-    expdir_string = r"Best {}".format(args.exp_id)
+    expdir_string = r"Best {}".format(args.exp_id) #TODO add this-> if args.best_agents else expdir_string
     base_experiment_dir = os.path.join(r"./log", r"{}".format(args.env), expdir_string)
 
     tasks = []
@@ -184,11 +185,11 @@ if __name__ == "__main__":
     batch_size = 6  # Adjust the batch size based on your system's capacity
     num_batches = len(tasks) // batch_size + int(len(tasks) % batch_size > 0)
 
-    for batch_idx in range(num_batches):
+    for batch_idx in tqdm(range(num_batches), desc="Total Progress"):
         batch_tasks = tasks[batch_idx * batch_size:(batch_idx + 1) * batch_size]
         print(f"Running batch {batch_idx + 1}/{num_batches} with {len(batch_tasks)} tasks")
         Parallel(n_jobs=-1)(
-            delayed(run_test)(*task) for task in tqdm(batch_tasks, desc=f"Batch {batch_idx + 1}/{num_batches}")
+            delayed(run_test)(*task) for task in batch_tasks
         )
         print(f"Completed batch {batch_idx + 1}/{num_batches}")
     

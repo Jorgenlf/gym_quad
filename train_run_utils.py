@@ -95,7 +95,7 @@ def simulate_environment(episode, env, agent: PPO, test_dir, sdm=False):
     normed_domain_observations = []
 
     while not done: 
-        action = agent.predict(obs, deterministic=False)[0]
+        action = agent.predict(obs, deterministic=True)[0]
         obs, _, done, _, info = env.step(action)
 
         if sdm:
