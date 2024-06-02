@@ -539,6 +539,7 @@ def write_report(test_dir: str, sim_df: pd.DataFrame, env, episode: int) -> None
     episode_df = sim_df.loc[sim_df['Episode'] == episode]
 
     timesteps = episode_df.shape[0]
+    avg_speed = np.sqrt(episode_df[r"$u$"]**2 + episode_df[r"$v$"]**2 + episode_df[r"$w$"]**2).mean()
     avg_ape = np.sqrt(episode_df[r'$e$']**2 + episode_df[r'$h$']**2).mean()
     iae_cross, iae_vertical = calculate_IAE(episode_df)
     progression = episode_df['Progression'].max()
@@ -548,6 +549,7 @@ def write_report(test_dir: str, sim_df: pd.DataFrame, env, episode: int) -> None
         'Episode': episode, 
         'Timesteps': timesteps, 
         'Avg Absolute Path Error': avg_ape,
+        'Avg Speed': avg_speed,
         'IAE Cross': iae_cross,
         'IAE Vertical': iae_vertical,
         'Progression': progression, 
@@ -567,6 +569,7 @@ def write_report(test_dir: str, sim_df: pd.DataFrame, env, episode: int) -> None
         f.write('# PERFORMANCE METRICS (LAST {} EPISODES AVG.)\n'.format(summary.shape[0]))
         f.write('{:<30}{:<30.2f}\n'.format('Avg. Number of Timesteps', summary['Timesteps'].mean()))
         f.write('{:<30}{:<30.2f}\n'.format('Avg. Absolute Path Error [m]', summary['Avg Absolute Path Error'].mean()))
+        f.write('{:<30}{:<30.2f}\n'.format('Avg. Speed [m/s]', summary['Avg Speed'].mean()))
         f.write('{:<30}{:<30.2f}\n'.format('Avg. IAE Cross Track [m]', summary['IAE Cross'].mean())) #integral absolute error
         f.write('{:<30}{:<30.2f}\n'.format('Avg. IAE Verical Track [m]', summary['IAE Vertical'].mean()))
         f.write('{:<30}{:<30.2f}\n'.format('Avg. Progression [%]', summary['Progression'].mean()*100))

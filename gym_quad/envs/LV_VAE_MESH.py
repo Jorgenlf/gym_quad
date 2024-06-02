@@ -129,6 +129,7 @@ class LV_VAE_MESH(gym.Env):
             "horizontal"            : self.scenario_horizontal_test,
             "vertical"              : self.scenario_vertical_test,
             "deadend"               : self.scenario_deadend_test,
+            "cave"                  : self.scenario_cave,
             #Dev testing
             "crash"             : self.scenario_dev_test_crash,
             "crash_cube"        : self.scenario_dev_test_cube_crash,
@@ -236,7 +237,7 @@ class LV_VAE_MESH(gym.Env):
         self.imu = IMU()
         self.imu_measurement = np.zeros((6,), dtype=np.float32) 
         #IMU noise #LET THERE ALWAYS BE SOME NOISE ON THE IMU AS IT IS USED IN THE CONTROLLER (AND ALSO IN THE OBSERVATION)
-        self.imu.set_std(0.001, 0.01) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
+        self.imu.set_std(0.001, 0.01) #Angular rate noise, linear acceleration noise standard deviation a normal dist draws from
 
         
         #Noise variables
@@ -260,7 +261,7 @@ class LV_VAE_MESH(gym.Env):
         
         # IMU boosted noise
         if self.perturb_sim or self.perturb_IMU:
-            self.imu.set_std(deg2rad(0.015), 0.015) #Angular acceleration noise, linear acceleration noise standard deviation a normal dist draws from
+            self.imu.set_std(deg2rad(0.015), 0.015) #Angular rate noise, linear acceleration noise standard deviation a normal dist draws from
            # TODO decide on these values and wether it should be set here in reset or in the observation(each step)
         
         #Controller gains
@@ -1051,7 +1052,7 @@ class LV_VAE_MESH(gym.Env):
 
         return initial_state
     
-    def generate_obstacles(self, n, rmin, rmax , path:QPMI, mean, std, onPath=False, quad_pos = None, safety_margin = 2, obstacle_type = None):
+    def generate_obstacles(self, n, rmin, rmax , path:QPMI, mean, std, onPath=False, quad_pos = None, safety_margin = 2, obstacle_type = None, percentage_of_path_range =(0.20,0.90)):
         '''
         Inputs:
         n: number of obstacles
@@ -1071,7 +1072,7 @@ class LV_VAE_MESH(gym.Env):
         path_lenght = path.length
         while num_obstacles < n:
             #uniform distribution of length along path
-            u_obs = np.random.uniform(0.20*path_lenght,0.90*path_lenght)
+            u_obs = np.random.uniform(percentage_of_path_range[0]*path_lenght,percentage_of_path_range[1]*path_lenght)
 
             # Get the tangent, normal, and binormal vectors at u_obs
             t_hat, n_hat, b_hat = path.calculate_vectors(u_obs)
@@ -1592,6 +1593,40 @@ class LV_VAE_MESH(gym.Env):
 
         return initial_state
 
+    def scenario_cave(self): #This can be used as a test scenario if we set the seed to be consistent
+        print("CAVE")
+        rand_pos_to_add = np.random.uniform(low=-2, high=2, size=(1,3))
+        #Make rest deterministic
+        np.random.seed(420)
+        initial_state = self.scenario_3d_new()
+        new_init_pos = initial_state[0:3] + rand_pos_to_add
+        initial_state[0:3] = new_init_pos
+
+        self.enclose_scene = False
+        #Generate the cave mouth
+        self.generate_obstacles(n = 10, rmin=1.6, rmax=2.1, path = self.path, mean = 0, std = 2, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.4, obstacle_type='cube',percentage_of_path_range=(0.15,0.18))
+        self.generate_obstacles(n = 10, rmin=1.4, rmax=1.6, path = self.path, mean = 0, std = 1.6, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.3, obstacle_type='cube',percentage_of_path_range=(0.18,0.20))
+        self.generate_obstacles(n = 10, rmin=1, rmax=1.4, path = self.path, mean = 0, std = 1.5, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.20,0.22))
+        #Generate the cave
+        self.generate_obstacles(n = 60, rmin=1, rmax=1.5, path = self.path, mean = 2.2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.22,0.3))
+        self.generate_obstacles(n = 60, rmin=1, rmax=1.5, path = self.path, mean = 2.2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.33,0.45))
+        self.generate_obstacles(n = 60, rmin=1, rmax=1.5, path = self.path, mean = 2.2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.48,0.6))
+        self.generate_obstacles(n = 60, rmin=1, rmax=1.5, path = self.path, mean = 2.2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.63,0.75))        #Generate the cave fourth quarter
+        self.generate_obstacles(n = 60, rmin=1, rmax=1.5, path = self.path, mean = 2.2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube',percentage_of_path_range=(0.78,0.86))
+        #Generate the cave end
+        self.generate_obstacles(n = 30, rmin=1, rmax=1.5, path = self.path, mean = 2.2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.3, obstacle_type='cube',percentage_of_path_range=(0.92,1))
+        self.generate_obstacles(n = 10, rmin=1, rmax=1.5, path = self.path, mean = 2.2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.3, obstacle_type='cube',percentage_of_path_range=(0.99,1))
+
+        #Manually place a big cube at the end of the cave to simulate end of cave
+        obstacle_coords = self.path.waypoints[-1] 
+        direction = self.path.waypoints[-1] - self.path.waypoints[-2]
+        direction = direction/np.linalg.norm(direction)
+        obstacle_coords = obstacle_coords + 4*direction
+        obstacle_coords = torch.tensor(obstacle_coords,device=self.device).float().squeeze()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(SphereMeshObstacle(radius = 3,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+
+        return initial_state
 
 
 #Development scenarios #TODO update to scale
