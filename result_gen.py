@@ -85,7 +85,7 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
     if resuming and os.path.exists(summary_path):
         summary = pd.read_csv(summary_path)
     else:
-        summary = pd.DataFrame(columns=["Episode", "Timesteps", "Avg Absolute Path Error", "IAE Cross", "IAE Vertical", "Progression", "Success", "Collision"])
+        summary = pd.DataFrame(columns=["Episode", "Timesteps", "Avg Absolute Path Error", "Speed", "IAE Cross", "IAE Vertical", "Progression", "Success", "Collision"])
         summary.to_csv(summary_path, index=False)
 
     env = gym.make(args.env, scenario=test_scen)
@@ -99,10 +99,10 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
         try:
             episode_df, env = simulate_environment(episode, env, agent_model, test_dir, args.save_depth_maps)
             if resuming:
-                sim_df = pd.read_csv(os.path.join(test_dir, 'test_sim.csv'))
+                sim_df = pd.read_csv(os.path.join(test_dir, 'sim_df.csv'))
                 sim_df = pd.concat([sim_df, episode_df], ignore_index=True)
             else:
-                sim_df = pd.concat([sim_df, episode_df], ignore_index=True) if 'test_sim' in locals() else episode_df
+                sim_df = pd.concat([sim_df, episode_df], ignore_index=True) if 'sim_df' in locals() else episode_df
         except NameError:
             sim_df = episode_df
 
@@ -116,39 +116,33 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
         init_pos = drone_traj[0]
         obstacles = env.unwrapped.obstacles
 
-        ft = False
-        if test_scen == "cave":
-            ft = True
-
         plotter = Plotter3D(obstacles=obstacles, 
                             path=path, 
                             drone_traj=drone_traj,
                             initial_position=init_pos,
-                            nosave=False,
-                            force_transparency=ft)
+                            nosave=False)
         plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
                                     azimuth=90,
                                     elevation=None,
-                                    see_from_plane=None)
+                                    see_from_plane=None,
+                                    scene=test_scen)
         del plotter
 
-        write_report(test_dir, sim_df, env, episode)
+        write_report(test_dir, sim_df, env, episode) #This also writes to the summary df containing the report stats per episode
 
-    sim_df.to_csv(os.path.join(test_dir, 'sim_df.csv'), index=False)
+        sim_df.to_csv(os.path.join(test_dir, 'sim_df.csv'), index=False)
 
     if args.episodes > 1:
         multiplotter = Plotter3DMultiTraj(obstacles=obstacles,
                                         path=path,
                                         drone_trajectories=all_drone_trajs,
                                         cum_rewards=cum_rewards,
-                                        nosave=False,
-                                        force_transparency=ft)
+                                        nosave=False)
         multiplotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"multiplot.png"),
                                         azimuth=90,
                                         elevation=None,
-                                        see_from_plane=None)
-
-    summary.to_csv(summary_path, index=False)
+                                        see_from_plane=None,
+                                        scene = test_scen)
 
 
 '''
@@ -171,8 +165,8 @@ if __name__ == "__main__":
     _, _, args = parse_experiment_info()
     test_scenarios = args.test_list
     trained_scenarios_to_run = args.trained_list
-    expdir_string = r"Experiment {}".format(args.exp_id)
     expdir_string = r"Best_final_res_gen {}".format(args.exp_id) #NB This is temp for final res gen
+    expdir_string = r"Experiment {}".format(args.exp_id)
     base_experiment_dir = os.path.join(r"./log", r"{}".format(args.env), expdir_string)
 
     tasks = []
