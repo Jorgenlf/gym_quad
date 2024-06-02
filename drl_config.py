@@ -17,6 +17,7 @@ lv_vae_config = {
     "drone_radius_for_collision": 0.13,             # Radius of the drone for collision detection [m] #Actual armlength to propeller is 0.13m armlength frame extremais 0.25m. height is 0.21m
     "drone_height_for_collision": 0.11,             # Height of the drone for collision detection [m]
     "use_drone_mesh"            : False,            # Use the drone mesh for collision detection if not a cylinder is used using r and h above
+    "use_uncaged_drone_mesh"    : False,            # Use the uncaged mesh for collision detection
     "recap_chance"              : 0.1,              # Chance of recapitulating a previous trainig scenario
 #Noise parameters #TODO add the noise values here as well?    
     "perturb_sim"               : False,            # Activates all the noise below. Also, the "perturb" scenarios inside LV_VAE_MESH.py sets this to True
