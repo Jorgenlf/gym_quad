@@ -160,7 +160,8 @@ class Plotter3D: # TODO change so that it is like Plotter3DMultiTraj
            elevation is the angle of the camera above the scene, + makes you see the scene from higher above, default is fine for corner angles so need not change
            see_from_plane is the plane to see the scene from (only if no azimuth is given), can be "xy", "xz" or "yz"
         """
-        self.plotter.add_mesh(pv.Cube(bounds=self.scaled_bounds), opacity=0.0)
+        if scene != "house" or scene != "house_easy" or scene != "house_hard" or scene != "house_easy_obs" or scene != "house_hard_obs":
+            self.plotter.add_mesh(pv.Cube(bounds=self.scaled_bounds), opacity=0.0)
         backface_params = dict(opacity=0.0) #  To see through outer walls of enclosing room 
 
         opacity=1.0
@@ -438,7 +439,9 @@ class Plotter3DMultiTraj(): # Might inherit from Plotter3D and stuff later for i
         return meshes, room, house
     
     def plot_scene_and_trajs(self, save_path=None, azimuth=90, elevation=None, see_from_plane=None, scene="none"): 
-        self.plotter.add_mesh(pv.Cube(bounds=self.scaled_bounds), opacity=0.0)
+
+        if scene != "house" or scene != "house_easy" or scene != "house_hard" or scene != "house_easy_obs" or scene != "house_hard_obs":
+            self.plotter.add_mesh(pv.Cube(bounds=self.scaled_bounds), opacity=0.0)
         backface_params = dict(opacity=0.0) #  To see through outer walls of enclosing room 
 
         opacity=1.0

@@ -115,7 +115,7 @@ def make_env(env_id, scenario, rank, seed=0):
 
 if __name__ == '__main__':
     _s = time.time() #For tracking training time
-
+    time_trained = 0
     print('\nTOTAL CPU CORE COUNT:', multiprocessing.cpu_count())
     experiment_dir, _, args = parse_experiment_info()
     scenario_list = list(scenarios.keys())
@@ -237,11 +237,25 @@ if __name__ == '__main__':
         env.close()
         del env
         del agent
-        print("ENVIRONMENT CLOSED\n")        
-    print(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
-    #Saving of total training time. #TODO make the saving of time happen per CL stage aka scenario
+        print("ENVIRONMENT CLOSED\n")
+
+        print(f"TRAINIG TIME IN SCENARIO {scen} TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
+        
+        #Write total training time to file:
+        try:
+            with open(f'{experiment_dir}/training_time_raw.txt', 'r') as file:
+                time_trained = int(file.read())
+        except FileNotFoundError:
+            with open(f'{experiment_dir}/training_time_raw.txt', 'w') as file:
+                file.write(str(time_trained))
+        time_trained += time.time() - _s
+        with open(f'{experiment_dir}/training_time_raw.txt', 'w') as file:
+            file.write(str(time_trained))
+
+    # Convert the raw training time to hours, minutes and seconds
+    with open(f'{experiment_dir}/training_time_raw.txt', 'r') as file:
+        time_trained = int(file.read())
     with open(f'{experiment_dir}/training_time.txt', 'w') as file:
-        file.write(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
-        file.write("\nSCENARIOS TRAINED IN:")
-        for scen, steps in scenarios.items():
-            file.write(f"\n{scen}: {steps} timesteps")
+        file.write(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time_trained))}")
+    print(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time_trained))}")
+    print("TRAINING COMPLETE")
