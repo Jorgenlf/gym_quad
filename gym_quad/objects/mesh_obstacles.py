@@ -506,12 +506,13 @@ if __name__ == "__main__":
         #Rotate 90 degrees about y axis
         tri_quad_mesh.apply_transform(trimesh.transformations.rotation_matrix(-np.pi/2, [0, 1, 0]))
         
-        #Uncaged
-        tri_quad_mesh_uncaged.apply_translation(tri_quad_init_pos)
-        #Rotate 90 degrees about y axis
-        tri_quad_mesh_uncaged.apply_transform(trimesh.transformations.rotation_matrix(-np.pi/2, [0, 1, 0]))        
+        # #Uncaged
+        # tri_quad_init_pos = enu_to_tri(np.array([0.3, 0, 0]))
+        # tri_quad_mesh_uncaged.apply_translation(tri_quad_init_pos)
+        # #Rotate 90 degrees about y axis
+        # tri_quad_mesh_uncaged.apply_transform(trimesh.transformations.rotation_matrix(-np.pi/2, [0, 1, 0]))        
 
-        #For comparing the cylinder and the quadcopter mesh
+        # #For comparing the cylinder and the quadcopter mesh
         # trimesh_scene = trimesh.Scene(tri_quad_mesh_uncaged) #The one with inverted box
         # axis = trimesh.creation.axis(origin_size=0.1, axis_radius=0.01, axis_length=1.0)
         # trimesh_scene.add_geometry(axis)
