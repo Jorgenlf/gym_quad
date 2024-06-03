@@ -33,8 +33,7 @@ train_config["recap_chance"] = 0.1
 
 
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---### 
-scenarios = {   "line"                 :  0.1e6,
-                "line"                 :  1e6,
+scenarios = {   "line"                 :  1e6,
                 "easy"                 :  1e6,
                 "easy_random"          :  1e6, #Randomized pos and att of quad in easy scenario 
                 "intermediate"         :  1.5e6,
@@ -79,7 +78,7 @@ PPO_hyperparams = {
 #VAE
 encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_7_seed1.json"
 lock_params = False #True if you want to lock the encoder parameters. False to let them be trained
-lock_params_conv = True #True if you want to lock the convolutional layers of the encoder. False to let them be trained
+lock_params_conv = False #True if you want to lock the convolutional layers of the encoder. False to let them be trained
 
 #PPO
 ppo_pi_vf_arch = dict(pi = [128,64,32], vf = [128,64,32])
@@ -114,13 +113,13 @@ def make_env(env_id, scenario, rank, seed=0):
     return _init
 
 if __name__ == '__main__':
-    _s = time.time() #For tracking training time
-
+    time_trained = 0
     print('\nTOTAL CPU CORE COUNT:', multiprocessing.cpu_count())
     experiment_dir, _, args = parse_experiment_info()
     scenario_list = list(scenarios.keys())
     done_training = False
     for i, scen in enumerate(scenario_list):
+        _s = time.time() #For tracking training time
 
         print("\nATTEMPT TRAINING IN SCENARIO", scen.upper())
         while os.path.exists(os.path.join(experiment_dir, scen, "agents", "last_model.zip")):
@@ -237,11 +236,25 @@ if __name__ == '__main__':
         env.close()
         del env
         del agent
-        print("ENVIRONMENT CLOSED\n")        
-    print(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
-    #Saving of total training time. #TODO make the saving of time happen per CL stage aka scenario
+        print("ENVIRONMENT CLOSED\n")
+ 
+        print(f"TRAINIG TIME IN SCENARIO {scen} TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
+       
+        #Write total training time to file:
+        try:
+            with open(f'{experiment_dir}/training_time_raw.txt', 'r') as file:
+                time_trained = float(file.read())
+        except FileNotFoundError:
+            with open(f'{experiment_dir}/training_time_raw.txt', 'w') as file:
+                file.write(str(time_trained))
+        time_trained += time.time() - _s
+        with open(f'{experiment_dir}/training_time_raw.txt', 'w') as file:
+            file.write(str(time_trained))
+ 
+    # Convert the raw training time to hours, minutes and seconds
+    with open(f'{experiment_dir}/training_time_raw.txt', 'r') as file:
+        time_trained = float(file.read())
     with open(f'{experiment_dir}/training_time.txt', 'w') as file:
-        file.write(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
-        file.write("\nSCENARIOS TRAINED IN:")
-        for scen, steps in scenarios.items():
-            file.write(f"\n{scen}: {steps} timesteps")
+        file.write(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time_trained))}")
+    print(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time_trained))}")
+    print("TRAINING COMPLETE")
