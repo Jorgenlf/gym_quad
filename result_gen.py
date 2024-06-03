@@ -149,18 +149,17 @@ To run this scrip do e.g.:
 python result_gen.py --exp_id 19 --episodes 10 --trained_list expert expert_perturbed --test_list horizontal vertical deadend random_corridor house --test_all_agents True
 in terminal.
 
-For the final resultsgen do:
-python result_gen.py --exp_id 32 --episodes 100 --trained_list advanced --test_list horizontal vertical deadend helix cave house_easy house_easy_obs house_hard house_hard_obs  --test_all_agents True
-
+For the final resultsgen do similar to this:
+python result_gen.py --exp_id 32 --episodes 100 --trained_list advanced --test_list horizontal vertical deadend helix cave house_easy house_easy_obstacles house_hard house_hard_obstacles --test_all_agents True
 '''
 
-#Define the config for the results generation
+#Define the config for the results generation #Could import from experiment config file
 result_config = lv_vae_config.copy()
 result_config["max_t_steps"] = 3500
 result_config["recap_chance"] = 0
 result_config["perturb_sim"] = True
 result_config["min_reward"] = -100e4 
-result_config["use_uncaged_drone_mesh"] = True #Decide if we want to use the uncaged drone mesh for collision detection if false uses cylinder (faster)
+result_config["use_uncaged_drone_mesh"] = True #Decide if we want to use the uncaged drone mesh for collision detection during testing if false uses cylinder (faster)
  
 if __name__ == "__main__":
     _s = time.time() #For tracking training time

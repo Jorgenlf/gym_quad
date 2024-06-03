@@ -42,21 +42,28 @@ The simulation will be ran and results and plots will be saved to a test folder 
 """
 
 if __name__ == "__main__":
+    experiment_dir, agent_path, args = parse_experiment_info()
 
     run_config = lv_vae_config.copy()
     run_config["recap_chance"] = 0.0 # No recapitulation when running
     run_config["max_t_steps"] = 3000 # Maximum number of timesteps in the DRL simulation before it is terminated
-    
-    # run_config["padding"] = 3 #To see how padding affects the test scenarios. 1.5 is the standard
-    # run_config["enclose_scene"] = False # Enclose the scene with a box thats scaled to the scene size
     run_config["accept_rad"] = 1
+    run_config["use_uncaged_drone_mesh"] = True #Decide if we want to use the uncaged drone mesh for collision detection during testing if false uses cylinder (faster)
+    # run_config["use_drone_mesh"] = False # Use the drone mesh for collision detection if false a cylinder is used (faster)
 
-    # run_config["use_drone_mesh"] = False # Use the drone mesh for collision detection if false a cylinder is used
-    #Uncomment these if running in house:
-    run_config["la_dist"] = 1.1
-    run_config["s_max"] = 2
-    
-    experiment_dir, agent_path, args = parse_experiment_info()
+    if args.run_scenario == "house_easy" or args.run_scenario == "house_hard":
+        run_config["la_dist"] = 0.5
+        run_config["s_max"] = 2
+        run_config["max_t_steps"] = 6000 #Needs more time in the house
+    elif args.run_scenario == "house_easy_obstacles" or args.run_scenario == "house_hard_obstacles":
+        run_config["la_dist"] = 1
+        run_config["s_max"] = 2
+        run_config["max_t_steps"] = 6000 #Needs more time in the house
+    elif args.run_scenario == "helix":
+        run_config["max_t_steps"] = 6000 #Needs more time in the helix        
+    else:
+        run_config["la_dist"] = lv_vae_config["la_dist"]
+        run_config["s_max"] = lv_vae_config["s_max"]    
 
     experiment_dir = os.path.join(experiment_dir, args.run_scenario)
     experiment_dir = os.path.join(experiment_dir, "tests")

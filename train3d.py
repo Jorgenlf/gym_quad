@@ -33,8 +33,7 @@ train_config["recap_chance"] = 0.1
 
 
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---### 
-scenarios = {   "line"                 :  0.1e6,
-                "line"                 :  1e6,
+scenarios = {   "line"                 :  1e6,
                 "easy"                 :  1e6,
                 "easy_random"          :  1e6, #Randomized pos and att of quad in easy scenario 
                 "intermediate"         :  1.5e6,
@@ -114,13 +113,14 @@ def make_env(env_id, scenario, rank, seed=0):
     return _init
 
 if __name__ == '__main__':
-    _s = time.time() #For tracking training time
-    time_trained = 0
+    time_trained = 0.0
     print('\nTOTAL CPU CORE COUNT:', multiprocessing.cpu_count())
     experiment_dir, _, args = parse_experiment_info()
     scenario_list = list(scenarios.keys())
     done_training = False
+   
     for i, scen in enumerate(scenario_list):
+        _s = time.time() #For tracking training time
 
         print("\nATTEMPT TRAINING IN SCENARIO", scen.upper())
         while os.path.exists(os.path.join(experiment_dir, scen, "agents", "last_model.zip")):
@@ -244,7 +244,7 @@ if __name__ == '__main__':
         #Write total training time to file:
         try:
             with open(f'{experiment_dir}/training_time_raw.txt', 'r') as file:
-                time_trained = int(file.read())
+                time_trained = float(file.read()) 
         except FileNotFoundError:
             with open(f'{experiment_dir}/training_time_raw.txt', 'w') as file:
                 file.write(str(time_trained))
@@ -254,7 +254,7 @@ if __name__ == '__main__':
 
     # Convert the raw training time to hours, minutes and seconds
     with open(f'{experiment_dir}/training_time_raw.txt', 'r') as file:
-        time_trained = int(file.read())
+        time_trained = float(file.read())
     with open(f'{experiment_dir}/training_time.txt', 'w') as file:
         file.write(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time_trained))}")
     print(f"WHOLE TRAINING TOOK {time.strftime('%H:%M:%S', time.gmtime(time_trained))}")
