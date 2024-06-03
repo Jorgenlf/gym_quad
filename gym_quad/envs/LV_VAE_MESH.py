@@ -1436,25 +1436,15 @@ class LV_VAE_MESH(gym.Env):
         print("DEADEND")
         waypoints = [
             (0.0, 0.0, 0.0),
-            (2.5, 0.0, 0.0),
             (5.0, 0.0, 0.0),
-            (7.5, 0.0, 0.0),
             (10.0, 0.0, 0.0),
-            (12.5, 0.0, 0.0),
             (15.0, 0.0, 0.0),
-            (17.5, 0.0, 0.0),
             (20.0, 0.0, 0.0),
-            (22.5, 0.0, 0.0),
             (25.0, 0.0, 0.0),
-            (27.5, 0.0, 0.0),
             (30.0, 0.0, 0.0),
-            (32.5, 0.0, 0.0),
             (35.0, 0.0, 0.0),
-            (37.5, 0.0, 0.0),
             (40.0, 0.0, 0.0),
-            (42.5, 0.0, 0.0),
             (45.0, 0.0, 0.0),
-            (47.5, 0.0, 0.0),
             (50.0, 0.0, 0.0)]
         self.path = QPMI(waypoints)
         radius = 10
@@ -1468,7 +1458,7 @@ class LV_VAE_MESH(gym.Env):
                 
                 obstacle_coords = torch.tensor([x,y,z],device=self.device).float().squeeze()
                 pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-                self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius*1.3,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+                self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius*1.4,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
                 # self.obstacles.append(CubeMeshObstacle(device=self.device, width=obstacle_radius*1.41, height=obstacle_radius*1.41, depth=obstacle_radius*1.41, center_position=pt3d_obs_coords, inverted=False))
 
         self.padding = 3
