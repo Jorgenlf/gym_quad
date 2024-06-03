@@ -150,7 +150,7 @@ python result_gen.py --exp_id 19 --episodes 10 --trained_list expert expert_pert
 in terminal.
 
 For the final resultsgen do similar to this:
-python result_gen.py --exp_id 32 --episodes 100 --trained_list advanced --test_list horizontal vertical deadend helix cave house_easy house_easy_obstacles house_hard house_hard_obstacles --test_all_agents True
+python result_gen.py --exp_id 32 --episodes 100 --trained_list advanced --test_list helix house_hard house_hard_obstacles deadend cave house_easy house_easy_obstacles horizontal vertical --test_all_agents True
 '''
 
 #Define the config for the results generation #Could import from experiment config file
@@ -166,8 +166,11 @@ if __name__ == "__main__":
     _, _, args = parse_experiment_info()
     test_scenarios = args.test_list
     trained_scenarios_to_run = args.trained_list
+    
     expdir_string = r"Experiment {}".format(args.exp_id)
     expdir_string = r"Best_agent_res_gen_2 exp {}".format(args.exp_id) #NB This is temp for final res gen
+    expdir_string = r"A_Filter stage 2 exp {}".format(args.exp_id) #NB This is temp for final res gen
+
     base_experiment_dir = os.path.join(r"./log", r"{}".format(args.env), expdir_string)
 
     tasks = []
