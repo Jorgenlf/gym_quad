@@ -157,16 +157,18 @@ class Plotter3D:
             self.plotter.add_mesh(pv.Cube(bounds=self.scaled_bounds), opacity=0.0)
         backface_params = dict(opacity=0.0) # To see through outer walls of enclosing room 
 
+        op = 1
         if self.scene == "cave":
             azimuth = 0
+            op = 0.07
             self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = 0.07) 
 
         # Add all obstacles
         for i, mesh in enumerate(self.meshes):
             if i == 0: # Check index to only get one label. Needed bc. custom legends
-                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params, opacity = 1)
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params, opacity = op)
             else:
-                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = 1)
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = op)
 
         # Add the room, only plot if not house scenario or cave scenario
         if self.room_mesh != None and self.house_mesh == None and not self.scene == "cave":
@@ -319,17 +321,19 @@ class Plotter3DMultiTraj(Plotter3D):
             self.plotter.add_mesh(pv.Cube(bounds=self.scaled_bounds), opacity=0.0)
 
         backface_params = dict(opacity=0.0) # To see through outer walls of enclosing room 
-
+        
+        op = 1
         if self.scene == "cave":
             azimuth = 0
-            self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = 0.07) 
+            op = 0.07
+            self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = op) 
 
         # Add all obstacles
         for i, mesh in enumerate(self.meshes):
             if i == 0: # Check index to only get one label. Needed bc. custom legends
-                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params, opacity = 1)
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params, opacity = op)
             else:
-                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = 1)
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = op)
 
         # Add the room, only plot if not house scenario or cave scenario
         if self.room_mesh != None and self.house_mesh == None and not self.scene == "cave":
