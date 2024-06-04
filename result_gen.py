@@ -115,18 +115,15 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
         drone_traj = np.stack((episode_df[r"$X$"], episode_df[r"$Y$"], episode_df[r"$Z$"]), axis=-1)
         init_pos = drone_traj[0]
         obstacles = env.unwrapped.obstacles
-
+        '''
         plotter = Plotter3D(obstacles=obstacles, 
-                            path=path, 
-                            drone_traj=drone_traj,
-                            initial_position=init_pos,
-                            nosave=False)
-        plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
-                                    azimuth=90,
-                                    elevation=None,
-                                    see_from_plane=None,
-                                    scene=test_scen)
-        del plotter
+                                    path=path, 
+                                    drone_traj=drone_traj,
+                                    initial_position=init_pos,
+                                    save=True,
+                                    scene=args.run_scenario) 
+        plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"), hv=2, only_scene=False)
+        del plotter'''
 
         write_report(test_dir, sim_df, env, episode) #This also writes to the summary df containing the report stats per episode
 
@@ -134,15 +131,14 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
 
     if args.episodes > 1:
         multiplotter = Plotter3DMultiTraj(obstacles=obstacles,
-                                        path=path,
-                                        drone_trajectories=all_drone_trajs,
-                                        cum_rewards=cum_rewards,
-                                        nosave=False)
+                                          path=path,
+                                          drone_trajs=all_drone_trajs,
+                                          initial_position=init_pos,
+                                          cum_rewards=cum_rewards,
+                                          scene=args.run_scenario,
+                                          save=True)
         multiplotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"multiplot.png"),
-                                        azimuth=90,
-                                        elevation=None,
-                                        see_from_plane=None,
-                                        scene = test_scen)
+                                        azimuth=90)
 
 
 '''

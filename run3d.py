@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     run_config = lv_vae_config.copy()
     run_config["recap_chance"] = 0.0 # No recapitulation when running
-    run_config["max_t_steps"] =10 # 3000 # Maximum number of timesteps in the DRL simulation before it is terminated
+    run_config["max_t_steps"] =10#00 # 3000 # Maximum number of timesteps in the DRL simulation before it is terminated
     
     # run_config["padding"] = 3 #To see how padding affects the test scenarios. 1.5 is the standard
     # run_config["enclose_scene"] = False # Enclose the scene with a box thats scaled to the scene size
@@ -171,8 +171,7 @@ if __name__ == "__main__":
                                                 scene=args.run_scenario,
                                                 save=True)
                 multiplotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"multiplot.png"),
-                                                azimuth=90,
-                                                elevation=None)
+                                                  azimuth=90, hv=2)
                 
                 # This loop plots the from all four azimuths and all three planes # TODO This is buggy for some view angles. Axis labels dissapear (i think this is bc. they are essentially meshes and are view from behind or something)
                 # azis = [0, 90, 180, 270]

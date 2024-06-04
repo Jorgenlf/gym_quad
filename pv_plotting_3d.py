@@ -147,7 +147,7 @@ class Plotter3D:
 
         return obs_meshes, room_mesh, house_mesh
     
-    def plot_scene_and_trajs(self, save_path=None, azimuth=90, elevation=None,  only_scene=False, hv=1): # TODO could be split into multiple methods
+    def plot_scene_and_trajs(self, save_path=None, azimuth=90,  only_scene=False, hv=1): # TODO could be split into multiple methods
         """
         Plots scene and drone trajectory in 3D using pyvista based on the scenario. House-scenarios are handled differently.
         View from plane removed bc. not needed in our report. If needed, se 'pl.view_xy()' etc.
@@ -185,31 +185,34 @@ class Plotter3D:
         if self.scene in ["house_easy", "house_easy_obstacles"]:
             # Offsets, angles and pos found manually...
             # Good viewing angle and camera position for house easy scenarios
-            offset_x, offset_y = 3300,3450
-            self.plotter.camera.position = (-4.963928349952159, -38.604219590185856, -2.031343052406486) 
-            self.plotter.camera.azimuth = 40
+            offset_x, offset_y = 2845,3570
+            self.plotter.camera.position = (-4.963928349952159, -44.604219590185856, -9.031343052406486) 
+            self.plotter.camera.azimuth = 33
             self.plotter.camera.elevation = 35
-            self.plotter.camera.zoom(1.1)
+            self.plotter.camera.zoom(1.25)
+
 
         elif self.scene in ["house_hard", "house_hard_obstacles"]:
             # Offsets, angles and pos found manually...
             # VIEW 1:
             if hv == 1:
-                offset_x, offset_y = 3350,3200
+                offset_x, offset_y = 3200,3500
                 self.plotter.camera.position = (-26.432109314195003, -1.5749345781232873, 3.0105659899075774) 
+
             # VIEW 2:
             elif hv == 2:
-                offset_x, offset_y = 3300,3600
-                self.plotter.camera.position = (8.296159959828376, -30.34163639867404, 4.393561657703904)
-                self.plotter.camera.elevation = 12
+                offset_x, offset_y = 3200,3570
+                self.plotter.camera.position = (8.296159959828376, -33.34163639867404, -2.393561657703904)
+                self.plotter.camera.elevation = 25
+                #self.plotter.camera.zoom(1.05)
+
             else: pass # Implement more views etc...
         
         else:
             offset_x, offset_y = 800, 700
             self.plotter.show_grid(**self.grid_kw_args) # Include grid only for non-house scenarios
             self.plotter.camera.zoom(0.9) 
-            self.plotter.camera.azimuth = azimuth 
-            self.plotter.camera.elevation = elevation 
+            self.plotter.camera.azimuth = azimuth
 
         
         # Legends, positions are set in the scenario checks above
@@ -223,8 +226,11 @@ class Plotter3D:
 
     def add_legends(self, offset_x, offset_y, offset_between=100, only_scene=False):
         legend_pos = [self.plotter.window_size[0] - offset_x, self.plotter.window_size[1] - offset_y]
-        self.plotter.add_text("Path", position=legend_pos, font_size=40, color=self.path_color, font='times')
-        self.plotter.add_text("Obstacles", position=[legend_pos[0], legend_pos[1] - offset_between], font_size=40, color=self.obstacles_color, font='times')
+        if self.scene not in ["house_easy", "house_hard"]: # Do not include obstacle legend in house easy and hard 
+            self.plotter.add_text("Path", position=legend_pos, font_size=40, color=self.path_color, font='times')
+            self.plotter.add_text("Obstacles", position=[legend_pos[0], legend_pos[1] - offset_between], font_size=40, color=self.obstacles_color, font='times')
+        else:
+            self.plotter.add_text("Path", position=[legend_pos[0], legend_pos[1] - offset_between], font_size=40, color=self.path_color, font='times')
         if not only_scene:
             self.plotter.add_text("Drone Trajectory", position=[legend_pos[0], legend_pos[1] - 2*offset_between], font_size=40, color=self.drone_path_color, font='times')
             self.plotter.add_text("Initial Position", position=[legend_pos[0], legend_pos[1] - 3*offset_between], font_size=40, color=self.initial_pos_color, font='times')
@@ -237,8 +243,8 @@ class Plotter3DMultiTraj(Plotter3D):
     def __init__(self, obstacles, path: QPMI, drone_trajs: dict, initial_position:np.ndarray, cum_rewards: dict, scene: str, save=True):
         super().__init__(obstacles = obstacles, 
                          path = path, 
-                         drone_traj = drone_trajs[0],           # dummy
-                         initial_position = initial_position,   # dummy
+                         drone_traj = drone_trajs[list(drone_trajs.keys())[0]],  # dummy, we plot all but initialize parent with first trajectory
+                         initial_position = initial_position,              # dummy, not plotted in multi
                          scene = scene, 
                          save = save) 
         self.drone_trajs = drone_trajs
@@ -260,6 +266,7 @@ class Plotter3DMultiTraj(Plotter3D):
         self.scalar_bar_args = self.set_scalar_bar_args() # Set scalar bar args based on scene, this is for the reward colorbar
     
     def set_scalar_bar_args(self):
+        """Sets scalar bar args (reward colorbar) based on the scene type, house scenarios have horzontal bar, others vertical."""
         scalar_bar_args = {
             'title' : 'Reward',
             'n_labels' : 3,
@@ -273,14 +280,25 @@ class Plotter3DMultiTraj(Plotter3D):
             'position_y' : 0.3,
         }
         if self.scene in ["house_easy", "house_easy_obstacles"]:
-            # TODO IMPLEMENT
+            scalar_bar_args['vertical'] = False
+            scalar_bar_args['position_x'] = 0.29
+            scalar_bar_args['position_y'] = 0.02
+            scalar_bar_args['width'] = 0.5
+            scalar_bar_args['height'] = 0.08
+            scalar_bar_args['n_labels'] = 2
+            return scalar_bar_args
             pass
         elif self.scene in ["house_hard", "house_hard_obstacles"]:
-            # handle both views the same scalar bar belowwwwwww
-            # TODO IMPLEMENT
-            pass
-        else:
+            # handle both views with the same scalar bar
+            scalar_bar_args['vertical'] = False
+            scalar_bar_args['position_x'] = 0.2
+            scalar_bar_args['position_y'] = 0.02
+            scalar_bar_args['width'] = 0.5
+            scalar_bar_args['height'] = 0.08
+            scalar_bar_args['n_labels'] = 2
             return scalar_bar_args
+                    
+        return scalar_bar_args
     
     def find_min_max_rewards(self, cum_rewards: dict):
         min_reward = 100000
@@ -290,7 +308,7 @@ class Plotter3DMultiTraj(Plotter3D):
             max_reward = max(max_reward, rew)
         return min_reward, max_reward
     
-    def plot_scene_and_trajs(self, save_path=None, azimuth=90, elevation=None,  only_scene=False, hv=1): 
+    def plot_scene_and_trajs(self, save_path=None, azimuth=90, only_scene=False, hv=1): 
         """
         Override of the plot_scene_and_trajs method in Plotter3D. 
         This method is used to plot multiple drone trajectories in the same scene and color with reward.
@@ -337,25 +355,26 @@ class Plotter3DMultiTraj(Plotter3D):
         if self.scene in ["house_easy", "house_easy_obstacles"]:
             # Offsets, angles and pos found manually...
             # Good viewing angle and camera position for house easy scenarios
-            offset_x, offset_y = 3300,3450
-            self.plotter.camera.position = (-4.963928349952159, -38.604219590185856, -2.031343052406486) 
-            self.plotter.camera.azimuth = 40
+            offset_x, offset_y = 2845,3570
+            self.plotter.camera.position = (-4.963928349952159, -44.604219590185856, -9.031343052406486) 
+            self.plotter.camera.azimuth = 33
             self.plotter.camera.elevation = 35
-            self.plotter.camera.zoom(1.1)
+            self.plotter.camera.zoom(1.25)
 
 
         elif self.scene in ["house_hard", "house_hard_obstacles"]:
             # Offsets, angles and pos found manually...
             # VIEW 1:
             if hv == 1:
-                offset_x, offset_y = 3350,3200
+                offset_x, offset_y = 3200,3500
                 self.plotter.camera.position = (-26.432109314195003, -1.5749345781232873, 3.0105659899075774) 
 
             # VIEW 2:
             elif hv == 2:
-                offset_x, offset_y = 3300,3600
-                self.plotter.camera.position = (8.296159959828376, -30.34163639867404, 4.393561657703904)
-                self.plotter.camera.elevation = 12
+                offset_x, offset_y = 3200,3570
+                self.plotter.camera.position = (8.296159959828376, -33.34163639867404, -2.393561657703904)
+                self.plotter.camera.elevation = 25
+                #self.plotter.camera.zoom(1.05)
 
             else: pass # Implement more views etc...
         
@@ -363,14 +382,17 @@ class Plotter3DMultiTraj(Plotter3D):
             offset_x, offset_y = 800, 700
             self.plotter.show_grid(**self.grid_kw_args) # Include grid only for non-house scenarios
             self.plotter.camera.zoom(0.9) 
-            self.plotter.camera.azimuth = azimuth 
-            self.plotter.camera.elevation = elevation 
+            self.plotter.camera.azimuth = azimuth
+
     
         # Legends, positions are set in the scenario checks above
         offset_between = 100
         legend_pos = [self.plotter.window_size[0] - offset_x, self.plotter.window_size[1] - offset_y]
-        self.plotter.add_text("Obstacles", position=legend_pos, font_size=40, color=self.obstacles_color, font='times')
-        self.plotter.add_text("Path", position=[legend_pos[0], legend_pos[1] - offset_between], font_size=40, color=self.path_color, font='times')
+        if self.scene not in ["house_easy", "house_hard"]: # Do not include obstacle legend in house easy and hard 
+            self.plotter.add_text("Path", position=legend_pos, font_size=40, color=self.path_color, font='times')
+            self.plotter.add_text("Obstacles", position=[legend_pos[0], legend_pos[1] - offset_between], font_size=40, color=self.obstacles_color, font='times')
+        else:
+            self.plotter.add_text("Path", position=[legend_pos[0], legend_pos[1] - offset_between], font_size=40, color=self.path_color, font='times')
 
         #if self.nosave: self.plotter.show()
         self.plotter.show()
