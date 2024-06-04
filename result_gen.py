@@ -32,7 +32,6 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
     if test_scen == "house_easy" or test_scen == "house_hard":
         result_config["la_dist"] = 0.5
         result_config["s_max"] = 2
-        result_config["s_max"] = 2
         result_config["max_t_steps"] = 6000 #Needs more time in the house
     elif test_scen == "house_easy_obstacles" or test_scen == "house_hard_obstacles":
         result_config["la_dist"] = 1
@@ -115,15 +114,18 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
         drone_traj = np.stack((episode_df[r"$X$"], episode_df[r"$Y$"], episode_df[r"$Z$"]), axis=-1)
         init_pos = drone_traj[0]
         obstacles = env.unwrapped.obstacles
-        '''
+
         plotter = Plotter3D(obstacles=obstacles, 
-                                    path=path, 
-                                    drone_traj=drone_traj,
-                                    initial_position=init_pos,
-                                    save=True,
-                                    scene=args.run_scenario) 
-        plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"), hv=2, only_scene=False)
-        del plotter'''
+                            path=path, 
+                            drone_traj=drone_traj,
+                            initial_position=init_pos,
+                            nosave=False)
+        plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
+                                    azimuth=90,
+                                    elevation=None,
+                                    see_from_plane=None,
+                                    scene=test_scen)
+        del plotter
 
         write_report(test_dir, sim_df, env, episode) #This also writes to the summary df containing the report stats per episode
 
@@ -131,14 +133,15 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
 
     if args.episodes > 1:
         multiplotter = Plotter3DMultiTraj(obstacles=obstacles,
-                                          path=path,
-                                          drone_trajs=all_drone_trajs,
-                                          initial_position=init_pos,
-                                          cum_rewards=cum_rewards,
-                                          scene=args.run_scenario,
-                                          save=True)
+                                        path=path,
+                                        drone_trajectories=all_drone_trajs,
+                                        cum_rewards=cum_rewards,
+                                        nosave=False)
         multiplotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"multiplot.png"),
-                                        azimuth=90)
+                                        azimuth=90,
+                                        elevation=None,
+                                        see_from_plane=None,
+                                        scene = test_scen)
 
 
 '''
@@ -185,7 +188,7 @@ if __name__ == "__main__":
                 tasks.append((trained_scen, agent, test_scen, result_config.copy(), args, base_experiment_dir))
 
     # Define batch size and split tasks into batches
-    batch_size = 6  # Adjust the batch size based on your system's capacity
+    batch_size = 8  # Adjust the batch size based on your system's capacity #8 J PC #6 E PC
     num_batches = len(tasks) // batch_size + int(len(tasks) % batch_size > 0)
 
     for batch_idx in tqdm(range(num_batches), desc="Total Progress"):

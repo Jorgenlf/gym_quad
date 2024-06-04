@@ -77,8 +77,8 @@ PPO_hyperparams = {
 ###---###---### SELECT POLICYKWARGS HERE - FEATUREEXTRACTOR AND PPO NETWORK ACRHITECTURE ###---###---###
 #VAE
 encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_7_seed1.json"
-lock_params = False #True if you want to lock the encoder parameters. False to let them be trained
-lock_params_conv = False #True if you want to lock the convolutional layers of the encoder. False to let them be trained
+lock_params = True #True if you want to lock the encoder parameters. False to let them be trained
+lock_params_conv = True #True if you want to lock the convolutional layers of the encoder. False to let them be trained
 
 #PPO
 ppo_pi_vf_arch = dict(pi = [128,64,32], vf = [128,64,32])

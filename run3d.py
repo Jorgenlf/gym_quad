@@ -128,16 +128,18 @@ if __name__ == "__main__":
                 init_pos = drone_traj[0]
                 obstacles = env.unwrapped.obstacles
 
-                '''plot_only_scene = False
-
+                azi = 90
                 # Make the interactive 3D plot            
                 plotter = Plotter3D(obstacles=obstacles, 
                                     path=path, 
                                     drone_traj=drone_traj,
                                     initial_position=init_pos,
-                                    save=False,
-                                    scene=args.run_scenario) 
-                plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"), only_scene=plot_only_scene)
+                                    nosave=True) 
+                plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
+                                            azimuth=azi, # 90 or 0 is best angle for the 3D plot 
+                                            elevation=None,
+                                            see_from_plane=None,
+                                            scene=args.run_scenario)
                 
                 del plotter
                 
@@ -146,10 +148,12 @@ if __name__ == "__main__":
                                     path=path, 
                                     drone_traj=drone_traj,
                                     initial_position=init_pos,
-                                    save=True,
-                                    scene=args.run_scenario) 
-
-                plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"), hv=2, only_scene=plot_only_scene)'''
+                                    nosave=False) 
+                plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"),
+                                           azimuth=azi, # 90 or 0 is best angle for the 3D plot 
+                                           elevation=None,
+                                           see_from_plane=None,
+                                           scene=args.run_scenario)
                 
                 # For plotting the scenarios
                 # savename = "cave"
@@ -168,17 +172,16 @@ if __name__ == "__main__":
                 #     del plotter
             
             if args.episodes > 1:
-                #pass
-                print(all_drone_trajs)
+                pass
                 multiplotter = Plotter3DMultiTraj(obstacles=obstacles,
                                                 path=path,
-                                                drone_trajs=all_drone_trajs,
-                                                initial_position=init_pos,
+                                                drone_trajectories=all_drone_trajs,
                                                 cum_rewards=cum_rewards,
-                                                scene=args.run_scenario,
-                                                save=True)
+                                                nosave=False)
                 multiplotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"multiplot.png"),
-                                                  azimuth=90, hv=2)
+                                                azimuth=90,
+                                                elevation=None,
+                                                see_from_plane=None)
                 
                 # This loop plots the from all four azimuths and all three planes # TODO This is buggy for some view angles. Axis labels dissapear (i think this is bc. they are essentially meshes and are view from behind or something)
                 # azis = [0, 90, 180, 270]
