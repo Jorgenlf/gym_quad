@@ -152,15 +152,30 @@ if __name__ == "__main__":
                 plotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"episode{episode}.png"), hv=2, only_scene=plot_only_scene)
                 
             if args.episodes > 1:
-                multiplotter = Plotter3DMultiTraj(obstacles=obstacles,
-                                                path=path,
-                                                drone_trajs=all_drone_trajs,
-                                                initial_position=init_pos,
-                                                cum_rewards=cum_rewards,
-                                                scene=args.run_scenario,
-                                                save=True)
-                multiplotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"multiplot.png"),
-                                                  azimuth=90, hv=2)
+                if args.run_scenario in ["house_hard", "house_hard_obstacles"]:
+                    for hv in [1,2]: # View from two angles, must have separate instances. Solved with hv (house-view) variable in plotter func.
+                        multiplotter = Plotter3DMultiTraj(obstacles=obstacles,
+                                                        path=path,
+                                                        drone_trajs=all_drone_trajs,
+                                                        initial_position=init_pos,
+                                                        cum_rewards=cum_rewards,
+                                                        scene=args.run_scenario,
+                                                        save=True)
+                        multiplotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"multiplot_hv{hv}.png"),
+                                                        azimuth=90,
+                                                        hv=hv)
+                        del multiplotter
+                else:
+                    multiplotter = Plotter3DMultiTraj(obstacles=obstacles,
+                                                    path=path,
+                                                    drone_trajs=all_drone_trajs,
+                                                    initial_position=init_pos,
+                                                    cum_rewards=cum_rewards,
+                                                    scene=args.run_scenario,
+                                                    save=True)
+                    multiplotter.plot_scene_and_trajs(save_path=os.path.join(test_dir, "plots", f"multiplot.png"),
+                                                    azimuth=90)
+
 
                 
                 
