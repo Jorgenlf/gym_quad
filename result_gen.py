@@ -131,7 +131,7 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
 
     if args.episodes > 1:
         if args.run_scenario in ["house_hard", "house_hard_obstacles"]:
-            for hv in [1,2]: # View from two angles, must have separate instances. Solved with hv variable in plotter func.
+            for hv in [1,2]: # View from two angles, must have separate instances. Solved with hv variable in plotter func. "hv=HouseView"
                 multiplotter = Plotter3DMultiTraj(obstacles=obstacles,
                                                   path=path,
                                                   drone_trajs=all_drone_trajs,
