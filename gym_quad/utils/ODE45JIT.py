@@ -93,7 +93,7 @@ d_r = np.float64(5.56e-4)
 #                 [-l, 0, l, 0],
 #                 [-k_tau, k_tau, -k_tau, k_tau]],dtype=np.float64)
 
-#Cross config B:
+#Cross config B: #More about plus and cross config: https://move.rpi.edu/sites/default/files/publication-documents/2016-4.pdf 
 B = np.array([[0,0,0,0],
             [0,0,0,0],
             [1,1,1,1],
