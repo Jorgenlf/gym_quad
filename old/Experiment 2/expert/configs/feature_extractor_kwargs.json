@@ -1,1 +1,0 @@
-{"img_size": 224, "features_dim": 32, "device": "cuda", "lock_params": true, "pretrained_encoder_path": "C:\\Users\\admin\\Desktop\\EirikJorgenMasterCode\\gym_quad/VAE_encoders/encoder_conv1_experiment_1000_seed1.json"}
