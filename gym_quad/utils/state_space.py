@@ -17,6 +17,12 @@ m = 1.262   #kg
 W = m*g     #N
 l = 0.25    #m length from rotors to center of mass (quad height is 0.21m)
 
+#For cross config B:
+# d_y = np.sin(np.pi/4)*l #use the angle between the rotor and the x-body-axis
+# d_x = np.cos(np.pi/4)*l #When 45 degrees get sin(angle) = cos(angle) =  0.70710678 for both
+d_y = l*0.70710678
+d_x = l*0.70710678
+
 thrust_min = 0 #N #TODO this not being able to go negative might cause issues
 thrust_max = 16.9655045  #N
 
@@ -29,7 +35,7 @@ Ig = np.vstack([
     np.hstack([0, I_y, 0]),
     np.hstack([0, 0, I_z])])
 
-lamb = 0.13695 # Torque Thrust Ratio found using (C_q/C_T)*D and https://m-selig.ae.illinois.edu/props/volume-2/propDB-volume-2.html
+k_tau = 0.13695 # Torque Thrust Ratio found using (C_q/C_T)*D and https://m-selig.ae.illinois.edu/props/volume-2/propDB-volume-2.html
 
 #Keep the old values for now
 # Aerodynamic friction Coefficients
@@ -101,14 +107,24 @@ def C(nu):
                  0])
     return Cv
 
+#plus config B:
+# def B():
+#     B = np.array([[0,0,0,0],
+#                 [0,0,0,0],
+#                 [1,1,1,1],
+#                 [0,-l,0,l],
+#                 [-l,0,l,0],
+#                 [-k_tau,k_tau,-k_tau,k_tau]])
+#     return B
 
+#Cross config B:
 def B():
     B = np.array([[0,0,0,0],
                 [0,0,0,0],
                 [1,1,1,1],
-                [0,-l,0,l],
-                [-l,0,l,0],
-                [-lamb,lamb,-lamb,lamb]])
+                [-d_y,-d_y,d_y,d_y],
+                [-d_x,d_x,d_x,-d_x],
+                [-k_tau,k_tau,-k_tau,k_tau]])
     return B
 
 def G(eta):

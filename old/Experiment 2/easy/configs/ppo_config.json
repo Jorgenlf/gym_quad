@@ -1,0 +1,1 @@
+{"n_steps": 1024, "batch_size": 64, "gae_lambda": 0.95, "gamma": 0.99, "n_epochs": 4, "ent_coef": 0.001, "verbose": 2, "device": "cuda", "tensorboard_log": "./log\\LV_VAE_MESH-v0\\Experiment 2\\line\\tensorboard"}

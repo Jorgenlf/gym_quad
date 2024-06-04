@@ -31,8 +31,8 @@ elif option == 'unknown_ordered':
     #Choose which depth maps to use:    
     ###---###---###---###
     exp_id = 32
-    test_id = 47
-    scenario = "cave"
+    test_id = 1
+    scenario = "helix"
     ###---###---###---###
 
     # Regular expression to extract numbers from filenames:
@@ -57,7 +57,7 @@ if mode == "gif":
     #         writer.append_data(image)
 
     format = ".gif" 
-    output_path = "animated" + format
+    output_path = scenario + format
     iio.imwrite(output_path, [iio.imread(fp) for fp in filenames],
                     fps=30,  # Frames per second
                     loop=0,  # 0 = infinite loop, 1 = no loop
@@ -86,7 +86,7 @@ elif mode == "webp":
     # # Save as WebP animation
     # iio.imwrite('my_image_animation.webp', images, duration=duration_per_frame, loop=0)
     format = ".webp" 
-    output_path = "animated" + format
+    output_path = scenario + format
     iio.imwrite(output_path, [iio.imread(fp) for fp in filenames],
                     fps=30,  # Frames per second
                     loop=0,  # 0 = infinite loop, 1 = no loop

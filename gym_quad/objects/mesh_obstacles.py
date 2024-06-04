@@ -493,10 +493,11 @@ if __name__ == "__main__":
 
 
         #Create a quadcopter mesh as a cylinder with r=0.25 and h=0.21 at position [0, 0, 0] to do collision checking
-        tri_quad_mesh = advanced_create_cylinder(radius=0.25, height=0.21, sections=16, rot90=True, inverted=False)
+        tri_quad_mesh = advanced_create_cylinder(radius=0.13, height=0.11, sections=16, rot90=True, inverted=False)
         #Create quadcopter as the actual quadcopter mesh! #Keep using cylinder in sim as drone mesh is comp heavy.
-        tri_quad_mesh = trimesh.load("gym_quad/meshes/drone_TRI.obj")
-
+        # tri_quad_mesh = trimesh.load("gym_quad/meshes/drone_TRI.obj")
+        #Create the quad as the uncaged drone mesh
+        tri_quad_mesh_uncaged = trimesh.load("gym_quad/meshes/uncaged_drone_TRI.obj")
 
         #Move the quadcopter mesh to start at the quadcopter initial position
         quadcopter_initial_position = np.array([0, 0, 0]) #ENU
@@ -504,6 +505,20 @@ if __name__ == "__main__":
         tri_quad_mesh.apply_translation(tri_quad_init_pos)
         #Rotate 90 degrees about y axis
         tri_quad_mesh.apply_transform(trimesh.transformations.rotation_matrix(-np.pi/2, [0, 1, 0]))
+        
+        # #Uncaged
+        # tri_quad_init_pos = enu_to_tri(np.array([0.3, 0, 0]))
+        # tri_quad_mesh_uncaged.apply_translation(tri_quad_init_pos)
+        # #Rotate 90 degrees about y axis
+        # tri_quad_mesh_uncaged.apply_transform(trimesh.transformations.rotation_matrix(-np.pi/2, [0, 1, 0]))        
+
+        # #For comparing the cylinder and the quadcopter mesh
+        # trimesh_scene = trimesh.Scene(tri_quad_mesh_uncaged) #The one with inverted box
+        # axis = trimesh.creation.axis(origin_size=0.1, axis_radius=0.01, axis_length=1.0)
+        # trimesh_scene.add_geometry(axis)
+        # trimesh_scene.add_geometry(tri_quad_mesh)
+        # trimesh_scene.show()
+
 
         #PROCESSING THEM
         #Add the joined obstacle mesh and the quadcopter mesh to the collision manager

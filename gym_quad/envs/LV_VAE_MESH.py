@@ -146,7 +146,13 @@ class LV_VAE_MESH(gym.Env):
         #Dont use the actual quad for training as it is too detailed and will slow down the collision detection
         self.tri_quad_mesh = None
         if self.use_drone_mesh:
-            self.tri_quad_mesh = trimesh.load("gym_quad/meshes/drone_TRI.obj") 
+            self.tri_quad_mesh = trimesh.load("gym_quad/meshes/drone_TRI.obj") #TODO differentiate between uncaged and caged drone mesh
+            #Move mesh to origin to rotate it correctly
+            self.tri_quad_mesh.apply_translation(np.array([0, 0, 0]))
+            #Rotate -90 degrees about trimesh y axis
+            self.tri_quad_mesh.apply_transform(trimesh.transformations.rotation_matrix(-np.pi/2, [0, 1, 0]))
+        elif self.use_uncaged_drone_mesh:
+            self.tri_quad_mesh = trimesh.load("gym_quad/meshes/uncaged_drone_TRI.obj")
             #Move mesh to origin to rotate it correctly
             self.tri_quad_mesh.apply_translation(np.array([0, 0, 0]))
             #Rotate -90 degrees about trimesh y axis
@@ -154,7 +160,6 @@ class LV_VAE_MESH(gym.Env):
         else:
             self.tri_quad_mesh = advanced_create_cylinder(radius=self.drone_radius_for_collision, height=self.drone_height_for_collision, sections=8, rot90=True, inverted=False) 
         
-
 
         #The 2D gaussian which is multiplied with the depth map to create the collision avoidance reward
         #Only needs to be inited once so it is done here
@@ -1431,25 +1436,15 @@ class LV_VAE_MESH(gym.Env):
         print("DEADEND")
         waypoints = [
             (0.0, 0.0, 0.0),
-            (2.5, 0.0, 0.0),
             (5.0, 0.0, 0.0),
-            (7.5, 0.0, 0.0),
             (10.0, 0.0, 0.0),
-            (12.5, 0.0, 0.0),
             (15.0, 0.0, 0.0),
-            (17.5, 0.0, 0.0),
             (20.0, 0.0, 0.0),
-            (22.5, 0.0, 0.0),
             (25.0, 0.0, 0.0),
-            (27.5, 0.0, 0.0),
             (30.0, 0.0, 0.0),
-            (32.5, 0.0, 0.0),
             (35.0, 0.0, 0.0),
-            (37.5, 0.0, 0.0),
             (40.0, 0.0, 0.0),
-            (42.5, 0.0, 0.0),
             (45.0, 0.0, 0.0),
-            (47.5, 0.0, 0.0),
             (50.0, 0.0, 0.0)]
         self.path = QPMI(waypoints)
         radius = 10
@@ -1463,7 +1458,7 @@ class LV_VAE_MESH(gym.Env):
                 
                 obstacle_coords = torch.tensor([x,y,z],device=self.device).float().squeeze()
                 pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
-                self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius*1.3,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
+                self.obstacles.append(SphereMeshObstacle(radius = obstacle_radius*1.4,center_position=pt3d_obs_coords,device=self.device,path=self.mesh_path))
                 # self.obstacles.append(CubeMeshObstacle(device=self.device, width=obstacle_radius*1.41, height=obstacle_radius*1.41, depth=obstacle_radius*1.41, center_position=pt3d_obs_coords, inverted=False))
 
         self.padding = 3

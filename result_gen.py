@@ -145,24 +145,29 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
 To run this scrip do e.g.:
 python result_gen.py --exp_id 19 --episodes 10 --trained_list expert expert_perturbed --test_list horizontal vertical deadend random_corridor house --test_all_agents True
 in terminal.
+
+For the final resultsgen do similar to this:
+python result_gen.py --exp_id 32 --episodes 100 --trained_list advanced --test_list helix house_hard house_hard_obstacles deadend cave house_easy house_easy_obstacles horizontal vertical --test_all_agents True
 '''
 
-#Define the config for the results generation
+#Define the config for the results generation #Could import from experiment config file
 result_config = lv_vae_config.copy()
 result_config["max_t_steps"] = 3500
 result_config["recap_chance"] = 0
 result_config["perturb_sim"] = True
-result_config["min_reward"] = -100e4 #TODO decide if this should be done (I think so) Minus 100k to avoid early termination due to reward when testing
-#TODO add a flag to choose wether to use the cylinder for collision checking or the dronemesh (cylinder is faster)
-#When flag added switch to the desired mesh here :)
+result_config["min_reward"] = -100e4 
+result_config["use_uncaged_drone_mesh"] = True #Decide if we want to use the uncaged drone mesh for collision detection during testing if false uses cylinder (faster)
  
 if __name__ == "__main__":
     _s = time.time() #For tracking training time
     _, _, args = parse_experiment_info()
     test_scenarios = args.test_list
     trained_scenarios_to_run = args.trained_list
-    expdir_string = r"Best_final_res_gen {}".format(args.exp_id) #NB This is temp for final res gen
+    
     expdir_string = r"Experiment {}".format(args.exp_id)
+    expdir_string = r"A_Filter stage 2 exp {}".format(args.exp_id) #NB This is temp for final res gen
+    expdir_string = r"Best_agent_res_gen_1 exp {}".format(args.exp_id) #NB This is temp for final res gen
+
     base_experiment_dir = os.path.join(r"./log", r"{}".format(args.env), expdir_string)
 
     tasks = []

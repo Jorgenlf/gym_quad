@@ -113,11 +113,12 @@ def make_env(env_id, scenario, rank, seed=0):
     return _init
 
 if __name__ == '__main__':
-    time_trained = 0
+    time_trained = 0.0
     print('\nTOTAL CPU CORE COUNT:', multiprocessing.cpu_count())
     experiment_dir, _, args = parse_experiment_info()
     scenario_list = list(scenarios.keys())
     done_training = False
+   
     for i, scen in enumerate(scenario_list):
         _s = time.time() #For tracking training time
 
@@ -237,20 +238,20 @@ if __name__ == '__main__':
         del env
         del agent
         print("ENVIRONMENT CLOSED\n")
- 
+
         print(f"TRAINIG TIME IN SCENARIO {scen} TOOK {time.strftime('%H:%M:%S', time.gmtime(time.time() - _s))}")
-       
+        
         #Write total training time to file:
         try:
             with open(f'{experiment_dir}/training_time_raw.txt', 'r') as file:
-                time_trained = float(file.read())
+                time_trained = float(file.read()) 
         except FileNotFoundError:
             with open(f'{experiment_dir}/training_time_raw.txt', 'w') as file:
                 file.write(str(time_trained))
         time_trained += time.time() - _s
         with open(f'{experiment_dir}/training_time_raw.txt', 'w') as file:
             file.write(str(time_trained))
- 
+
     # Convert the raw training time to hours, minutes and seconds
     with open(f'{experiment_dir}/training_time_raw.txt', 'r') as file:
         time_trained = float(file.read())
