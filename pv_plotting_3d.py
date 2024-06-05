@@ -349,9 +349,9 @@ class Plotter3DMultiTraj(Plotter3D):
             # To color the paths taken by reward we add scalars to the spline and plot colorbar between min and max reward
             spline['cumulative_reward'] = self.cum_rewards[key]   
             if i == 0:
-                self.plotter.add_mesh(spline, line_width=8, label="Drone Trajectories", scalars='cumulative_reward', cmap=self.cmap, clim=self.clim, flip_scalars=self.flip_scalars, scalar_bar_args=self.scalar_bar_args)
+                self.plotter.add_mesh(spline, line_width=4, label="Drone Trajectories", scalars='cumulative_reward', cmap=self.cmap, clim=self.clim, flip_scalars=self.flip_scalars, scalar_bar_args=self.scalar_bar_args, opacity = 0.8)
             else:
-                self.plotter.add_mesh(spline, line_width=8, scalars='cumulative_reward', cmap=self.cmap, clim=self.clim, flip_scalars=self.flip_scalars, scalar_bar_args=self.scalar_bar_args)
+                self.plotter.add_mesh(spline, line_width=4, scalars='cumulative_reward', cmap=self.cmap, clim=self.clim, flip_scalars=self.flip_scalars, scalar_bar_args=self.scalar_bar_args, opacity = 0.8)
 
         self.plotter.add_points(self.quadratic_path, color=self.path_color, point_size=20, label="Path", render_points_as_spheres=True)
 

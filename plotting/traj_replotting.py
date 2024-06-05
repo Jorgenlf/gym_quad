@@ -12,14 +12,23 @@ from gym_quad.envs.LV_VAE_MESH import LV_VAE_MESH
 from drl_config import lv_vae_config
 
 
-exp_dir = f'Best_agent_res_gen_1 exp 10005'
-trained_scen = "proficient_perturbed"
+
+high_level_agent_name = "locked_conv" # "locked_conv", "random", "unlocked"
+
+if high_level_agent_name == "locked_conv":
+    exp_dir = f'Best_agent_res_gen_1 exp 10005'
+    trained_scen = "proficient_perturbed"
+    model_name = "test_agent_model_180000"
+elif high_level_agent_name == "random":
+    exp_dir = f'Best_agent_res_gen_2 exp 32'
+    trained_scen = "advanced"
+    model_name = "test_agent_model_10000"
+
+
 test_scen_list = ["horizontal", "vertical", "deadend", "helix", "cave", "house_hard", "house_hard_obstacles", "house_easy", "house_easy_obstacles"]
-model_name = "test_agent_model_180000"
 episode = 0 #Only used in single_ep mode
 mode = "single_ep"
 mode = "all_eps" # "single_ep" or "all_eps"
-high_level_agent_name = "conv_locked" #or "pt_unlocked" or "conv_locked"
 
 output_path = os.path.join('plotting', 'replotting_results', high_level_agent_name)
 
