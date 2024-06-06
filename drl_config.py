@@ -14,7 +14,7 @@ lv_vae_config = {
     "mesh_path"                 : "./gym_quad/meshes/sphere.obj", # Path to the mesh of the sphere obstacle #TODO idk if this should be here might move it
     "enclose_scene"             : True,             # Enclose the scene with a box thats scaled to the scene size
     "padding"                   : 1.5,              # Padding of the box that encloses the scene [m] #usually 1.5m for indoor training
-    "drone_radius_for_collision": 0.13,             # Radius of the drone for collision detection [m] #Actual armlength to propeller is 0.13m armlength frame extremais 0.25m. height is 0.21m
+    "drone_radius_for_collision": 0.13,             # Radius of the drone for collision detection [m] #Actual armlength to propeller is 0.13m armlength frame extremas 0.25m. height is 0.21m
     "drone_height_for_collision": 0.11,             # Height of the drone for collision detection [m]
     "use_drone_mesh"            : False,            # Use the drone mesh for collision detection if not a cylinder is used using r and h above
     "use_uncaged_drone_mesh"    : False,            # Use the uncaged mesh for collision detection
@@ -63,7 +63,7 @@ lv_vae_config = {
     #Path progression reward
     'PP_rew_max'                : 2,                # maximum reward for path progression
     'PP_rew_min'                : -1,               # minimum reward for path progression
-    'PP_rew_scale'              : 0.9,              # scale of path progression reward
+    'PP_rew_scale'              : 0,              # scale of path progression reward
                                 #2 might be better? see exp25 proficient_perturbed
     #Collision reward
     'rew_collision'             : -1000,            # reward (penalty) for collision
@@ -79,7 +79,7 @@ lv_vae_config = {
     'approach_end_range'        : 3,                # Dist[m] between goal and drone where Lambda CA and Lambda PA interpolate such that pa>ca
 
     #Existence reward   
-    'existence_reward'          : -8,               # reward (penalty) for existing
+    'existence_reward'          : -7,               # reward (penalty) for existing
     
     #Collision avoidance                         
     'CA_scale'                  : 1/1000,           # Scaling of the collision avoidance reward Found via tuning

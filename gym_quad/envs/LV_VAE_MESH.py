@@ -741,8 +741,8 @@ class LV_VAE_MESH(gym.Env):
         Calculates the reward function for one time step. 
         """
         tot_reward = 0
-        lambda_PA = self.lambda_PA_max
-        lambda_CA = self.lambda_CA_max
+        lambda_PA = self.lambda_PA_max*0.5
+        lambda_CA = self.lambda_CA_max*0.5
 
         #Path adherence reward
         dist_from_path = np.linalg.norm(self.path(self.prog) - self.quadcopter.position)

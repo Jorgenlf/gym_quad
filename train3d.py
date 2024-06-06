@@ -31,7 +31,6 @@ train_config["max_t_steps"] = 6000
 train_config["recap_chance"] = 0.1
 
 
-
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---### 
 scenarios = {   "line"                 :  1e6,
                 "easy"                 :  1e6,
@@ -51,8 +50,8 @@ scenario_success_threshold = {  "line"                 :  0.6, #TODO make the di
                                 "proficient"           :  0.8,
                                 "advanced"             :  0.9,
                                 "expert"               :  0.9,
-                                "proficient_perturbed" :  0.9,
-                                "expert_perturbed"     :  0.9
+                                "proficient_perturbed" :  0.95,
+                                "expert_perturbed"     :  0.95
                             }
 
 k = 5   # Number of consecutive episode successes that must be above the threshold to move to the next scenario
@@ -68,15 +67,11 @@ PPO_hyperparams = {
     'ent_coef': 0.001, 
     'verbose': 2,
     'device':'cuda', #Will be used for both feature extractor and PPO
-    #'clip_range': 0.2,
-    #'learning_rate': 2.5e-4, #10e-4, #2.5e-4,old # Try default (3e-4)
-    #"optimizer_class":torch.optim.Adam, #Throws error (not hos Eirik :)) Now it does idk why sorry man
-    #"optimizer_kwargs":{"lr": 10e-4}
 }
 
 ###---###---### SELECT POLICYKWARGS HERE - FEATUREEXTRACTOR AND PPO NETWORK ACRHITECTURE ###---###---###
 #VAE
-encoder_path = f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_7_seed1.json"
+encoder_path = None #f"{os.getcwd()}/VAE_encoders/encoder_conv1_experiment_7_seed1.json"
 lock_params = False #True if you want to lock the encoder parameters. False to let them be trained
 lock_params_conv = False #True if you want to lock the convolutional layers of the encoder. False to let them be trained
 
@@ -95,7 +90,7 @@ policy_kwargs = dict(
 )
 
 """
-To train the agent, run the following command in terminal select 
+To train the agent, run the following command in terminal select: 
 the number of cores to use for training with the --n_cpu flag
 the expirment id with the --exp_id flag
 
