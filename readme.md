@@ -3,7 +3,22 @@ This repo implements a 6-DOF simulation model for a quadcopter according to the 
 
 
 ## Quick results overview
-Gifs of what the quadcopter sees with an animation og where it is in the scene do last part if possible.
+Gifs of what the quadcopter sees with an animation of where it is in the scene do last part if possible.
+
+#### Helix test scenario
+![](media\Test_scenario_gifs_&_webp\Helix\helix.gif)
+
+#### Cave test scenario
+![](media\Test_scenario_gifs_&_webp\Cave\Cave.gif)
+
+#### Vertical test scenario
+![](media\Test_scenario_gifs_&_webp\Vertical\vertical.gif)
+
+#### Horizontal test scenario
+![](media\Test_scenario_gifs_&_webp\Horizontal\horizontal.gif)
+
+#### Deadend test scenario
+![](media\Test_scenario_gifs_&_webp\Deadend\deadend.gif)
 
 
 ## Getting Started
@@ -17,7 +32,7 @@ conda env create -f environment.yml
 You can follow this guide or do the steps below:
 https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md
 
-Essentially on windows do these:
+Essentially, on windows do these:
 
 1.  ``` conda create -n [name] python=3.10 ```
 
