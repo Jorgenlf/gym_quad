@@ -35,13 +35,6 @@ elif option == 'unknown_ordered':
     scenario = "helix"
     path_pattern = f'log/LV_VAE_MESH-v0/Experiment {exp_id}/{scenario}/tests/test{test_id}/depth_maps/depth_map_*.png'
     ###---###---###---###
-    
-    #If depth and flight together choose agent aswell COMMENT THIS OUT IF ONLY DEPTH MAP POV WANTED
-    agent = "locked_conv"
-    scenario = "horizontal"
-    path_pattern = f'plotting/replotting_results/depth_and_flight/{agent}/{scenario}/combined_img_*.png'
-
-    ###---###---###---###
 
     # Regular expression to extract numbers from filenames:
     def sort_key(filename):

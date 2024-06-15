@@ -42,7 +42,6 @@ def get_path_as_arr(path: QPMI):
 def initialize_plotter(obstacles, path:QPMI, dim, scene="none", save=True):
     #Init values
     plotter = pv.Plotter(window_size=dim, off_screen=save)
-    drone_path_color = '#00BA38'   # greenish
     path_color = '#4780ff'         # blueish
     obstacles_color = '#ff3400'    # redish
     room_color = '#f3f0ec'         # deserty/gray
@@ -88,7 +87,7 @@ def initialize_plotter(obstacles, path:QPMI, dim, scene="none", save=True):
     if room_mesh != None and house_mesh == None and not scene == "cave":
         plotter.add_mesh(room_mesh, color=room_color, show_edges=False, backface_params=backface_params)
     if house_mesh != None:
-        plotter.add_mesh(house_mesh, color=room_color, show_edges=False, opacity=0.15)
+        plotter.add_mesh(house_mesh, color=room_color, smooth_shading=True, show_edges=False, opacity=1)
 
     # Add path
     quadratic_path = dash_path(get_path_as_arr(path))
@@ -102,9 +101,9 @@ if __name__ == "__main__":
     #exp32 - random #cave "47" #horizontal 37 #deadend 4
     #exp10005 - locked conv #horizontal 1 #house_easy 1 #house_easy_obstacles 1 #helix 1
     
-    exp_dir = 'Experiment 10005'
-    test_scen = "helix" 
-    test_nr = 1
+    exp_dir = 'Experiment 32'
+    test_scen = "house_hard_obstacles" 
+    test_nr = 7
     
     retrieve_data_path = os.path.join(parent_dir, 'log', 'LV_VAE_MESH-v0', exp_dir , test_scen, "tests", f"test{test_nr}")
     
@@ -140,6 +139,15 @@ if __name__ == "__main__":
 
     pos = sim_data.iloc[0][[r"$X$", r"$Y$", r"$Z$"]].values
     att = sim_data.iloc[0][[r'$\phi$', r'$\theta$', r'$\psi$']].values
+    
+    #Dunno why but needs these offsets to match orientation in these scenarios
+    if test_scen == "house_easy" or test_scen == "house_easy_obstacles":
+        att[2] += deg2rad(-45) 
+    elif test_scen == "house_hard" or test_scen == "house_hard_obstacles":
+        att[2] += deg2rad(45)
+    elif test_scen == "cave" or test_scen == "helix":
+        att[2] += deg2rad(-90)
+
     tri_quad_init_pos = enu_to_tri(pos)
     tri_quad_mesh.apply_translation(-tri_quad_mesh.centroid)
     tri_quad_mesh.apply_transform(tri_Rotmat(*att))
@@ -147,8 +155,8 @@ if __name__ == "__main__":
     tri_quad_mesh.apply_translation(tri_quad_init_pos)
 
     quad_color = '#00BA38'
-    plotter = initialize_plotter(obstacles, path, dim=depthmap_dim, scene=test_scen, save=True) #Move down into loop to make several images after each other
     for i in tqdm(range(len(sim_data))):
+        plotter = initialize_plotter(obstacles, path, dim=depthmap_dim, scene=test_scen, save=True) #Move down into loop to make several images after each other
         pos = sim_data.iloc[i][[r"$X$", r"$Y$", r"$Z$"]].values
         att = sim_data.iloc[i][[r'$\phi$', r'$\theta$', r'$\psi$']].values
 
@@ -165,10 +173,13 @@ if __name__ == "__main__":
         plotter.add_mesh(quad_mesh, color=quad_color, smooth_shading=True, name="Drone")
 
         # CAMERA UPDATE
-        cam_pos_enu_b = np.array([-0.9, 0, -0.15])
+        cam_pos_enu_b = np.array([-0.9, 0, 0.15])
         modified_att = att.copy()
         modified_att[0] = 0
         modified_att[1] = 0
+
+        if test_scen == "horizontal" or test_scen == "helix":
+            cam_pos_enu_b = np.array([-0.9, 0, -0.15]) #want to view from below as inits below obstacles
 
         cam_pos_enu_w = pos + Rzyx(*modified_att).dot(cam_pos_enu_b)
         plotter.camera.position = cam_pos_enu_w

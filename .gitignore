@@ -16,3 +16,4 @@ test_sim.csv
 tests/test_img
 plotting/replotting_results/follow_quad_imgs/
 plotting/replotting_results/depth_and_flight/
+helix_pov_and_flight.gif
