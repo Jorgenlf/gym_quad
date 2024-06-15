@@ -33,6 +33,14 @@ elif option == 'unknown_ordered':
     exp_id = 32
     test_id = 1
     scenario = "helix"
+    path_pattern = f'log/LV_VAE_MESH-v0/Experiment {exp_id}/{scenario}/tests/test{test_id}/depth_maps/depth_map_*.png'
+    ###---###---###---###
+    
+    #If depth and flight together choose agent aswell COMMENT THIS OUT IF ONLY DEPTH MAP POV WANTED
+    agent = "locked_conv"
+    scenario = "horizontal"
+    path_pattern = f'plotting/replotting_results/depth_and_flight/{agent}/{scenario}/combined_img_*.png'
+
     ###---###---###---###
 
     # Regular expression to extract numbers from filenames:
@@ -40,22 +48,12 @@ elif option == 'unknown_ordered':
         numbers = re.findall(r'\d+', filename)
         return [int(num) for num in numbers]
 
-    path_pattern = f'log/LV_VAE_MESH-v0/Experiment {exp_id}/{scenario}/tests/test{test_id}/depth_maps/depth_map_*.png'
     filenames = sorted(glob.glob(path_pattern), key=sort_key)
 
 
 if mode == "gif":
     print("There are ", len(filenames), " images in the folder\nBeginning to create gif... ",end="")
     
-    #Frame duration (max 50 for gif):
-    frame_duration = 1 / 50
-
-    # Read, compose and write images to .gif:
-    # with imageio.get_writer('my_image_animation.gif', mode='I', duration=frame_duration, loop=0) as writer:
-    #     for filename in filenames:
-    #         image = imageio.imread(filename)
-    #         writer.append_data(image)
-
     format = ".gif" 
     output_path = scenario + format
     iio.imwrite(output_path, [iio.imread(fp) for fp in filenames],
@@ -68,23 +66,6 @@ if mode == "gif":
 elif mode == "webp":
     print("There are ", len(filenames), " images in the folder\nBeginning to create webp animation... ",end="")
 
-    # Frame duration set for 90 FPS:
-    # frame_duration = 1 / 100  # seconds per frame #TODO changing duration seemingly does nothing...
-
-    #IMAGEIOv2
-    # Read, compose and write images to .webp:
-    # with imageio.get_writer('my_image_animation.webp', mode='I', duration=frame_duration, loop=0, quality=100) as writer:
-    #     for filename in filenames:
-    #         image = imageio.imread(filename)
-    #         writer.append_data(image)
-    
-    #IMAGEIOv3
-    # # Load images
-    # images = [iio.imread(filename) for filename in filenames]
-    # # Set duration (10 ms per frame for 100 FPS)
-    # duration_per_frame = 10
-    # # Save as WebP animation
-    # iio.imwrite('my_image_animation.webp', images, duration=duration_per_frame, loop=0)
     format = ".webp" 
     output_path = scenario + format
     iio.imwrite(output_path, [iio.imread(fp) for fp in filenames],
@@ -93,13 +74,4 @@ elif mode == "webp":
                     quantizer="nq",
                     )
 
-    #PILLOW
-    # images = [Image.open(filename) for filename in filenames]
-
-    # # Save as WebP animation
-    # images[0].save('my_image_animation.webp',
-    #             save_all=True, append_images=images[1:], duration=10, loop=0, quality=100)
-
     print("WebP animation created successfully!")        
-
-#TODO can make a call to this after calling run such that the gif is created automatically can then delete all the depthmaps if we want to save space

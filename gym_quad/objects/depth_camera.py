@@ -1,5 +1,4 @@
 import torch
-import trimesh
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -55,21 +54,6 @@ class DepthMapRenderer:
             raster_settings=raster_settings
         )
         self.img_size = img_size
-        
-        # OLD:
-        # k is a scaling factor for the distortion correction and is a function of FOV, sensor size, and focal length, etc.
-        # Initilized to 62.5 for the default FoVPerspectiveCamera settings with a 60 degree FOV and image size of 240x320
-        # Initilized to 46.6 for the default FoVPerspectiveCamera settings with a 75 degree FOV and image size of 240x320
-
-        #Computation of how to rescale the depth map to correct for perspective distortion
-        #self.k = 46.6
-        
-        #self.x_grid, self.y_grid = torch.meshgrid(torch.arange(self.img_size[0], device=self.device), torch.arange(self.img_size[1], device=self.device), indexing='ij')
-        # Compute distance from center for each pixel
-        #self.center = torch.tensor(self.img_size, device=self.device)/2
-        #self.dist_from_center = torch.norm(torch.stack([self.x_grid, self.y_grid], dim=-1) - self.center, dim=-1)
-        # Amplify dist tensor by 1/k
-        #self.dist_from_center = self.dist_from_center / self.k
 
     def render_depth_map(self):
         """
@@ -85,20 +69,8 @@ class DepthMapRenderer:
         depth.masked_fill_(depth == -1.0, self.max_measurable_depth)
         depth.clamp_(max=self.max_measurable_depth)
 
-        # Correct for perspective distortion if FOV camera used
-        #depth = self.correct_distorion(depth)
-
         return depth
 
-    # def correct_distorion(self, depth: torch.Tensor):
-    #     """
-    #     Corrects for perspective distortion in the depth map by calculating the depth values to the camera center
-    #     instead of to the image plane for each pixel in the image.
-    #     """
-
-    #     # Correct for perspective distortion at indices where depth is not infinite
-    #     depth = torch.where(depth < self.max_measurable_depth, torch.sqrt(torch.pow(depth,2) + torch.pow(self.dist_from_center,2)), self.max_measurable_depth).to(self.device)
-    #     return depth
 
     def render_scene(self, light_location=(5, 5, 0)):
         """
@@ -242,6 +214,7 @@ if __name__ == "__main__":
 
     #init of scene
     spherescene = Scene(device=device, obstacles=[obs1, obs2, obs3, obs4, obs5, obs6, obs7])
+    spherescene = Scene(device=device, obstacles=[obs1])
 
     #Init rasterizer
     raster_settings = RasterizationSettings(

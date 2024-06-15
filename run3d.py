@@ -203,7 +203,7 @@ if __name__ == "__main__":
             plt.close('all')
 
             write_report(test_dir, sim_df, env, episode)
-
+            sim_df.to_csv(os.path.join(test_dir, 'sim_df.csv'), index=False)
 
 
         elif args.RT_vis == True: 

@@ -14,3 +14,5 @@ test_sim.csv
 **/results/*
 **/figures/*
 tests/test_img
+plotting/replotting_results/follow_quad_imgs/
+plotting/replotting_results/depth_and_flight/

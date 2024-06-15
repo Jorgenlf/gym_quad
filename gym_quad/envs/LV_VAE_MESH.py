@@ -146,7 +146,7 @@ class LV_VAE_MESH(gym.Env):
         #Dont use the actual quad for training as it is too detailed and will slow down the collision detection
         self.tri_quad_mesh = None
         if self.use_drone_mesh:
-            self.tri_quad_mesh = trimesh.load("gym_quad/meshes/drone_TRI.obj") #TODO differentiate between uncaged and caged drone mesh
+            self.tri_quad_mesh = trimesh.load("gym_quad/meshes/drone_TRI.obj")
             #Move mesh to origin to rotate it correctly
             self.tri_quad_mesh.apply_translation(np.array([0, 0, 0]))
             #Rotate -90 degrees about trimesh y axis
