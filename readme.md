@@ -1,4 +1,4 @@
-# Autonomous path following and collision avoidance for quadcopters using deep reinforcement learning, a geometric linear velocity controller and a variational auto encoder in a mesh based simulation
+# Autonomous path following and collision avoidance for quadcopters using deep reinforcement learning, a geometric linear velocity controller and a variational auto encoder in a mesh based simulation to take advantage of digital twins
 This repo implements a 6-DOF simulation model for a quadcopter according to the stable baselines (OpenAI) interface for reinforcement learning control.
 
 
