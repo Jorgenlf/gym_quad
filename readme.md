@@ -5,31 +5,35 @@ This repo implements a 6-DOF simulation model for a quadcopter according to the 
 ## Quick results overview
 Gifs of what the quadcopter sees with an animation of where it is in the scene.
 
-#### Helix test scenario
+The () indicate which type of DRL agent is being used to control the quadcopter in the scene. 
+- _random_ refers to an agent that was trained with a randomly initialized feature extractor for compressing the depth images.
+- _conv-locked_ refers to an agent where the convolutional layers of the feature extractor are frozen to match the weights of a pretrained VAE while the projection head is initialized to the pretrained weights, but updated online during training of the DRL agent. 
+
+#### Helix test scenario (_conv-locked_)
 https://github.com/Jorgenlf/gym_quad/assets/54811706/bd579227-340a-4b87-9e91-40888648eef6
 
-#### Cave test scenario
+#### Cave test scenario (_random_)
 https://github.com/Jorgenlf/gym_quad/assets/54811706/876b7313-1892-4824-a90f-ca9463795ce5
 
-#### Vertical test scenario
+#### Vertical test scenario (_random_)
 https://github.com/Jorgenlf/gym_quad/assets/54811706/99112a5d-85d9-46d8-9b99-acfdc758b7d6
 
-#### Horizontal test scenario
+#### Horizontal test scenario (_conv-locked_)
 https://github.com/Jorgenlf/gym_quad/assets/54811706/c28a78a0-a006-4508-9d1a-6066ab0bf088
 
-#### Deadend test scenario
+#### Deadend test scenario (_random_)
 https://github.com/Jorgenlf/gym_quad/assets/54811706/bb842e0a-f1cf-4cb5-a5f2-97c9873b8937
 
-#### House easy test scenario
+#### House easy test scenario (_conv-locked_)
 https://github.com/Jorgenlf/gym_quad/assets/54811706/441afda5-0ad2-448c-8269-01665c43e629
 
-#### House easy obstacles test scenario
+#### House easy obstacles test scenario (_conv-locked_)
 https://github.com/Jorgenlf/gym_quad/assets/54811706/50bf2f11-b0ca-4f0b-a9ed-8356e6dcce54
 
-#### House hard test scenario
+#### House hard test scenario (_random_)
 https://github.com/Jorgenlf/gym_quad/assets/54811706/a1645f9d-2f9a-43d9-b77e-7bc8d0bd80ed
 
-#### House hard obstacles test scenario
+#### House hard obstacles test scenario (_random_)
 https://github.com/Jorgenlf/gym_quad/assets/54811706/28318a4e-480d-4b0d-8f71-9ddb1bb2f259
 
 
