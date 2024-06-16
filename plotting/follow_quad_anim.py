@@ -93,13 +93,18 @@ def initialize_plotter(obstacles, path:QPMI, dim, scene="none", save=True):
     quadratic_path = dash_path(get_path_as_arr(path))
     plotter.add_points(quadratic_path, color=path_color, point_size=5, label="Path", render_points_as_spheres=True)
 
-    return plotter
+    return plotter, house_mesh
+
+def is_line_of_sight_clear(mesh, start, end):
+    line = pv.Line(start, end)
+    intersections = mesh.ray_trace(line.points[0], line.points[-1], first_point=False)
+    return len(intersections[0]) == 0
 
 
 if __name__ == "__main__":
     #loading of data
-    #exp32 - random #cave "47" #horizontal 37 #deadend 4
-    #exp10005 - locked conv #horizontal 1 #house_easy 1 #house_easy_obstacles 1 #helix 1
+    #exp32 - random         #cave 47 #deadend 4 #house_hard 4 #house_hard_obstacles 7 #vertical 2
+    #exp10005 - locked conv #horizontal 1 #house_easy 1 #house_easy_obstacles 8 #helix 1
     
     exp_dir = 'Experiment 32'
     test_scen = "house_hard_obstacles" 
@@ -155,8 +160,9 @@ if __name__ == "__main__":
     tri_quad_mesh.apply_translation(tri_quad_init_pos)
 
     quad_color = '#00BA38'
+    camera_inside_mesh = False
     for i in tqdm(range(len(sim_data))):
-        plotter = initialize_plotter(obstacles, path, dim=depthmap_dim, scene=test_scen, save=True) #Move down into loop to make several images after each other
+        plotter, house_mesh = initialize_plotter(obstacles, path, dim=depthmap_dim, scene=test_scen, save=True) #Move down into loop to make several images after each other
         pos = sim_data.iloc[i][[r"$X$", r"$Y$", r"$Z$"]].values
         att = sim_data.iloc[i][[r'$\phi$', r'$\theta$', r'$\psi$']].values
 
@@ -179,9 +185,19 @@ if __name__ == "__main__":
         modified_att[1] = 0
 
         if test_scen == "horizontal" or test_scen == "helix":
-            cam_pos_enu_b = np.array([-0.9, 0, -0.15]) #want to view from below as inits below obstacles
+            cam_pos_enu_b = np.array([-1.2, 0, -0.15]) #want to view from below as inits below obstacles
 
         cam_pos_enu_w = pos + Rzyx(*modified_att).dot(cam_pos_enu_b)
+        
+        #check if camera is inside the housemesh #This can be done for all scenarios if wanted just need to add the other meshes
+        if test_scen == "house_easy" or test_scen == "house_easy_obstacles" or test_scen == "house_hard" or test_scen == "house_hard_obstacles":
+            #if camera is inside the house, move it closer to the drone until it is no longer inside the mesh
+            while not is_line_of_sight_clear(house_mesh, cam_pos_enu_w, pos):
+                print("adjusting camera position as house mesh is blocking view")
+                cam_pos_enu_b[0] += 0.1
+                cam_pos_enu_b[2] -= 0.01
+                cam_pos_enu_w = pos + Rzyx(*modified_att).dot(cam_pos_enu_b)
+
         plotter.camera.position = cam_pos_enu_w
         plotter.camera.focal_point = pos
 
