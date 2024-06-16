@@ -6,25 +6,35 @@ This repo implements a 6-DOF simulation model for a quadcopter according to the 
 Gifs of what the quadcopter sees with an animation of where it is in the scene.
 
 #### Helix test scenario
-![](https://github.com/Jorgenlf/gym_quad/blob/main/media/Test_scenario_gifs_%26_webp/Helix/helix.gif)
+https://github.com/Jorgenlf/gym_quad/assets/54811706/bd579227-340a-4b87-9e91-40888648eef6
 
 #### Cave test scenario
-<!-- ![](https://github.com/Jorgenlf/gym_quad/blob/main/media/Test_scenario_gifs_%26_webp/Cave/Cave.gif) -->
-<!-- w,h = 1392, 480 -->
-
-<video width="1392" height="480" controls>
-  <source src="https://github.com/Jorgenlf/gym_quad/blob/main/media/pov_and_flight_mp4s/cave.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+https://github.com/Jorgenlf/gym_quad/assets/54811706/876b7313-1892-4824-a90f-ca9463795ce5
 
 #### Vertical test scenario
-![](https://github.com/Jorgenlf/gym_quad/blob/main/media/Test_scenario_gifs_%26_webp/Vertical/vertical.gif)
+https://github.com/Jorgenlf/gym_quad/assets/54811706/99112a5d-85d9-46d8-9b99-acfdc758b7d6
 
 #### Horizontal test scenario
-![](https://github.com/Jorgenlf/gym_quad/blob/main/media/Test_scenario_gifs_%26_webp/Horizontal/horizontal.gif)
+https://github.com/Jorgenlf/gym_quad/assets/54811706/c28a78a0-a006-4508-9d1a-6066ab0bf088
 
 #### Deadend test scenario
-![](https://github.com/Jorgenlf/gym_quad/blob/main/media/Test_scenario_gifs_%26_webp/Deadend/deadend.gif)
+https://github.com/Jorgenlf/gym_quad/assets/54811706/bb842e0a-f1cf-4cb5-a5f2-97c9873b8937
+
+#### House easy test scenario
+https://github.com/Jorgenlf/gym_quad/assets/54811706/441afda5-0ad2-448c-8269-01665c43e629
+
+#### House easy obstacles test scenario
+https://github.com/Jorgenlf/gym_quad/assets/54811706/50bf2f11-b0ca-4f0b-a9ed-8356e6dcce54
+
+#### House hard test scenario
+https://github.com/Jorgenlf/gym_quad/assets/54811706/a1645f9d-2f9a-43d9-b77e-7bc8d0bd80ed
+
+#### House hard obstacles test scenario
+https://github.com/Jorgenlf/gym_quad/assets/54811706/28318a4e-480d-4b0d-8f71-9ddb1bb2f259
+
+
+
+
 
 
 ## Getting Started
