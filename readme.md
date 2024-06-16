@@ -3,13 +3,19 @@ This repo implements a 6-DOF simulation model for a quadcopter according to the 
 
 
 ## Quick results overview
-Gifs of what the quadcopter sees with an animation of where it is in the scene do last part if possible.
+Gifs of what the quadcopter sees with an animation of where it is in the scene.
 
 #### Helix test scenario
 ![](https://github.com/Jorgenlf/gym_quad/blob/main/media/Test_scenario_gifs_%26_webp/Helix/helix.gif)
 
 #### Cave test scenario
-![](https://github.com/Jorgenlf/gym_quad/blob/main/media/Test_scenario_gifs_%26_webp/Cave/Cave.gif)
+<!-- ![](https://github.com/Jorgenlf/gym_quad/blob/main/media/Test_scenario_gifs_%26_webp/Cave/Cave.gif) -->
+<!-- w,h = 1392, 480 -->
+
+<video width="1392" height="480" controls>
+  <source src="https://github.com/Jorgenlf/gym_quad/blob/main/media/pov_and_flight_mp4s/cave.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
 
 #### Vertical test scenario
 ![](https://github.com/Jorgenlf/gym_quad/blob/main/media/Test_scenario_gifs_%26_webp/Vertical/vertical.gif)
