@@ -84,7 +84,8 @@ python train3d.py --exp_id [x] --n_cpu [y]
 - y: number of cpus to train on
 
 ### Running an agent in the environment
-Copies the hyperparams from `gym_quad/drl_config.py` and changes certain hyperparam supporting running of agent in `gym_quad/run3d.py`.
+The hyperparameters from `gym_quad/drl_config.py` are copied, and some certain hyperparameters supporting the running of the agent in `gym_quad/run3d.py` are changed.
+#### **Two examples of trained DRL agents and the pre-trained VAE feature extractor can be downloaded** [**here**](https://1drv.ms/f/c/8c154251101af41c/EsTTn57JK5hMs9Zd7-yPRUwBa-2gTHg6VVDjij6jVvzvYw?e=w6oKNN)
 
 For running an agent in any scenario, use:
 ```
@@ -100,7 +101,6 @@ python run3d.py --env "" --exp_id x --run_scenario "..." --trained_scenario "...
 
 There are some additional args. For more info, view `gym_quad/utils.py` and inspect `parse_experiment_info()`.
 
-The trained DRL agents and the pre-trained VAE feature extractor can be downloaded [here](https://1drv.ms/f/c/8c154251101af41c/EsTTn57JK5hMs9Zd7-yPRUwBa-2gTHg6VVDjij6jVvzvYw?e=w6oKNN)
 
 ### Running in manual debug mode
 The run3d.py script has a mode for realtime visualization where you can control the quadcopter using wasd and spacebar. 
