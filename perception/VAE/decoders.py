@@ -55,7 +55,6 @@ class ConvDecoder1(BaseDecoder):
             nn.Linear(512, self.flattened_size),
 
         )
-        #"""
         # Transposed convolutional block type 1
         self.t_conv_block = nn.Sequential(
             nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, output_padding=1),
@@ -66,18 +65,6 @@ class ConvDecoder1(BaseDecoder):
             activation,
             nn.ConvTranspose2d(32, self.channels, kernel_size=3, stride=2, padding=1, output_padding=1)
         )
-        """
-        # Transposed convolutional block type 2
-        self.t_conv_block = nn.Sequential(
-            nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, output_padding=1),
-            self.activation,
-            nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, output_padding=1),
-            self.activation,
-            nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1),
-            self.activation,
-            nn.ConvTranspose2d(32, self.channels, kernel_size=5, stride=1, padding=2),
-        )
-        #"""
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, z:torch.Tensor) -> torch.Tensor:
@@ -176,7 +163,6 @@ class _ConvDecoder2(BaseDecoder):
             ResBlock(in_chan=32, out_chan=32),
             ResBlock(in_chan=32, out_chan=32),
 
-            # Inverse stem.
             # Inverse stem.
             PositionalNorm(32),
             nn.ReLU(),

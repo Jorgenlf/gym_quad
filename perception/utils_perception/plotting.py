@@ -1,3 +1,7 @@
+"""
+Contains utility functions for plotting loss trajectories, latent space distributions, reconstructions, filters and feature maps.
+"""
+
 import torch
 import torch.nn as nn
 import numpy as np
@@ -215,7 +219,7 @@ def latent_space_kde(model:nn.Module, dataloader:torch.utils.data.DataLoader, la
         kde(zs_pair, xlabel, ylabel,path, f'{name}_kde_{z_pair[0]}_{z_pair[1]}', save=save)
 
 def visualize_filters(encoder:nn.Module, savepath, input_image, ending):
-    # Must be changed if used on other models than conv1
+    # Must be altered if used on other models than conv1
     
     conv_weights = []  # List to store convolutional layer weights
     conv_layers = []  # List to store convolutional layers
@@ -340,7 +344,7 @@ def visualize_feature_maps(encoder:nn.Module, input_image, savepath, ending):
     plt.savefig(f"{savepath}/feature_maps_{str(ending)}.pdf", bbox_inches='tight')
 
 
-    # Find the input image that maximizes the activation for the conv layers
+# Finds the input image that maximizes the activation for the conv layers in the encoder
 class ActivationMaximization:
     def __init__(self, encoder:nn.Module, epochs, cnn_layer, cnn_filter):    
         self.model = encoder
@@ -388,12 +392,10 @@ class ActivationMaximization:
                     # activate hook when image gets to the layer in question
                     if idx == self.cnn_layer:
                         break
-                # print(self.num_filters)
                 # self.conv_output = x[0, self.cnn_filter]
+                
                 # loss function according to Erhan et al. (2009)
                 loss = -torch.mean(self.conv_output)
-                #print(loss.shape)
-                print(loss.data)
                 loss.backward() # calculate gradients
                 optimizer.step() # update weights
                 layer_img = processed_image # reconstruct image (no need img is already in 0,1 and good)
@@ -409,7 +411,7 @@ class ActivationMaximization:
 
 
 def interpolate(autoencoder, x_1, x_2, n, savepath):
-    """Interpolates between two images in latent space and plots the result with n steps."""
+    """Interpolates between two images in latent space and plots the result with n steps interpolated imgs in between"""
     z_1, _, _ = autoencoder.encoder(x_1)
     z_2, _, _ = autoencoder.encoder(x_2)
     z = torch.stack([z_1 + (z_2 - z_1)*t for t in np.linspace(0, 1, n)])
@@ -437,7 +439,7 @@ def interpolate(autoencoder, x_1, x_2, n, savepath):
     
     
 def plot_latent_distributions(model:nn.Module, dataloader:torch.utils.data.DataLoader, model_name:str, device:str, savepath:str, num_examples:int=7, save=True) -> None:
-    """Plots num_examples latent distributions from the given dataloader, data is assumed shuffled"""
+    """Plots num_examples latent distributions from the given dataloader, data is assumed shuffled""" #TODO: idk if this works cant remember
     print('Plotting latent distributions...')
     latent_representations = np.array([])
     labels = np.array(range(1,model.latent_dim+1))
@@ -480,9 +482,5 @@ def plot_latent_distributions(model:nn.Module, dataloader:torch.utils.data.DataL
 # TODO: Add functionality forplotting saved .npy loss trajectories for a given number of seeds and a given number of epochs:
 def plot_separated_lossed_from_file(n_epochs, seeds, path):
     pass
-
-
-# TODO: Add functionality for plotting test errors as function of beta for models with different latent dimensions
-
 
 # TODO: Visualizing latent space traversing..... mayyyybe

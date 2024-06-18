@@ -33,7 +33,7 @@ class TrainerVAE():
         # Early stopping parameters
         self.patience = patience                        # Number of epochs to wait for improvement before stopping
         self.min_delta = 10.0                           # Minimum change to qualify as an improvement
-        self.min_delta = 10.0                            # Minimum change to qualify as an improvement
+        self.min_delta = 10.0                           # Minimum change to qualify as an improvement
         self.best_val_loss = np.inf                     # Temp to keep track of best validation loss
         self.epochs_no_improve = 0                      # Counter
         

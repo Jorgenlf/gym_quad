@@ -25,8 +25,10 @@ class BaseEncoder(nn.Module):
     def reparameterize(self, mu, log_var, eps_weight=1):
         """ Reparameterization trick from VAE paper (Kingma and Welling). 
             Eps weight in [0,1] controls the amount of noise added to the latent space."""
+            
         # Note: log(x²) = 2log(x) -> divide by 2 to get std.dev.
         # Thus, std = exp(log(var)/2) = exp(log(std²)/2) = exp(0.5*log(var))
+        
         std = torch.exp(0.5*log_var)
         epsilon = torch.distributions.Normal(0, eps_weight).sample(mu.shape).to(device) # ~N(0,I)
         z = mu + (epsilon * std)
@@ -58,7 +60,7 @@ class ConvEncoder1(BaseEncoder):
         self.latent_dim = latent_dim
         self.image_size = image_size
         self.activation = activation
-        #"""
+
         # Convolutional block type 1
         self.conv_block = nn.Sequential(
             nn.Conv2d(self.channels, 32, kernel_size=3, stride=2, padding=1),
@@ -70,19 +72,6 @@ class ConvEncoder1(BaseEncoder):
             nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
             self.activation,
         )
-        """
-        # Convolutional block type 2
-        self.conv_block = nn.Sequential(
-            nn.Conv2d(self.channels, 32, kernel_size=5, stride=1, padding=1),
-            self.activation,
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
-            self.activation,
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
-            self.activation,
-            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
-            self.activation,
-        )
-        #"""
 
         self.flatten = nn.Flatten()
         
@@ -101,11 +90,10 @@ class ConvEncoder1(BaseEncoder):
         
         # Fully connected layers for mu and logvar
         self.fc_mu = nn.Sequential(
-            #nn.Linear(self.flattened_size, latent_dim),
+            #nn.Linear(self.flattened_size, latent_dim), # if one layer -- needs more to learn useful stuff from the features
             nn.Linear(self.flattened_size, 512),
             self.activation,
             nn.Linear(512, latent_dim)
-            #self.activation
         )
         
         self.fc_logvar = nn.Sequential(
@@ -113,7 +101,6 @@ class ConvEncoder1(BaseEncoder):
             nn.Linear(self.flattened_size, 512),
             self.activation,
             nn.Linear(512, latent_dim)
-            #self.activation
         )
 
     def _get_conv_output(self, image_size:int) -> int:

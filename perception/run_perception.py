@@ -9,11 +9,9 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
-from utils_perception.data_reader import CustomDepthDataset, RealSenseDataset, RealSenseDataset_v2, DataReaderRealSensev2, DataReaderSynthetic
+from utils_perception.data_reader import DataReaderRealSensev2, DataReaderSynthetic
 from utils_perception import plotting
 import cv2
-
-#from utils_perception.data_augmentation import DataAugmentation
 
 from VAE.encoders import ConvEncoder1, ConvEncoder2, VGG16Encoder, ResNet50Encoder
 from VAE.decoders import ConvDecoder1, ConvDecoder2, _ConvDecoder2
@@ -24,12 +22,10 @@ from train_perception import TrainerVAE
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-
-# HYPERPARAMS
-#LEARNING_RATE = 0.001
-#N_EPOCH = 25
-#BATCH_SIZE = 64     
-#LATENT_DIMS = 64
+# TODO this code could easily be optimized and cleaned up, but it works for now.
+# TODO improve modularity, create functions for repeated code, etc.
+# TODO implement logic for reading from .npy files and plotting them
+# TODO implement better testing, create tester class in sep. file
 
 def main(args):
     # Set hyperparameters
@@ -39,44 +35,40 @@ def main(args):
     LEARNING_RATE = args.learning_rate  # Default: 0.001
     NUM_SEEDS     = args.num_seeds      # Default: 1
     BETA          = args.beta           # Default: 1
-    #EPS_WEIGHT    = args.eps_weight     # Default: 1
+    #EPS_WEIGHT    = args.eps_weight    # Default: 1
 
-    IMG_SIZE = 224
-    NUM_CHANNELS = 1
+    IMG_SIZE      = 224                 # Default: 224, could be reduced for faster training
+    NUM_CHANNELS  = 1                   # Default: 1, always 1 for depth images, could be 4 if stacked with RGB
     
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     print(f'Using device: {device}')
 
-    # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
-    # in PyTorch 1.12 and later.
+    # The flag below controls whether to allow TF32 on matmul. This flag defaults to False in PyTorch 1.12 and later.
     torch.backends.cuda.matmul.allow_tf32 = True
-    # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
+    # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True. Ensure True.
     torch.backends.cudnn.allow_tf32 = True
 
     
     print('Preparing data...\n') # Do this on any mode
 
-    # Get SUN RGBD dataset
-    #print('Getting SUN RGBD dataset')
-    #sun = SunRGBD(orig_data_path="data/sunrgbd_stripped", data_path_depth="data/sunrgbd_images_depth", data_path_rgb="data/sunrgbd_images_rgb")
-    
-
     # Define transformatons additional to the normalization and channel conversion done in the DataReader
+    
+    # Augmenting trining data with flips and blur
     train_additional_transform = transforms.Compose([
         transforms.Resize((IMG_SIZE, IMG_SIZE)),
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomVerticalFlip(p=0.15),
         transforms.GaussianBlur(kernel_size=(5, 5), sigma=(0.5, 1.5)),
         #transforms.Normalize(mean=[0.291],
-        #                     std=[0.147])
-        #transforms.RandomRotation(degrees=(30, 70)),
-        transforms.Lambda(lambda x: torch.clamp(x, 0, 1)),  # Clamping values to [0, 1] due to some pixels exceeding 1 (with 10^-6) when resizing and interpolating (and gaussian blur apparently)
+        #                     std=[0.147]) # These values are for the ImageNet dataset, can be used as approximations of mean and std for our data, but prob. bad. Keep out instead. We have normalized with minmax.
+        #transforms.RandomRotation(degrees=(30, 70)), # Bad results in init tests. Might work tho.
+        transforms.Lambda(lambda x: torch.clamp(x, 0, 1)),  # Clamping values to [0, 1] due to some pixels exceeding 1 (with 10^-6) when resizing and interpolating (and Gaussian blur apparently). Needed bc. VAE is strict on the [0,1] limit.
     ])
+    
+    # No augmentation for validation and test data (this is used for test also)
     valid_additional_transform = transforms.Compose([
         transforms.Resize((IMG_SIZE, IMG_SIZE)),
-        #transforms.Normalize(mean=[0.291],
-        #                     std=[0.147])
         transforms.Lambda(lambda x: torch.clamp(x, 0, 1))
     ])
     
@@ -109,15 +101,6 @@ def main(args):
     train_loader_rs, val_loader_rs, test_loader_rs = dataloader_rs.load_split_data_realsense(seed=None, shuffle=True)
     #train_loader_synthetic, val_loader_synthetic, test_loader_synthetic = dataloader_synthetic.load_split_data_synthetic(seed=None, shuffle=True)
     train_loader_combined, val_loader_combined, test_loader_combined = dataloader_combined.load_split_data_realsense(seed=None, shuffle=True)
-
-
-
-
-    #print(f'RealSense Data loaded\nSize train: {len(train_loader_rs.dataset)} | Size validation: {len(val_loader_rs.dataset)} | Size test: {len(test_loader_rs.dataset)}\n')
-
-    # Augment data
-    #data_augmentation = DataAugmentation()
-    #dataloader_train, dataloader_validate, dataloader_test = data_augmentation.augment_data(dataloader_train, dataloader_validate, dataloader_test)
     
     model_name = args.model_name
     experiment_id = args.exp_id
@@ -139,9 +122,9 @@ def main(args):
                 print(f'[Seed {i+1}/{NUM_SEEDS}]')
 
                 # Load data with different seed
-                #train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=None, shuffle=True)
                 train_loader, val_loader, test_loader = dataloader_rs.load_split_data_realsense(seed=None, shuffle=True)
                 #train_loader, val_loader, test_loader = dataloader_combined.load_split_data_realsense(seed=None, shuffle=True)
+                
                 print('Data loaded')
                 print(f'Size train: {len(train_loader.dataset)} | Size validation: {len(val_loader.dataset)} | Size test: {len(test_loader.dataset)}\n')
 
@@ -167,7 +150,7 @@ def main(args):
                     decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=decoder_flattened_size, dim_before_flatten=decoder_intermediate_size)
                     vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)
 
-                print(f'Number of parameters in model: {count_parameters(vae)}')
+                #print(f'Number of parameters in model: {count_parameters(vae)}')
 
                 # Train model
                 optimizer = Adam(vae.parameters(), lr=LEARNING_RATE)
@@ -181,7 +164,7 @@ def main(args):
                                     beta=BETA,
                                     reconstruction_loss="MSE")
                 
-                trained_epochs = trainer.train(early_stopping=True)
+                trained_epochs = trainer.train(early_stopping=True) # TODO add early stopping as hyperparam
                     
                 # Only insert to the first trained_epochs elements if early stopping has been triggered
                 total_train_losses[i,:trained_epochs] = trainer.training_loss['Total loss']
@@ -235,16 +218,14 @@ def main(args):
             
             
             
-        if 'kde' in args.plot:
+        if 'kde' in args.plot: # Implemented for test only
             pass
             
         if "latent_dims_sweep" in args.plot:
             print('Latent dimension sweep test...')
-            # Made for 1 seed only as per 27.02 due to computational resources.
-            
-            latent_dims = [2, 4, 8, 16, 32, 64, 128]
             
             #latent_dims = [2, 16, 64]
+            latent_dims = [2, 4, 8, 16, 32, 64, 128]
             
             # Containers w/ loss trajs for each latent dim
             total_val_losses_for_betas = [] 
@@ -263,16 +244,13 @@ def main(args):
                 kl_train_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
                 kl_val_losses = np.full((NUM_SEEDS, N_EPOCH), np.nan)
                 
-                
-                seed = 42 # Logic regarding seeding must be changed if many seeds used
+                seed = 42 
                 for i in range(NUM_SEEDS):
-                    # Load data with different seed
                     seed += 2*i
                     print(f'Seed {i}/{NUM_SEEDS}')
-                    #train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=seed, shuffle=True)
                     train_loader, val_loader, test_loader = dataloader_combined.load_split_data_realsense(seed=seed, shuffle=True)
 
-                    # Create VAE based on args.model_name
+                    # Create VAE based on args.model_name (add more models here if needed)
                     if model_name == 'conv1':
                         encoder = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=l)
                         decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=l, flattened_size=encoder.flattened_size, dim_before_flatten=encoder.dim_before_flatten)
@@ -369,7 +347,7 @@ def main(args):
             betas = [0.1, 0.5, 1, 1.5, 2, 4, 8, 16, 32, 64, 128, 256, 512]
             latent_dims = [16, 32, 64, 128]#[2, 4, 8, 16, 32, 64, 128]
 
-            """
+            #"""
             for l in latent_dims:
                 print(f'Latent dimension: {l}')
             
@@ -396,7 +374,6 @@ def main(args):
                         # Load data with different seed
                         seed += i
                         print(f'Seed {i}/{NUM_SEEDS}')
-                        #train_loader, val_loader, test_loader = dataloader_sun.load_split_data_sunrgbd(sun, seed=seed, shuffle=True)
                         train_loader, val_loader, test_loader = dataloader_rs.load_split_data_realsense(seed=seed, shuffle=True)
 
 
@@ -496,7 +473,8 @@ def main(args):
                                             labels=labels,
                                             path=savepath_ldim_plot,
                                             save=True,
-                                            include_train=False)"""
+                                            include_train=False)
+                #"""
             
             
             # Now run tests for different betas and latent dims
@@ -563,6 +541,8 @@ def main(args):
                 
     if args.mode == 'test':
         seed = args.seed
+        
+        # TODO: fix the naming logic here
         #full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}_dim{LATENT_DIMS}'#_beta{int(BETA)}'
         full_name = f'{model_name}_experiment_{experiment_id}_seed{seed}'
 
@@ -596,42 +576,6 @@ def main(args):
             decoder.load(f"models/decoders/decoder_{full_name}.json")
             vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)
 
-        #savepath_latent_dist = f'results/{model_name}/plots/latent_distributions/exp{experiment_id}'
-        #os.makedirs(savepath_latent_dist, exist_ok=True)
-        #plotting.plot_latent_distributions(model=vae, dataloader=test_loader_rs, model_name='conv1', device=device, save=True, savepath=savepath_latent_dist)
-        """encoder = ConvEncoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS)
-        encoder.load(f"models/encoders/encoder_{full_name}.json")
-        decoder = ConvDecoder1(image_size=IMG_SIZE, channels=NUM_CHANNELS, latent_dim=LATENT_DIMS, flattened_size=encoder.flattened_size, dim_before_flatten=encoder.dim_before_flatten)
-        decoder.load(f"models/decoders/decoder_{full_name}.json")
-        vae = VAE(encoder, decoder, LATENT_DIMS, BETA).to(device)"""
-        """
-        # Test realsense data
-        savepath_realsense = f'results/{model_name}/plots/realsense/exp{experiment_id}'
-        loss = 0.0
-        for i, x in enumerate(realsense_loader):
-            img = x.detach().cpu().numpy().squeeze()
-            x_hat, _, _ = vae(x)
-            valid_pixels = torch.where(x > 0, torch.ones_like(x), torch.zeros_like(x)) # Mask is defined for the whole batch (x)
-            MSE_loss_ = F.mse_loss(x_hat, x, reduction='none') * valid_pixels
-            recon_loss = torch.mean(torch.sum(MSE_loss_))
-            loss += recon_loss.item() # just do reconstruction loss for now
-            #if i < args.num_examples:
-                #plotting.reconstruct_and_plot(x, vae, model_name, experiment_id, savepath_realsense, i, cmap='magma', save=True)
-        
-        savepath2 = f'results/{model_name}/plots/dummy/exp{experiment_id}'
-        loss2 = 0.0
-        for i,x in enumerate(test_loader):
-            img = x.detach().cpu().numpy().squeeze()
-            x_hat, _, _ = vae(x)
-            valid_pixels = torch.where(x > 0, torch.ones_like(x), torch.zeros_like(x)) # Mask is defined for the whole batch (x)
-            MSE_loss_ = F.mse_loss(x_hat, x, reduction='none') * valid_pixels
-            recon_loss = torch.mean(torch.sum(MSE_loss_))
-            loss2 += recon_loss.item() # just do reconstruction loss for now
-            #if i < args.num_examples:
-                #plotting.reconstruct_and_plot(x, vae, model_name, experiment_id, savepath2, i, cmap='magma', save=True)
-
-        print(f'Average reconstruction loss for realsense data: {loss/len(realsense_loader.dataset)}')
-        print(f'Average reconstruction loss for test data: {loss2/len(test_loader.dataset)}')"""
         
         if "reconstructions" in args.plot:
             savepath_recon = f'results/{model_name}/plots/reconstructions/exp{experiment_id}/latent_dim_{LATENT_DIMS}/'
@@ -661,14 +605,6 @@ def main(args):
                                       path = savepath_kde,
                                       save=True, combos=combos_to_test)
             
-            #savepath_kde = f'results/{model_name}/plots/kde/exp{experiment_id}_test'
-            #os.makedirs(savepath_kde, exist_ok=True)
-            #plotting.latent_space_kde(model=vae,
-            #                            dataloader=test_loader,
-            #                            latent_dim=LATENT_DIMS,
-            #                            name=model_name,
-            #                            path=savepath_kde,
-            #                            save=True, combos=combos_to_test)
             
         if "feature_maps" in args.plot:
             savepath_feature_maps = f'results/{model_name}/plots/feature_maps'
@@ -679,9 +615,7 @@ def main(args):
             for i in range(25):
                 input_img = next(iter(test_loader_rs)).to(device)
                 plotting.visualize_feature_maps(encoder=encoder,input_image=input_img, savepath=savepath_feature_maps, ending=str(i))
-                             
-            #plotting.visualize_feature_maps(encoder=encoder,input_image=input_img, savepath=savepath_feature_maps)
-        
+                                     
         if "filters" in args.plot:
             savepath_filters = f'results/{model_name}/plots/filters'
             os.makedirs(savepath_filters, exist_ok=True)
@@ -694,13 +628,6 @@ def main(args):
                 plt.rc('xtick', labelsize=12)
                 plt.rc('ytick', labelsize=12)
                 plt.rc('axes', labelsize=12)
-                
-                #plt.figure(figsize=(20, 10))
-                #img_plt = img.detach().cpu().numpy().squeeze()
-                #plt.imshow(img_plt, cmap='gray')
-                #plt.axis("off")
-                #plt.savefig(f"{savepath_filters}/input_img_{i}.pdf", bbox_inches='tight')
-                
                 plotting.visualize_filters(encoder=encoder, savepath=savepath_filters, input_image=img, ending=str(i))
         
         if 'activation_maximization' in args.plot:

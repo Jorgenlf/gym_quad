@@ -1,3 +1,10 @@
+"""
+This script contains an attempt to implement a Residual and a transposed Residual block to be used in a fully residual VAE.
+Does not function properly yet.
+
+Relevant papers are referenced in the docstrings of the classes.
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

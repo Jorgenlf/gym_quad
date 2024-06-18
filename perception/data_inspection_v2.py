@@ -1,3 +1,8 @@
+"""
+Simple script to inspect the depth images and calculate some statistics for the report. 
+Handles histograms of very large datasets by incrementally building them.
+"""
+
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,11 +11,8 @@ from scipy.stats import skew, kurtosis, entropy
 from tqdm import tqdm
 
 
-
-
-
 if __name__ == "__main__":
-    datatype = "synthetic" # "real" or "synthetic"
+    datatype = "synthetic" # "real" or "synthetic", litt jalla
 
 
     if datatype == "synthetic":
@@ -95,12 +97,6 @@ if __name__ == "__main__":
         plt.xlabel("Standard Deviation of Depth Values [m]")
         plt.ylabel("Frequency")
         plt.savefig(f"{savepath}std_dev_depth_distribution.pdf", bbox_inches='tight')
-
-
-
-
-
-
 
 
 

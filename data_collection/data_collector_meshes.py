@@ -1,3 +1,6 @@
+"""This script creates the synthetic dataset of depth maps with mesh obstacles."""
+
+
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -50,7 +53,7 @@ if __name__ == "__main__":
     min_d = 0.5
     max_d = MAX_MEASURABLE_DEPTH
 
-    # nOISE?
+    # Noise
     add_noise = True
 
     # Set the distributions
@@ -193,7 +196,7 @@ if __name__ == "__main__":
         depth_map = depth_map.astype(np.uint16)
         cv2.imwrite(f"{savepath}depth_{i}.png", depth_map, [cv2.IMWRITE_PNG_COMPRESSION, 0]) # no compression
 
-        if i%1000 == 0:
+        if i%1000 == 0: # Plot subset of depth maps as high res pdfs
             plt.style.use('ggplot')
             plt.rc('font', family='serif')
             plt.rc('xtick', labelsize=12)
@@ -210,6 +213,7 @@ if __name__ == "__main__":
             plt.close()
         
 
+    exit()
     # display some stats of z and the positions
     min_z = min(zs)
     max_z = max(zs)
@@ -253,7 +257,7 @@ if __name__ == "__main__":
     axs[2].set_title("yz positions")
     plt.savefig(f"{figures_path}xyz_positions_subplots.pdf", bbox_inches='tight')
 
-    # create ostogram of the depth values
+    # create histogram of the depth values
     plt.figure()
     plt.hist(zs, bins=100)
     plt.xlabel("Depth [m]")

@@ -1,3 +1,13 @@
+"""
+This script collects data using the Intel Realsense d455 depth camera's SDK 'librealsense2'.
+
+The script saves color and depth images to the specified location every 0.5 seconds. 
+The depth image is passed through a series of filters before being saved.
+
+Tested on Ubuntu 22.04.3 LTS with Python 3.10.13.
+For librealsense setup see: https://github.com/IntelRealSense/librealsense/blob/master/doc/installation.md
+"""
+
 ## License: Apache 2.0. See LICENSE file in root directory.
 ## Copyright(c) 2015-2017 Intel Corporation. All Rights Reserved.
 
@@ -129,7 +139,8 @@ try:
         counter += 1
         
         
-            
+        # Uncomment to print the depth image
+        
         #print(depth_image*depth_)
         #exit()
             
