@@ -54,8 +54,8 @@ The perception module contains the following files and sub-modules:
 
 
 ## Pretraining VAE using custom dataset:
-1. Download the real-word [data](https://1drv.ms/f/c/8c154251101af41c/EqWqeYjGNbhKvpvo8Y4tjwQB3C1LaKwc3GSn3w4eu9pUfA?e=BqlBft) folder
-2. Unzip its contents and put them in a directory: `./data/[here]`
+1. Download the real-word data from [Kaggle](https://www.kaggle.com/datasets/eirikrundebarlaug/depth-maps-intel-realsense-d455)
+2. Unzip the contents of the folder and put them in a directory: `./data/[here]`
 3. Run the main script
 
 (For synthetic data, do the same procedure after creating data in `../data_collection/data_collector_meshes.py`, but name the directory `"synthetic_depthmaps"` instead)
