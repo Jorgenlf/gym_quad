@@ -33,7 +33,7 @@ class Plotter3D:
                                   off_screen=save)
         
         # Plotting parameters
-        self.drone_path_color = '#00BA38'   #TODO find suitable color - is it not suitable?
+        self.drone_path_color = '#00BA38'   
         self.path_color = '#4780ff'         # blueish
         self.obstacles_color = '#ff3400'    # redish
         self.room_color = '#f3f0ec'         # deserty/gray
@@ -342,7 +342,7 @@ class Plotter3DMultiTraj(Plotter3D):
         if self.house_mesh != None:
             self.plotter.add_mesh(self.house_mesh, color=self.room_color, show_edges=False, opacity=0.15)
         
-        # Add each drone trajectory, done after camera stuff to get scalar bar args based on scene # TODO this could be a function or something
+        # Add each drone trajectory, done after camera stuff to get scalar bar args based on scene 
         for i, (key, drone_traj) in enumerate(self.drone_trajs.items()):
             #color = self.get_rew_color_ # TODO
             spline = pv.Spline(drone_traj, 1000)

@@ -73,7 +73,6 @@ lv_vae_config = {
 
     #pass wp reward
     'rew_pass_wp'               : 1000/8,          # reward for passing a waypoint
-                                #=rew_reach_end/n_wps-1 #TODO decide what the reward should be for passing a waypoint maybe rew_reach_end/3 or 4 or something else hmh
 
     #Approach end lambda interpolation
     'approach_end_range'        : 3,                # Dist[m] between goal and drone where Lambda CA and Lambda PA interpolate such that pa>ca

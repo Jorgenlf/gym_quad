@@ -190,11 +190,11 @@ if __name__ == "__main__":
     print(camera.get_projection_transform().get_matrix().cpu().numpy())
     K = camera.get_projection_transform().get_matrix()
 
-    focal_length = (-0.5*IMG_SIZE[1]/np.tan(FOV/2), )
-    principal_point = ((IMG_SIZE[1] / 2, IMG_SIZE[0] / 2),) # Assuming a perfect camera # TODO: Get intrinsics of physicl cam 
-    print(focal_length)
-    img_size = (IMG_SIZE,)
-    is_ndc = False
+    # focal_length = (-0.5*IMG_SIZE[1]/np.tan(FOV/2), )
+    # principal_point = ((IMG_SIZE[1] / 2, IMG_SIZE[0] / 2),) # Assuming a perfect camera
+    # print(focal_length)
+    # img_size = (IMG_SIZE,)
+    # is_ndc = False
     #camera = PerspectiveCameras(K=K, device=device, in_ndc=True)
 
     print(camera.get_projection_transform())

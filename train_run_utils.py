@@ -177,7 +177,6 @@ def save_depth_maps(env, test_dir):
 
 #PLOTTING UTILITY FUNCTIONS#
 
-#TODO add another layer of folders based on the episode number (when we start running multiple episodes)
 def create_plot_folders(test_dir):
     """Creates the folders to save the plots in"""
     
@@ -484,30 +483,30 @@ def plot_multiple_3d(env, sim_dfs):
     plt.show()
     
 #CURRENT PLOTTING#
-def plot_current_data(sim_df):
-    set_default_plot_rc()
-    #---------------Plot current intensity------------------------------------
-    current_labels = [r"$u_c$", r"$v_c$", r"$w_c$"] #TODO verify
-    ax1 = sim_df.plot(x="Time", y=current_labels, linewidth=4, style=["-", "-", "-"] )
-    ax1.set_title("Current", fontsize=18)
-    ax1.set_xlabel(xlabel="Time [s]", fontsize=14)
-    ax1.set_ylabel(ylabel="Velocity [m/s]", fontsize=14)
-    ax1.set_ylim([-1.25,1.25])
-    ax1.legend(loc="right", fontsize=14)
-    #ax1.grid(color='k', linestyle='-', linewidth=0.1)
-    plt.show()
-    #---------------Plot current direction------------------------------------
-    """
-    ax2 = ax1.twinx()
-    ax2 = sim_df.plot(x="Time", y=[r"$\alpha_c$", r"$\beta_c$"], linewidth=4, style=["-", "--"] )
-    ax2.set_title("Current", fontsize=18)
-    ax2.set_xlabel(xlabel="Time [s]", fontsize=12)
-    ax2.set_ylabel(ylabel="Direction [rad]", fontsize=12)
-    ax2.set_ylim([-np.pi, np.pi])
-    ax2.legend(loc="right", fontsize=12)
-    ax2.grid(color='k', linestyle='-', linewidth=0.1)
-    plt.show()
-    """
+# def plot_current_data(sim_df):
+#     set_default_plot_rc()
+#     #---------------Plot current intensity------------------------------------
+#     current_labels = [r"$u_c$", r"$v_c$", r"$w_c$"] #TODO verify if used. Kinda outdated.
+#     ax1 = sim_df.plot(x="Time", y=current_labels, linewidth=4, style=["-", "-", "-"] )
+#     ax1.set_title("Current", fontsize=18)
+#     ax1.set_xlabel(xlabel="Time [s]", fontsize=14)
+#     ax1.set_ylabel(ylabel="Velocity [m/s]", fontsize=14)
+#     ax1.set_ylim([-1.25,1.25])
+#     ax1.legend(loc="right", fontsize=14)
+#     #ax1.grid(color='k', linestyle='-', linewidth=0.1)
+#     plt.show()
+#     #---------------Plot current direction------------------------------------
+#     """
+#     ax2 = ax1.twinx()
+#     ax2 = sim_df.plot(x="Time", y=[r"$\alpha_c$", r"$\beta_c$"], linewidth=4, style=["-", "--"] )
+#     ax2.set_title("Current", fontsize=18)
+#     ax2.set_xlabel(xlabel="Time [s]", fontsize=12)
+#     ax2.set_ylabel(ylabel="Direction [rad]", fontsize=12)
+#     ax2.set_ylim([-np.pi, np.pi])
+#     ax2.legend(loc="right", fontsize=12)
+#     ax2.grid(color='k', linestyle='-', linewidth=0.1)
+#     plt.show()
+#     """
 
 #SPECIAL STUFF#
 def plot_collision_reward_function():

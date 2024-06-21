@@ -267,7 +267,7 @@ class LV_VAE_MESH(gym.Env):
         # IMU boosted noise
         if self.perturb_sim or self.perturb_IMU:
             self.imu.set_std(deg2rad(0.015), 0.015) #Angular rate noise, linear acceleration noise standard deviation a normal dist draws from
-           # TODO decide on these values and wether it should be set here in reset or in the observation(each step)
+           
         
         #Controller gains
         if self.perturb_sim or self.perturb_ctrl_gains:
@@ -275,7 +275,7 @@ class LV_VAE_MESH(gym.Env):
             self.kR_noise = np.random.uniform(-0.1, 0.1) #Attitude gain
             self.kangvel_noise = np.random.uniform(-0.1, 0.1) #Angular velocity gain
 
-        # TODORandom forces and torques maybe?
+        
 
         
         #Reward variables
@@ -368,7 +368,7 @@ class LV_VAE_MESH(gym.Env):
                     blur_radius=0.0, 
                     faces_per_pixel=1, # Keep at 1, dont change
                     perspective_correct=True, # Doesn't do anything(??), but seems to improve speed
-                    cull_backfaces=True #TODO Temp fix for the camera going inside obstacles before collision is detected Find a better less runtimeconsuming solution
+                    cull_backfaces=True 
                 )
             if self.obstacles[0].isDummy: #Means theres just the room and the path
                 scene = Scene(device = self.device, obstacles=[self.obstacles[1]])
@@ -570,7 +570,7 @@ class LV_VAE_MESH(gym.Env):
         domain_obs[17] = self.prev_action[1]
         domain_obs[18] = self.prev_action[2]
         
-        #The velocity of quadcopter in body frame #TODO add noise to this if letting the agent observe body velocity helps
+        #The velocity of quadcopter in body frame 
         vel_body = np.transpose(geom.Rzyx(*quad_att)).dot(self.quadcopter.velocity) + quad_pos_noise/2 #Temp noise fix
         domain_obs[19] = m1to1(vel_body[0], -self.s_max, self.s_max) 
         domain_obs[20] = m1to1(vel_body[1], -self.s_max, self.s_max) 
@@ -620,7 +620,7 @@ class LV_VAE_MESH(gym.Env):
         steps_before_new_depth_map = (sim_hz//cam_hz) + sensor_latency
         for i in range(int(steps_before_new_depth_map)):           
             F = self.geom_ctrlv2(action)
-            #TODO maybe need some translation between input u and thrust F i.e translate u to propeller speed omega? 
+            #TODO  translation between thrust F i.e translate u to propeller speed omega? 
             #We currently skip this step for simplicity
             self.quadcopter.step(F)
 
@@ -794,7 +794,7 @@ class LV_VAE_MESH(gym.Env):
         #     dist_to_end = np.linalg.norm(self.quadcopter.position - self.path.get_endpoint())
         #     approach_end_reward = np.exp(-((dist_to_end**2)/(2*self.approach_end_sigma**2)))*self.max_approach_end_rew
         
-        #Rather do this: #TODO or maybe not.. decide...
+        #Rather do this: or maybe not was tested and seemingly hurt performance. Could need more testing
         # if self.waypoint_index == len(self.path.waypoints)-2:
         #     dist_to_end = np.linalg.norm(self.quadcopter.position - self.path.get_endpoint())
         #     if dist_to_end < self.approach_end_range:
@@ -1353,8 +1353,6 @@ class LV_VAE_MESH(gym.Env):
         print("RANDOM CORRIDOR")
         initial_state = self.scenario_3d_new()
         #Many cubes 1m away from path
-        #TODO Make this not random while still allowing the other tests that are running in parallell be random
-        #TOOD Turn this into "CAVE" scenario
         np.random.seed(0)
         self.generate_obstacles(n = 40, rmin=0.8, rmax=1, path = self.path, mean = 2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube')
         self.generate_obstacles(n = 40, rmin=0.8, rmax=1, path = self.path, mean = -2, std = 0.01, onPath=False, quad_pos=initial_state[0:3], safety_margin=0.2, obstacle_type='cube')
@@ -1375,7 +1373,7 @@ class LV_VAE_MESH(gym.Env):
         return initial_state
 
 
-#Testing scenarios #TODO make the drone spawn at a larger random area at the start for more varied paths
+#Testing scenarios 
     def scenario_test_path(self):
         test_waypoints = np.array([np.array([0,0,0]), np.array([10,1,0]), np.array([20,0,0]), np.array([70,0,0])])
         self.n_waypoints = len(test_waypoints)
@@ -1485,7 +1483,7 @@ class LV_VAE_MESH(gym.Env):
     def scenario_house(self):
         print("HOUSE")
         initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=1) #TODO change select_house_path to what we want, None for random
+        waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=1) #change select_house_path to whats wanted see QPMI file, None for random
         self.path = QPMI(waypoints)
 
         init_pos = waypoints[0]# + np.random.uniform(low=-0.25, high=0.25, size=(1,3))
