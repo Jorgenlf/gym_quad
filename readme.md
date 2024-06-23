@@ -135,3 +135,8 @@ Copies the `gym_quad/drl_config.py` hyperparameters and changes certain hyperpar
     ```python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list horizontal vertical deadend random_corridor house --agent "name"```
 
 
+## Citation
+#TODO
+   
+
+
