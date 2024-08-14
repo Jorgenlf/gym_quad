@@ -31,7 +31,7 @@ Essentially on windows do these:
 
 4.  ``` pip install "git+https://github.com/facebookresearch/pytorch3d.git" ``` 
 
-5.  ```pip install gymnasium stable-baselines3 rich numba trimesh python-fcl vispy tensorboard imageio snakeviz scipy pycollada pyglet vtk pyvista```
+5.  ```pip install gymnasium stable-baselines3 rich numba trimesh python-fcl vispy tensorboard imageio snakeviz scipy pycollada pyglet vtk pyvista trame```
 
 ### Training an agent:
 The drl environment hyperparameters can be tuned in the main config file: [gym_quad/drl_config.py]. This is then copied to the [gym_quad/train3d.py] file where one can change certain hyperparameteres to better support training mode and also select the remaining hyperparameters: curriculum training setup, PPO and feature extractor.

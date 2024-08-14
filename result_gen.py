@@ -131,7 +131,7 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
 
     if args.episodes > 1:
         if args.run_scenario in ["house_hard", "house_hard_obstacles"]:
-            for hv in [1,2]: # View from two angles, must have separate instances. Solved with hv variable in plotter func.
+            for hv in [1,2]: # View from two angles, must have separate instances. Solved with hv variable in plotter func. "hv=HouseView"
                 multiplotter = Plotter3DMultiTraj(obstacles=obstacles,
                                                   path=path,
                                                   drone_trajs=all_drone_trajs,
@@ -161,7 +161,7 @@ python result_gen.py --exp_id 19 --episodes 10 --trained_list expert expert_pert
 in terminal.
 
 For the final resultsgen do similar to this:
-python result_gen.py --exp_id 32 --episodes 100 --trained_list advanced --test_list helix house_hard house_hard_obstacles deadend cave house_easy house_easy_obstacles horizontal vertical --test_all_agents True
+python result_gen.py --exp_id 10006 --episodes 100 --trained_list expert_perturbed --test_list helix house_hard house_hard_obstacles deadend cave house_easy house_easy_obstacles horizontal vertical --test_all_agents True
 '''
 
 #Define the config for the results generation #Could import from experiment config file
@@ -181,6 +181,7 @@ if __name__ == "__main__":
     expdir_string = r"Experiment {}".format(args.exp_id)
     expdir_string = r"A_Filter stage 2 exp {}".format(args.exp_id) #NB This is temp for final res gen
     expdir_string = r"Best_agent_res_gen_1 exp {}".format(args.exp_id) #NB This is temp for final res gen
+    expdir_string = r"A_maybe_best_pt_unlocked {}".format(args.exp_id) #NB This is temp for final res gen
 
     base_experiment_dir = os.path.join(r"./log", r"{}".format(args.env), expdir_string)
 
@@ -199,7 +200,7 @@ if __name__ == "__main__":
                 tasks.append((trained_scen, agent, test_scen, result_config.copy(), args, base_experiment_dir))
 
     # Define batch size and split tasks into batches
-    batch_size = 6  # Adjust the batch size based on your system's capacity
+    batch_size = 9  # Adjust the batch size based on your system's capacity
     num_batches = len(tasks) // batch_size + int(len(tasks) % batch_size > 0)
 
     for batch_idx in tqdm(range(num_batches), desc="Total Progress"):
