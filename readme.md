@@ -1,4 +1,4 @@
-# Autonomous path following and collision avoidance for quadcopters using deep reinforcement learning, a geometric linear velocity controller and a variational auto encoder in a mesh based simulation to take advantage of digital twins
+# Reactive Quadrotor Guidance System Using Deep Reinforcement Learning, Autoencoders and Nonlinear Control
 This repo implements a 6-DOF simulation model for a quadcopter according to the stable baselines (OpenAI) interface for reinforcement learning control.
 
 
@@ -99,7 +99,7 @@ python run3d.py --env "" --exp_id x --run_scenario "..." --trained_scenario "...
 - agent: The timestep of the agent (defaults to the "last_model.zip" saved model from a completed training)
 - episodes: how many episodes to repeat the run. (defaults to one)
 
-There are some additional args. For more info, view `gym_quad/utils.py` and inspect `parse_experiment_info()`.
+There are some additional args. For more info, view `gym_quad/train_run_utils.py` and inspect `parse_experiment_info()`.
 
 
 ### Running in manual debug mode
@@ -133,5 +133,10 @@ Copies the `gym_quad/drl_config.py` hyperparameters and changes certain hyperpar
     ``` python result_gen.py --exp_id 19 --episodes 10 --trained_list expert expert_perturbed --test_list horizontal vertical deadend random_corridor house --test_all_agents True```
 2. Testing a specific trained agent from a specific training scenario across all scenarios in the testlist
     ```python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list horizontal vertical deadend random_corridor house --agent "name"```
+
+
+## Citation
+#TODO
+   
 
 
