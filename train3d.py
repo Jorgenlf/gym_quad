@@ -32,7 +32,7 @@ train_config["recap_chance"] = 0.1
 
 
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---### 
-scenarios = {   "line"                 :  1e6,
+"""scenarios = {   "line"                 :  1e6,
                 "easy"                 :  1e6,
                 "easy_random"          :  1e6, #Randomized pos and att of quad in easy scenario 
                 "intermediate"         :  1.5e6,
@@ -52,6 +52,20 @@ scenario_success_threshold = {  "line"                 :  0.6, #TODO make the di
                                 "expert"               :  0.9,
                                 "proficient_perturbed" :  0.95,
                                 "expert_perturbed"     :  0.95
+                            }"""
+
+scenarios = {   "advanced"          :  2e6, 
+                "house_easy"        :  2e6,
+                "house_easy_obstacles"    :  2e6,
+                "house_hard"        :  2e6,
+                "house_hard_obstacles"    :  2e6,
+             }
+
+scenario_success_threshold = {  "advanced"          :  0.9,
+                                "house_easy"        :  0.9,
+                                "house_easy_obstacles"    :  0.95,
+                                "house_hard"        :  0.95,
+                                "house_hard_obstacles"    :  0.95,
                             }
 
 k = 5   # Number of consecutive episode successes that must be above the threshold to move to the next scenario

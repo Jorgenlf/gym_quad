@@ -178,10 +178,12 @@ if __name__ == "__main__":
     test_scenarios = args.test_list
     trained_scenarios_to_run = args.trained_list
     
-    expdir_string = r"Experiment {}".format(args.exp_id)
-    expdir_string = r"A_Filter stage 2 exp {}".format(args.exp_id) #NB This is temp for final res gen
-    expdir_string = r"Best_agent_res_gen_1 exp {}".format(args.exp_id) #NB This is temp for final res gen
-    expdir_string = r"A_maybe_best_pt_unlocked {}".format(args.exp_id) #NB This is temp for final res gen
+    #expdir_string = r"Experiment {}".format(args.exp_id)
+    #expdir_string = r"A_Filter stage 2 exp {}".format(args.exp_id) #NB This is temp for final res gen
+    #expdir_string = r"Best_agent_res_gen_1 exp {}".format(args.exp_id) #NB This is temp for final res gen
+    #expdir_string = r"A_maybe_best_pt_unlocked {}".format(args.exp_id) #NB This is temp for final res gen
+
+    expdir_string = r"Best_agent_res_gen_2 exp {}".format(args.exp_id) #NB This is temp for final res gen
 
     base_experiment_dir = os.path.join(r"./log", r"{}".format(args.env), expdir_string)
 

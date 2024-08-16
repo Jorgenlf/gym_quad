@@ -1483,7 +1483,7 @@ class LV_VAE_MESH(gym.Env):
     def scenario_house(self):
         print("HOUSE")
         initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=1) #change select_house_path to whats wanted see QPMI file, None for random
+        waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=None) #change select_house_path to whats wanted see QPMI file, None for random
         self.path = QPMI(waypoints)
 
         init_pos = waypoints[0]# + np.random.uniform(low=-0.25, high=0.25, size=(1,3))
