@@ -29,7 +29,7 @@ def run_test(trained_scen, agent, test_scen, result_config, args, base_experimen
     agent_name = os.path.splitext(os.path.basename(agent))[0]
     print(f"Running test for agent {agent_name} in scenario {test_scen}")
 
-    if test_scen == "house_easy" or test_scen == "house_hard":
+    if test_scen == "house_easy" or test_scen == "house_hard" or test_scen == "house":
         result_config["la_dist"] = 0.5
         result_config["s_max"] = 2
         result_config["s_max"] = 2
@@ -168,7 +168,7 @@ python result_gen.py --exp_id 10006 --episodes 100 --trained_list expert_perturb
 result_config = lv_vae_config.copy()
 result_config["max_t_steps"] = 3500
 result_config["recap_chance"] = 0
-result_config["perturb_sim"] = True
+result_config["perturb_sim"] = False # True
 result_config["min_reward"] = -100e4 
 result_config["use_uncaged_drone_mesh"] = True #Decide if we want to use the uncaged drone mesh for collision detection during testing if false uses cylinder (faster)
  
@@ -178,12 +178,12 @@ if __name__ == "__main__":
     test_scenarios = args.test_list
     trained_scenarios_to_run = args.trained_list
     
-    #expdir_string = r"Experiment {}".format(args.exp_id)
+    expdir_string = r"Experiment {}".format(args.exp_id)
     #expdir_string = r"A_Filter stage 2 exp {}".format(args.exp_id) #NB This is temp for final res gen
     #expdir_string = r"Best_agent_res_gen_1 exp {}".format(args.exp_id) #NB This is temp for final res gen
     #expdir_string = r"A_maybe_best_pt_unlocked {}".format(args.exp_id) #NB This is temp for final res gen
 
-    expdir_string = r"Best_agent_res_gen_2 exp {}".format(args.exp_id) #NB This is temp for final res gen
+    #expdir_string = r"Best_agent_res_gen_4 exp {} DT".format(args.exp_id) #NB This is temp for final res gen
 
     base_experiment_dir = os.path.join(r"./log", r"{}".format(args.env), expdir_string)
 

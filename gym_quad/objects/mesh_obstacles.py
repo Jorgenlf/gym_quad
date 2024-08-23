@@ -293,6 +293,13 @@ class CubeMeshObstacle:
             scale_factor = new_side_length / self.depth
             self.depth = new_side_length
             self.mesh.scale_verts_(scale=scale_factor)
+        elif type == 'all':
+            scale_factor = new_side_length / self.radius
+            self.width = (2/np.sqrt(3))*new_side_length #"Sphere encompasses cube"
+            self.height = (2/np.sqrt(3))*new_side_length
+            self.depth = (2/np.sqrt(3))*new_side_length
+            self.radius = new_side_length
+            self.mesh.scale_verts_(scale=scale_factor)
 
 
     def get_bounding_box(self):

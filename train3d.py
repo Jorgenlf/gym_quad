@@ -28,7 +28,7 @@ warnings.filterwarnings("ignore", message="No mtl file provided", category=UserW
 from drl_config import lv_vae_config
 train_config = lv_vae_config.copy()
 train_config["max_t_steps"] = 6000
-train_config["recap_chance"] = 0.1
+train_config["recap_chance"] = 0.0 # 0.1
 
 
 ###---###---### CHOOSE CURRICULUM SETUP HERE ###---###---### 
@@ -54,7 +54,7 @@ scenario_success_threshold = {  "line"                 :  0.6, #TODO make the di
                                 "expert_perturbed"     :  0.95
                             }"""
 
-scenarios = {   "advanced"          :  2e6, 
+"""scenarios = {   "advanced"          :  2e6, 
                 "house_easy"        :  2e6,
                 "house_easy_obstacles"    :  2e6,
                 "house_hard"        :  2e6,
@@ -66,9 +66,16 @@ scenario_success_threshold = {  "advanced"          :  0.9,
                                 "house_easy_obstacles"    :  0.95,
                                 "house_hard"        :  0.95,
                                 "house_hard_obstacles"    :  0.95,
-                            }
+                            }"""
+scenarios = {   "expert"    :  10e6,
+                "house"     :  10e6
+                # "expert_perturbed"    :  10e6 
+             }
 
-k = 5   # Number of consecutive episode successes that must be above the threshold to move to the next scenario
+scenario_success_threshold = {  "expert"    :  0.95,
+                                "house"     :  1.0 }
+
+k = 100  # 5   # Number of consecutive episode successes that must be above the threshold to move to the next scenario
         # (This is later multiplied by the number of environments to get the total number of successes needed to move on)
         
 ###---###---### SELECT PPO HYPERPARAMETERS HERE ###---###---###
@@ -78,7 +85,7 @@ PPO_hyperparams = {
     'gae_lambda': 0.95,
     'gamma': 0.99, #old:0.99,
     'n_epochs': 10,
-    'ent_coef': 0.001, 
+    'ent_coef': 0.001,
     'verbose': 2,
     'device':'cuda', #Will be used for both feature extractor and PPO
 }

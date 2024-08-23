@@ -1,3 +1,4 @@
+import numpy as np
 #All the waypoints of possible paths in the house from Håvard
 # Longest single routes are probably:
     # bedroom_to_kitchen / kitchen_to_bedroom 
@@ -551,7 +552,7 @@ house_paths = { "bedroom_to_corridor": [(-1.25, -2.65, -1.39),
                                         ( -2.04796, 0.776597, -0.358288),
                                         ( -1.09217, 0.726137, -0.805612),
                                         (0.599886, 0.38307, -1.08444),
-                                        (2.765, -1.41, -1.39),
+                                        #(2.765, -1.41, -1.39),  # Commented out duplicate waypoint
                                         (2.765, -1.41, -1.39)],
             "leisure_room_to_main_bedroom": [(2.765, -1.41, -1.39),
                                         (0.264395, 0.587302, -0.968375),
@@ -587,3 +588,87 @@ house_paths = { "bedroom_to_corridor": [(-1.25, -2.65, -1.39),
                                         (-0.841148, -0.503408,   3.50207),
                                         (2.925, -0.24,  3.88)]                            
                                         }
+
+def sample_house_path(start_node=None, max_depth=500):
+    """ Samples a random path from the house_paths dictionary - each key in the dict represents a vertex from one room to another.
+        1 - Select a starting node, containing start and end locations for the vertex.
+            e.g., 'main_bedroom_to_living_room' : [start_location, ..., end_location]
+        2 - Based on the end location, find matching start locations in the dictionary.
+            e.g., end_location = [1,2,3], find keys with values starting with [[1,2,3], ...]
+        3 - Select a random matching node, remove it from the set of paths, extend the list of waypoints to traverse.
+        4 - Repeat until a dead end or the maximum search depth is reached.
+
+        return set of waypoints describing the path.
+    """
+    def sample_node(paths_dict, waypoints):
+        """ Samples a valid node from the set of paths, without replacement """
+        start_node = waypoints[-1]
+
+        # Filter valid nodes, starting at the set location
+        valid_nodes = []
+        for key, value in paths_dict.items():
+            if value[0] == start_node and value[-1] not in waypoints:  # Select nodes that start from the current location and don't lead back to a visited location
+                #print("VALID NODE FOUND")
+                valid_nodes.append(key)
+            #else:
+                #print("INVALID NODE FOUND", 'start_node(', start_node, ')' , 'value[0](', value[0], ')', 'value[-1](', value[-1], ')')
+
+        if len(valid_nodes) == 0:
+            #print("NO VALID NODES FOUND", np.array([True for v in value if v in waypoints]))
+            return None, None
+        
+        # Select random node among valid ones
+        selected_node = paths_dict.pop(np.random.choice(valid_nodes), None)
+
+        #print(selected_node, np.unique(selected_node))
+        return selected_node, paths_dict
+
+    if start_node is None or start_node not in house_paths.keys():
+            # Select random start location
+            start_node = np.random.choice(list(house_paths.keys()))
+
+    # Init waypoints with starting node, and a temporary dict to pop items from
+    remaining_paths = house_paths.copy()
+    waypoints = remaining_paths.pop(start_node, None)
+
+    # Construct a path until a dead end or the maximum search depth is reached
+    for i in range(max_depth):
+        #print("Depth: ", i)
+        next_node, remaining_paths = sample_node(remaining_paths, waypoints)
+        if next_node is not None:
+            """duplicates = [pt for pt in next_node if pt in waypoints]
+            if len(duplicates) > 0:
+                print("DUPLICATE WAYPOINT DETECTED: ", duplicates)
+                continue"""
+            waypoints.extend(next_node[1:])  # Don't include the first element, as it's the same as the last element of the previous node.
+            #print(waypoints, '\n\n')
+            #print("Depth: ", i)
+        else:
+            break
+    
+    #print('WAYPOINTS:', waypoints)
+    return waypoints
+
+
+    
+if __name__ == "__main__":
+    import sys
+    sys.path.append('../gym_quad')
+    import numpy as np
+    from gym_quad.objects.QPMI import QPMI
+    count = 0
+    while True:
+        waypoints = sample_house_path()
+        path = QPMI(waypoints)
+
+        """ Place where env gets stuck: """
+        percentage_of_path_range = (0.20, 0.90)
+        u_obs = np.random.uniform(percentage_of_path_range[0]*path.length,percentage_of_path_range[1]*path.length)
+        # Get the tangent, normal, and binormal vectors at u_obs
+        t_hat, n_hat, b_hat = path.calculate_vectors(u_obs)
+        
+        """ --------------------------------"""
+        count += 1
+        print(count, len(waypoints), '        ', end='\r')
+
+    

@@ -15,6 +15,8 @@ from gym_quad.objects.QPMI import QPMI, generate_random_waypoints
 from gym_quad.objects.depth_camera import DepthMapRenderer, FoVPerspectiveCameras, RasterizationSettings, PerspectiveCameras
 from gym_quad.objects.mesh_obstacles import Scene, SphereMeshObstacle, CubeMeshObstacle, get_scene_bounds, ImportedMeshObstacle, advanced_create_cylinder
 
+from gym_quad.utils.house_paths import sample_house_path
+
 #Helper functions
 def deg2rad(deg):
     return deg * np.pi / 180
@@ -1075,7 +1077,8 @@ class LV_VAE_MESH(gym.Env):
         '''
         num_obstacles = 0
         path_lenght = path.length
-        while num_obstacles < n:
+        attempts = 0
+        while num_obstacles < n and attempts < 50:
             #uniform distribution of length along path
             u_obs = np.random.uniform(percentage_of_path_range[0]*path_lenght,percentage_of_path_range[1]*path_lenght)
 
@@ -1104,10 +1107,13 @@ class LV_VAE_MESH(gym.Env):
             obstacle_type_choice = np.random.uniform(0,1)
 
             if not onPath and (np.linalg.norm(obs_pos - obs_on_path_pos) < obstacle_radius + safety_margin):
+                attempts += 1
                 continue #We check if the obstacle is too close to the path when its not allowed to be on the path if so we skip this obstacle
             elif (np.linalg.norm(obs_pos - quad_pos) < obstacle_radius + safety_margin + self.drone_radius_for_collision):  
+                attempts += 1
                 continue #We check if the obstacle is too close to the quadcopter if so we skip this obstacle
             elif np.linalg.norm(obs_pos - path.get_endpoint()) < obstacle_radius + safety_margin:
+                attempts += 1
                 continue #We check if the obstacle is too close to the endpoint if so we skip this obstacle
             else:
                 obstacle_coords = torch.tensor(obs_pos,device=self.device).float().squeeze()
@@ -1483,7 +1489,19 @@ class LV_VAE_MESH(gym.Env):
     def scenario_house(self):
         print("HOUSE")
         initial_state = np.zeros(6)
-        waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=None) #change select_house_path to whats wanted see QPMI file, None for random
+        #waypoints = generate_random_waypoints(self.n_waypoints,'house',select_house_path=None) #change select_house_path to whats wanted see QPMI file, None for random
+        waypoints = []
+        #while True:
+        while len(waypoints) < 3:
+            try:
+                max_depth = np.random.randint(1,6)
+                waypoints = sample_house_path(max_depth=max_depth)  # Samples a random path through the house
+                path = QPMI(waypoints)
+                #break
+            except:
+                print("Invalid path found, trying again")
+                print("PATH:", waypoints)
+
         self.path = QPMI(waypoints)
 
         init_pos = waypoints[0]# + np.random.uniform(low=-0.25, high=0.25, size=(1,3))
@@ -1493,7 +1511,44 @@ class LV_VAE_MESH(gym.Env):
 
         obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        #mesh_house = ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI_new.obj", center_position=pt3d_obs_coords)
+        mesh_house = trimesh.load("./gym_quad/meshes/house_TRI_new.obj")
+
+        # Generate obstacles that do not intersect with house mesh
+        n = np.random.randint(0,5)
+        rmin = 0.2
+        rmax = 0.3
+        mean = 0.0
+        std = 0.1
+        onPath = True
+        collision = True
+        count = 0
+        while collision and count < 50:
+            count += 1
+            self.obstacles = []
+            
+            self.generate_obstacles(n, rmax+0.15, rmax+0.15, self.path, mean, std, onPath, quad_pos=init_pos, safety_margin = 1.5, obstacle_type = None, percentage_of_path_range =(0.20,0.90))
+            obs_meshes = [obstacle.mesh for obstacle in self.obstacles] #Extracting the mesh of the obstacles
+            tri_obs_meshes = [trimesh.Trimesh(vertices=mesh.verts_packed().cpu().numpy(), faces=mesh.faces_packed().cpu().numpy()) for mesh in obs_meshes] #Converting pt3d meshes to trimesh meshes
+            tri_joined_obs_mesh = trimesh.util.concatenate(tri_obs_meshes) #Create one mesh for obstacles
+            tri_joined_obs_mesh.fix_normals() #Fixes the normals of the mesh
+            collision_manager = trimesh.collision.CollisionManager() #Creating the collision manager
+            collision_manager.add_object("obstacles", tri_joined_obs_mesh) #Adding the obstacles to the collision manager (Stationary objects)
+
+            collision = collision_manager.in_collision_single(mesh_house)
+
+        # Resize obstacles to guarantee that the quadrotor can pass
+        for obs in self.obstacles:
+            if isinstance(obs, CubeMeshObstacle):
+                obs.resize(np.random.random()*(rmax-rmin) + rmin, type='all')
+            else:
+                obs.resize(np.random.random()*(rmax-rmin) + rmin)
+
         self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI_new.obj", center_position=pt3d_obs_coords))
+
+        """obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
+        pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
+        self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI_new.obj", center_position=pt3d_obs_coords))"""
         return initial_state
         
 
@@ -1525,7 +1580,7 @@ class LV_VAE_MESH(gym.Env):
 
         init_attitude = np.array([0, self.path.get_direction_angles(0)[1], self.path.get_direction_angles(0)[0]])
         initial_state = np.hstack([np.array(init_pos), init_attitude])
-
+        
         obstacle_coords = torch.tensor([0,0,0],device=self.device).float()
         pt3d_obs_coords = enu_to_pytorch3d(obstacle_coords,device=self.device)
         self.obstacles.append(ImportedMeshObstacle(device=self.device, path = "./gym_quad/meshes/house_TRI_new.obj", center_position=pt3d_obs_coords))
