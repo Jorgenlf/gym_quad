@@ -67,12 +67,12 @@ scenario_success_threshold = {  "advanced"          :  0.9,
                                 "house_hard"        :  0.95,
                                 "house_hard_obstacles"    :  0.95,
                             }"""
-scenarios = {   "expert"    :  10e6,
-                "house"     :  10e6
+scenarios = {   #"expert"    :  10e6,
+                "house"     :  20e6
                 # "expert_perturbed"    :  10e6 
              }
 
-scenario_success_threshold = {  "expert"    :  0.95,
+scenario_success_threshold = {  #"expert"    :  0.95,
                                 "house"     :  1.0 }
 
 k = 100  # 5   # Number of consecutive episode successes that must be above the threshold to move to the next scenario

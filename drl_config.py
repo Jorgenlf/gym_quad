@@ -37,7 +37,7 @@ lv_vae_config = {
     "compressed_depth_map_size" : 224,              # Size of depth map after compression
     "latent_dim"                : 64,               # Dimension of the latent space
 #Path related parameters    
-    "la_dist"                   : 3.5,              # Look ahead distance aka distance to the point on path to be followed. #LAidst 0.5 is nice in house
+    "la_dist"                   : 0.5,              # Look ahead distance aka distance to the point on path to be followed. #LAidst 0.5 is nice in house
     "accept_rad"                : 0.5,              # Acceptance radius for the quadcopter to consider the end as reached    
     "n_waypoints"               : 12,               # Number of waypoints to be generated
     "segment_length"            : 2.5,              # Length of the segments between waypoints [m]
