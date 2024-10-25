@@ -11,9 +11,13 @@ from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 
 # Define start and end colors and interpolate a colormap between them
-start_color = '#FFFF00'  # Yellow
-end_color = '#990099'    # Purple
-custom_cmap = LinearSegmentedColormap.from_list('custom_cmap', [start_color, end_color], N=256)
+#start_color = '#FFFF00'  # Yellow
+#end_color = '#990099'    # Purple
+#custom_cmap = LinearSegmentedColormap.from_list('custom_cmap', [start_color, end_color], N=256)
+color_success = '#82ABE6'  # Blue
+color_collision = '#101010'  # '#a6a6a6'    # Gray
+color_mark_X = '#DD1010'    # Red
+custom_cmap = LinearSegmentedColormap.from_list('custom_cmap', [color_success, color_collision], N=2)
 
 
 class Plotter3D: 
@@ -35,7 +39,7 @@ class Plotter3D:
         # Plotting parameters
         self.drone_path_color = '#00BA38'   
         self.path_color = '#4780ff'         # blueish
-        self.obstacles_color = '#ff3400'    # redish
+        self.obstacles_color =  '#AAAAAA'  # '#ff3400'    # redish
         self.room_color = '#f3f0ec'         # deserty/gray
         self.initial_pos_color = 'black'
         self.grid_kw_args = {
@@ -161,7 +165,8 @@ class Plotter3D:
         if self.scene == "cave":
             azimuth = 0
             op = 0.07
-            self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = 0.07) 
+            self.plotter.add_mesh(self.room_mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False,
+                                  backface_params=backface_params, opacity = 0.07)
 
         # Add all obstacles
         for i, mesh in enumerate(self.meshes):
@@ -242,7 +247,7 @@ class Plotter3D:
 
 
 class Plotter3DMultiTraj(Plotter3D):
-    def __init__(self, obstacles, path: QPMI, drone_trajs: dict, initial_position:np.ndarray, cum_rewards: dict, scene: str, save=True):
+    def __init__(self, obstacles, path: QPMI, drone_trajs: dict, initial_position:np.ndarray, cum_rewards: dict, scene: str, collisions=None, save=True):
         super().__init__(obstacles = obstacles, 
                          path = path, 
                          drone_traj = drone_trajs[list(drone_trajs.keys())[0]],  # dummy, we plot all but initialize parent with first trajectory
@@ -251,6 +256,7 @@ class Plotter3DMultiTraj(Plotter3D):
                          save = save) 
         self.drone_trajs = drone_trajs
         self.cum_rewards = cum_rewards
+        self.collisions = collisions
 
         self.meshes, self.room_mesh, self.house_mesh = self.obstacles_to_pyvista_meshes(obstacles)
         self.quadratic_path = self.dash_path(self.get_path_as_arr(path))
@@ -259,7 +265,7 @@ class Plotter3DMultiTraj(Plotter3D):
         else:
             self.padding = 0
         self.bounds, self.scaled_bounds = self.get_scene_bounds(drone_trajectories=list(drone_trajs.values()), padding=self.padding)
-        self.min_rew, self.max_rew = self.find_min_max_rewards(cum_rewards)
+        self.min_rew, self.max_rew = 0, 1 #self.find_min_max_rewards(cum_rewards)
 
         # Additional lotting parameters spcific to multitraj
         self.clim = [self.min_rew, self.max_rew]
@@ -331,7 +337,8 @@ class Plotter3DMultiTraj(Plotter3D):
         # Add all obstacles
         for i, mesh in enumerate(self.meshes):
             if i == 0: # Check index to only get one label. Needed bc. custom legends
-                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params, opacity = op)
+                #self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, label="Obstacles", smooth_shading=False,backface_params=backface_params, opacity = op)
+                self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity=op)
             else:
                 self.plotter.add_mesh(mesh, color=self.obstacles_color, show_edges=False, smooth_shading=False, backface_params=backface_params, opacity = op)
 
@@ -340,18 +347,40 @@ class Plotter3DMultiTraj(Plotter3D):
             self.plotter.add_mesh(self.room_mesh, color=self.room_color, show_edges=False, backface_params=backface_params)
         
         if self.house_mesh != None:
-            self.plotter.add_mesh(self.house_mesh, color=self.room_color, show_edges=False, opacity=0.15)
+            self.plotter.add_mesh(self.house_mesh, color=self.room_color, show_edges=False, opacity=0.10)  # 0.15
         
         # Add each drone trajectory, done after camera stuff to get scalar bar args based on scene 
         for i, (key, drone_traj) in enumerate(self.drone_trajs.items()):
             #color = self.get_rew_color_ # TODO
             spline = pv.Spline(drone_traj, 1000)
             # To color the paths taken by reward we add scalars to the spline and plot colorbar between min and max reward
-            spline['cumulative_reward'] = self.cum_rewards[key]   
-            if i == 0:
-                self.plotter.add_mesh(spline, line_width=4, label="Drone Trajectories", scalars='cumulative_reward', cmap=self.cmap, clim=self.clim, flip_scalars=self.flip_scalars, scalar_bar_args=self.scalar_bar_args, opacity = 0.8)
+            spline['cumulative_reward'] = self.cum_rewards[key]
+
+            # Make collision trajectories more transparent
+            if self.cum_rewards[key] < 1.0:
+                opacity = 0.1  # 0.8 default
             else:
-                self.plotter.add_mesh(spline, line_width=4, scalars='cumulative_reward', cmap=self.cmap, clim=self.clim, flip_scalars=self.flip_scalars, scalar_bar_args=self.scalar_bar_args, opacity = 0.8)
+                opacity = 0.8
+            if i == 0:
+                #self.plotter.add_mesh(spline, line_width=4, label="Drone Trajectories", scalars='cumulative_reward', cmap=self.cmap, clim=self.clim, flip_scalars=self.flip_scalars, scalar_bar_args=self.scalar_bar_args, opacity=opacity)
+                self.plotter.add_mesh(spline, line_width=4, label="Drone Trajectories", scalars='cumulative_reward',
+                                      cmap=self.cmap, clim=self.clim, flip_scalars=self.flip_scalars,
+                                      scalar_bar_args=None, opacity=opacity)
+            else:
+                #self.plotter.add_mesh(spline, line_width=4, scalars='cumulative_reward', cmap=self.cmap, clim=self.clim, flip_scalars=self.flip_scalars, scalar_bar_args=self.scalar_bar_args, opacity=opacity)
+                self.plotter.add_mesh(spline, line_width=4, scalars='cumulative_reward', cmap=self.cmap, clim=self.clim,
+                                      flip_scalars=self.flip_scalars, scalar_bar_args=None,
+                                      opacity=opacity)
+
+
+            # Add collision marker
+            if self.collisions[key]:
+                self.plotter.add_points(drone_traj[-1], render_points_as_spheres=True, emissive=False, point_size=20,
+                                        style='points', color='#FF0000', edge_color='#101010', opacity=1.0)
+            elif self.cum_rewards[key] < 1.0 and not self.collisions[key]:
+                # Timeout
+                self.plotter.add_points(drone_traj[-1], render_points_as_spheres=True, emissive=False, point_size=20,
+                                        style='points', color='#101010', edge_color='#101010', opacity=1.0)
 
         self.plotter.add_points(self.quadratic_path, color=self.path_color, point_size=20, label="Path", render_points_as_spheres=True)
 
@@ -371,17 +400,44 @@ class Plotter3DMultiTraj(Plotter3D):
             # VIEW 1:
             if hv == 1:
                 offset_x, offset_y = 3200,3500
-                self.plotter.camera.position = (-26.432109314195003, -1.5749345781232873, 3.0105659899075774) 
+                self.plotter.camera.position = (-26.432109314195003, -1.5749345781232873, 3.0105659899075774)
 
             # VIEW 2:
             elif hv == 2:
                 offset_x, offset_y = 3200,3570
                 self.plotter.camera.position = (8.296159959828376, -33.34163639867404, -2.393561657703904)
                 self.plotter.camera.elevation = 25
-                #self.plotter.camera.zoom(1.05)
+
+            # VIEW 3: Thomas: Side view 1 -- parallel side view
+            elif hv == 3:
+                offset_x, offset_y = 3200,3500
+                self.plotter.camera.position = (-26.432109314195003 * 100, -1.5749345781232873 * 100, 3.0105659899075774 * 100)
+                self.plotter.camera.azimuth = -4
+                self.plotter.camera.elevation = -6
+
+                self.plotter.enable_parallel_projection()
+                self.plotter.camera.zoom(100)
+
+            # VIEW 4: Thomas: side view 2 -- parallel side view 2
+            elif hv == 4:
+                offset_x, offset_y = 3200,3570
+                self.plotter.camera.position = (-26.432109314195003 * 100, -1.5749345781232873 * 100, 3.0105659899075774 * 100)
+                self.plotter.camera.azimuth = -94
+                # self.plotter.camera.roll = 0
+                self.plotter.camera.elevation = -6
+
+                self.plotter.enable_parallel_projection()
+                self.plotter.camera.zoom(100)
 
             else: pass # Implement more views etc...
-        
+
+        elif self.scene in ['cave']:
+            offset_x, offset_y = 800, 700
+            #self.plotter.camera.position = (-4.963928349952159 * 100, -44.604219590185856 * 100, -9.031343052406486 * 100)
+            self.plotter.camera.azimuth = 0
+            self.plotter.camera.elevation = 0
+            self.plotter.camera.zoom(1.4)
+
         else:
             offset_x, offset_y = 800, 700
             self.plotter.show_grid(**self.grid_kw_args) # Include grid only for non-house scenarios
@@ -392,16 +448,18 @@ class Plotter3DMultiTraj(Plotter3D):
         # Legends, positions are set in the scenario checks above
         offset_between = 100
         legend_pos = [self.plotter.window_size[0] - offset_x, self.plotter.window_size[1] - offset_y]
-        if self.scene not in ["house_easy", "house_hard"]: # Do not include obstacle legend in house easy and hard 
-            self.plotter.add_text("Path", position=legend_pos, font_size=40, color=self.path_color, font='times')
-            self.plotter.add_text("Obstacles", position=[legend_pos[0], legend_pos[1] - offset_between], font_size=40, color=self.obstacles_color, font='times')
-        else:
-            self.plotter.add_text("Path", position=[legend_pos[0], legend_pos[1] - offset_between], font_size=40, color=self.path_color, font='times')
+        #if self.scene not in ["house_easy", "house_hard"]: # Do not include obstacle legend in house easy and hard
+        #    self.plotter.add_text("Path", position=legend_pos, font_size=40, color=self.path_color, font='times')
+        #    self.plotter.add_text("Obstacles", position=[legend_pos[0], legend_pos[1] - offset_between], font_size=40, color=self.obstacles_color, font='times')
+        #else:
+        #    self.plotter.add_text("Path", position=[legend_pos[0], legend_pos[1] - offset_between], font_size=40, color=self.path_color, font='times')
 
         #if self.nosave: self.plotter.show()
+        self.plotter.remove_scalar_bar()
         self.plotter.show()
         if save_path and self.save:
-            self.plotter.screenshot(save_path, scale=40, window_size = [1000, 1000])
+            self.plotter.save_graphic(save_path, raster=False, painter=False)
+            #self.plotter.screenshot(save_path, scale=40, window_size = [1000, 1000])
 
 
 
