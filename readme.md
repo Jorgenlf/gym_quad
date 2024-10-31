@@ -134,6 +134,12 @@ Copies the `gym_quad/drl_config.py` hyperparameters and changes certain hyperpar
 2. Testing a specific trained agent from a specific training scenario across all scenarios in the testlist
     ```python result_gen.py --exp_id 19 --episodes 10 --trained_list expert --test_list horizontal vertical deadend random_corridor house --agent "name"```
 
+### Tips, tricks and known bugs
+#### Tips and tricks
+Training the agent directly in the digital twin of the house itself may greatly improve its performance in the house validation scenarios. However, with the current weighting of the reward function, the agent would receive a higher reward for crashing early than reaching the end goal. This implies that the current tuning of the reward function used to train the agents might promote crashing instead of reaching the end goal during training in scenarios involving lengthy paths within tight spaces; the magnitude of the existence penalty is lower than the minimum collision avoidance penalty. In tight spaces such as in the house, the collision avoidance penalty will often reach this minimum. Considering that the agent does not show a crashing-over-completion behavior in validation, the reward function is adequately tuned for the current training scenarios. However, this is something to be aware of for future work.
+
+#### Known bugs
+The generation of the mesh that encapsulates the scene requires a dummymesh to be placed somewhere such that the camera can register the encapusalting mesh.
 
 ## Citation
 #TODO
