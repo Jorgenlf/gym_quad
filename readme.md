@@ -40,7 +40,7 @@ https://github.com/Jorgenlf/gym_quad/assets/54811706/bd579227-340a-4b87-9e91-408
 ## Architecture
 The following figure illustrates the architecture of our approach. The perception pre-training module is located under the `perception/` and (partly) `data_collection/` directories, the PPO policy initialization and training happens in `train3d.py`, the encoder/feature extractor is located in `PPO_feature_extractor.py`, while all modules related to the environment (camera, sensors, path gen, controller, DRL environment, meshes, etc.) are under the `gym_quad/` directory, which makes up the backbone of the system.
 
-![plot](./media/misc/full_architecture_cropped-1.png)
+![plot](./media/misc/full_architecture_new.pdf)
 
 
 
@@ -51,7 +51,7 @@ To install all packages needed in your virtual environment, run:
 ```
 conda env create -f environment.yml
 ```
-### If you want to download the stuff yourself or the .yml file doesn't work:
+### If you want to download the packages yourself or the .yml file doesn't work:
 You can follow this guide or do the steps below:
 https://github.com/facebookresearch/pytorch3d/blob/main/INSTALL.md
 
